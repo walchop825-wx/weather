@@ -1,3 +1,4 @@
+<meta charset="utf-8">
 <title>Weather Graphics Studio</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -115,6 +116,9 @@ label.chk{display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer}
   <span class="pill" id="airPill"><i></i><span>Standby</span></span>
   <div class="grp">
     <button id="bClrTest" class="testclr" hidden title="Remove the sample warning and put everything back">Clear test warning</button>
+    <button id="bSaveTop" title="Save your rundown, drawings and settings to a file">Save show</button>
+    <button id="bOpenTop" title="Open a show file saved on another computer">Open show</button>
+    <button id="bUndoOpen" hidden title="Go back to the show you had before opening the file">Undo open</button>
     <button id="bRefresh" title="Refresh data">Refresh data</button>
     <button id="bPlay" class="primary" title="Play rundown (Space)">Play rundown</button>
     <button id="bLoop" title="Loop the rundown">Loop</button>
@@ -183,7 +187,7 @@ label.chk{display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer}
 <div class="status">
   <span><kbd>Space</kbd> play / stop</span><span><kbd>←</kbd><kbd>→</kbd> previous / next</span><span><kbd>V</kbd> select</span><span><kbd>T</kbd> pen</span><span><kbd>B</kbd> contour</span><span><kbd>N</kbd> total</span><span><kbd>Del</kbd> delete selection</span><span><kbd>E</kbd> export PNG</span><span><kbd>K</kbd> storm track</span><span><kbd>L</kbd> map label</span><span><kbd>1</kbd>–<kbd>9</kbd> cue</span><span><kbd>Enter</kbd> take</span>
   <span id="srcNote"></span>
-  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-11 · 3</span>
+  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-11 · 4</span>
 </div>
 <input type="file" id="fileIn" accept=".json,application/json" hidden>
 
@@ -876,7 +880,7 @@ function defaultShow(){
 }
 const STORE='wgs-show-v2';
 function loadShow(){try{const s=JSON.parse(localStorage.getItem(STORE)||'null');if(s&&Array.isArray(s.scenes)&&s.scenes.length){s.scenes=s.scenes.map(x=>newScene(x.type,x));return s}}catch(e){}return null}
-let saveT;function save(){clearTimeout(saveT);saveT=setTimeout(()=>{try{localStorage.setItem(STORE,JSON.stringify(show))}catch(e){}},400)}
+let saveT,appReady=false;function save(){if(appReady&&!fileDirty){fileDirty=true;try{localStorage.setItem('wgs-dirty','1')}catch(e){}updSaveBtn()}clearTimeout(saveT);saveT=setTimeout(()=>{try{localStorage.setItem(STORE,JSON.stringify(show))}catch(e){}},400)}
 let show=loadShow()||defaultShow();
 show.settings.breaking=show.settings.breaking||{on:true,auto:false,events:['Tornado Warning','Severe Thunderstorm Warning','Flash Flood Warning','Snow Squall Warning'],areas:{PA:[]}};
 if(!show.settings.paMapsAdded){
@@ -1998,12 +2002,25 @@ function renderInspector(){
   const sr=el.querySelector('#i-selr');if(sr)sr.addEventListener('change',()=>{sc.bands[sel.i].r=+sr.value;save();queueThumbs()});
   const sv=el.querySelector('#i-selv');if(sv)sv.addEventListener('input',()=>{sc.totals[sel.i].v=sv.value;sc.totals[sel.i].auto=false;save();queueThumbs()});
   on('#bDelSel',deleteSel);
-  on('#bSave',()=>saveFile(new Blob([JSON.stringify(show,null,1)],{type:'application/json'}),'weather-show.json'));
+  on('#bSave',exportShow);
   on('#bLoad',()=>$('#fileIn').click());
   on('#bReset',()=>{el.querySelector('#resetConfirm').hidden=false});on('#bResetNo',()=>{el.querySelector('#resetConfirm').hidden=true});
   on('#bResetYes',()=>{show=defaultShow();cur=0;save();goTo(0)});
 }
-$('#fileIn').addEventListener('change',async e=>{const f=e.target.files[0];if(!f)return;try{const s=JSON.parse(await f.text());if(!Array.isArray(s.scenes)||!s.scenes.length)throw 0;s.scenes=s.scenes.map(x=>newScene(x.type,x));s.settings=Object.assign(defaultShow().settings,s.settings||{});show=s;cur=0;save();goTo(0);toast('Show opened.')}catch(err){toast('That file is not a Weather Graphics Studio show.')}e.target.value=''});
+let fileDirty=(()=>{try{return localStorage.getItem('wgs-dirty')==='1'}catch(e){return false}})(),undoShow=null,undoT;
+function updSaveBtn(){const b=$('#bSaveTop');if(!b)return;b.textContent=fileDirty?'Save show •':'Save show';b.title=fileDirty?'You have changes that are not in a saved show file yet':'Save your rundown, drawings and settings to a file'}
+function exportShow(){const c=JSON.parse(JSON.stringify(show));delete c.settings.brkTest;if(c.settings.tickerOverride&&c.settings.tickerOverride.until<Date.now())delete c.settings.tickerOverride;
+  c.scenes=c.scenes.filter(x=>!(show.settings.brkTest&&show.settings.brkTest.created&&x.id===show.settings.brkTest.sceneId));c.app='Weather Graphics Studio';c.savedAt=new Date().toISOString();
+  const d=new Date(),p=n=>String(n).padStart(2,'0');const name=`weather-show-${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}.json`;
+  saveFile(new Blob([JSON.stringify(c,null,1)],{type:'application/json'}),name).then(ok=>{if(!ok)return;fileDirty=false;try{localStorage.setItem('wgs-dirty','0')}catch(e){}updSaveBtn()})}
+$('#fileIn').addEventListener('change',async e=>{const f=e.target.files[0];if(!f)return;try{const s=JSON.parse(await f.text());if(!Array.isArray(s.scenes)||!s.scenes.length)throw 0;
+  undoShow=JSON.stringify(show);s.scenes=s.scenes.map(x=>newScene(x.type,x));s.settings=Object.assign(defaultShow().settings,s.settings||{});delete s.settings.brkTest;const when=s.savedAt?new Date(s.savedAt):null;delete s.app;delete s.savedAt;
+  alerts.list=alerts.list.filter(a=>!a.test);show=s;cur=0;cued=null;save();fileDirty=false;try{localStorage.setItem('wgs-dirty','0')}catch(x){}updSaveBtn();goTo(0);renderRundown();renderInspector();queueThumbs();if(typeof updTestBtn==='function')updTestBtn();
+  const u=$('#bUndoOpen');u.hidden=false;clearTimeout(undoT);undoT=setTimeout(()=>{u.hidden=true;undoShow=null},120000);
+  toast('Opened your show'+(when&&!isNaN(when)?' saved '+when.toLocaleString([], {weekday:'short',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}):'')+'. Undo open is available for 2 minutes.')}catch(err){toast('That file is not a Weather Graphics Studio show.')}e.target.value=''});
+$('#bSaveTop').addEventListener('click',exportShow);$('#bOpenTop').addEventListener('click',()=>$('#fileIn').click());
+$('#bUndoOpen').addEventListener('click',()=>{if(!undoShow)return;const s=JSON.parse(undoShow);s.scenes=s.scenes.map(x=>newScene(x.type,x));show=s;undoShow=null;$('#bUndoOpen').hidden=true;cur=0;save();goTo(0);renderRundown();renderInspector();queueThumbs();toast('Back to the show you had before.')});
+updSaveBtn();setTimeout(()=>appReady=true,1500);
 
 /* ---------- Tools & canvas interaction ---------- */
 const SWATCHES=['#ffd60a','#ff3b30','#ffffff','#3ee0ff','#5cff6a','#ff7ad9'];
@@ -2060,9 +2077,9 @@ function deleteSel(){const sc=scene();if(!sel)return;if(sel.kind==='mlabel')sc.l
 
 /* ---------- Export ---------- */
 let dlNS;async function saveFile(b,name){
-  try{if(window.claude&&window.claude.use){if(dlNS===undefined)dlNS=await window.claude.use('downloads');if(dlNS){await dlNS.save({filename:name,data:b});toast('Saved '+name);return}}}
-  catch(e){if(e&&e.code==='declined')return;if(e&&e.code&&e.code!=='unavailable'){toast('Could not save: '+(e.message||e.code));return}}
-  try{const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),4000);toast('Saved '+name)}catch(e){toast('Saving files is not available in this view.')}
+  try{if(window.claude&&window.claude.use){if(dlNS===undefined)dlNS=await window.claude.use('downloads');if(dlNS){await dlNS.save({filename:name,data:b});toast('Saved '+name);return true}}}
+  catch(e){if(e&&e.code==='declined')return false;if(e&&e.code&&e.code!=='unavailable'){toast('Could not save: '+(e.message||e.code));return false}}
+  try{const u=URL.createObjectURL(b);const a=document.createElement('a');a.href=u;a.download=name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),4000);toast('Saved '+name);return true}catch(e){toast('Saving files is not available in this view.');return false}
 }
 function slug(s){return String(s).toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')}
 async function exportPng(){
