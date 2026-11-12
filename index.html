@@ -87,6 +87,7 @@ label.chk{display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer}
 .breaking{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center;justify-content:space-between;background:#3a0d10;border:2px solid #d7263d;border-radius:10px;padding:10px 14px;margin-bottom:12px}
 .breaking .bt{font-family:var(--display);font-size:22px;letter-spacing:.06em;text-transform:uppercase}
 .breaking .ba{font-size:13px;color:#f4c7cc}
+.testclr{background:#d7263d!important;border-color:#ff6b7a!important;color:#fff!important;font-weight:700}
 .live{display:flex;gap:14px;align-items:center;flex-wrap:wrap;border-top:1px solid var(--line);padding-top:10px}
 .live canvas{width:240px;height:135px;border-radius:5px;background:#000;max-width:100%;box-shadow:0 0 0 2px #2e7d32}
 .lvc{display:grid;gap:6px;min-width:0;flex:1}
@@ -113,6 +114,7 @@ label.chk{display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer}
   <span class="pill sample" id="dataPill"><i></i><span id="dataTxt">Loading</span></span>
   <span class="pill" id="airPill"><i></i><span>Standby</span></span>
   <div class="grp">
+    <button id="bClrTest" class="testclr" hidden title="Remove the sample warning and put everything back">Clear test warning</button>
     <button id="bRefresh" title="Refresh data">Refresh data</button>
     <button id="bPlay" class="primary" title="Play rundown (Space)">Play rundown</button>
     <button id="bLoop" title="Loop the rundown">Loop</button>
@@ -180,7 +182,7 @@ label.chk{display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer}
 <div class="status">
   <span><kbd>Space</kbd> play / stop</span><span><kbd>←</kbd><kbd>→</kbd> previous / next</span><span><kbd>V</kbd> select</span><span><kbd>T</kbd> pen</span><span><kbd>B</kbd> contour</span><span><kbd>N</kbd> total</span><span><kbd>Del</kbd> delete selection</span><span><kbd>E</kbd> export PNG</span><span><kbd>K</kbd> storm track</span><span><kbd>L</kbd> map label</span><span><kbd>1</kbd>–<kbd>9</kbd> cue</span><span><kbd>Enter</kbd> take</span>
   <span id="srcNote"></span>
-  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-11 · 1</span>
+  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-11 · 2</span>
 </div>
 <input type="file" id="fileIn" accept=".json,application/json" hidden>
 
@@ -1601,15 +1603,28 @@ function showBreaking(a){const el=$('#breaking');el.hidden=false;el.style.border
   el.querySelector('.bt').textContent='New '+a.event;el.querySelector('.ba').textContent=`${a.area.length>120?a.area.slice(0,120)+'…':a.area} · until ${fmtTime(a.expires.getTime())}`;el._alert=a;beep();
   if(show.settings.breaking&&show.settings.breaking.auto)takeAlert(a)}
 function takeAlert(a){
+  if(a.test&&!show.settings.brkTest){const ex=show.scenes.find(s=>s.id===show.settings.breakingId);show.settings.brkTest={created:!ex,sceneId:ex?ex.id:null,prev:ex?JSON.stringify(ex):null,prevIdx:ex?show.scenes.indexOf(ex):-1,prevTicker:show.settings.tickerOverride?JSON.stringify(show.settings.tickerOverride):null}}
   if(!findAlert(a.id))alerts.list.push(a);const sts=a.states||[];const region=sts.includes('PA')?'pa':sts.includes('CT')?'ct':'us';
   let sc=show.scenes.find(s=>s.id===show.settings.breakingId);if(!sc){sc=newScene('radar',{region,title:'Breaking Weather'});show.scenes.unshift(sc);show.settings.breakingId=sc.id}
   else{sc.region=region;show.scenes.splice(show.scenes.indexOf(sc),1);show.scenes.unshift(sc)}
   sc.product='composite';sc.alertOff=(sc.alertOff||[]).filter(e=>e!==a.event);sc.showCard=true;sc.alertSel=a.id;sc.sub=a.event;zoomToAlert(sc,a);
   const m=parseMotion(a);sc.tracks=m?[Object.assign({id:uid(),mins:60},m)]:[];alertSelStart=performance.now()/1000;
   show.settings.tickerOverride={text:a.headline||`${a.event} for ${a.area} until ${fmtTime(a.expires.getTime())}`,until:a.expires.getTime()};
-  $('#breaking').hidden=true;save();goTo(0,true);toast(a.event+' is on air.')}
+  if(a.test&&show.settings.brkTest&&show.settings.brkTest.created)show.settings.brkTest.sceneId=sc.id;
+  $('#breaking').hidden=true;save();goTo(0,true);updTestBtn();toast(a.event+(a.test?' test is on air. Use Clear test warning at the top to undo it.':' is on air.'))}
 function testBreaking(){const a=Object.assign({},sampleAlerts()[0],{id:'test-'+Date.now(),expires:new Date(Date.now()+40*60e3),test:true});if(!breakingMatch(a,show.settings.breaking))toast('The sample warning covers York and Lancaster counties, PA, which are outside your areas. Showing it anyway so you can test.');
-  a.params=Object.assign({},a.params,{eventMotionDescription:[new Date(Date.now()-3*60e3).toISOString()+'...storm...250DEG...30KT...39.93,-76.75']});alerts.list.push(a);showBreaking(a)}
+  a.params=Object.assign({},a.params,{eventMotionDescription:[new Date(Date.now()-3*60e3).toISOString()+'...storm...250DEG...30KT...39.93,-76.75']});alerts.list.push(a);showBreaking(a);updTestBtn()}
+function testActive(){return !!show.settings.brkTest||alerts.list.some(a=>a.test)}
+function updTestBtn(){const b=$('#bClrTest');if(b)b.hidden=!testActive();const el=$('#breaking'),d=$('#bDismiss');if(d)d.textContent=el&&el._alert&&el._alert.test?'Clear test':'Dismiss'}
+function clearTest(){const T=show.settings.brkTest;const el=$('#breaking');if(el._alert&&el._alert.test){el.hidden=true;el._alert=null}
+  alerts.list=alerts.list.filter(a=>!a.test);
+  if(T){const i=show.scenes.findIndex(s=>s.id===T.sceneId);
+    if(T.created){if(i>=0)show.scenes.splice(i,1);if(show.settings.breakingId===T.sceneId)show.settings.breakingId=null}
+    else if(i>=0&&T.prev){const old=newScene('radar',JSON.parse(T.prev));show.scenes.splice(i,1);show.scenes.splice(Math.max(0,Math.min(T.prevIdx,show.scenes.length)),0,old)}
+    show.settings.tickerOverride=T.prevTicker?JSON.parse(T.prevTicker):null;delete show.settings.brkTest}
+  show.scenes.forEach(sc=>{if(String(sc.alertSel||'').startsWith('test-')){sc.alertSel=null;sc.tracks=[]}});
+  if(!show.scenes.length)show.scenes.push(newScene('radar',{region:'pa'}));
+  save();cued=null;goTo(Math.min(cur,show.scenes.length-1));renderRundown();renderInspector();queueThumbs();updTestBtn();toast('Test warning cleared.')}
 
 /* ---------- Vertical 9:16 ---------- */
 function verticalInfo(sc){
@@ -1912,7 +1927,7 @@ function renderInspector(){
     ${breakingAreaUI(B)}
     <label class="chk"><input type="checkbox" data-b="auto"${B.auto?' checked':''}>Take to air automatically</label>
     <p class="note">When a new warning matches, a banner and a beep let you know. Taking it to air builds a Breaking Weather radar scene zoomed to the warning, with the alert card, a storm track and a red breaking ticker.</p>
-    <div class="grp"><button id="bTestBrk">Test with a sample warning</button>${brkOn?'<button id="bClrBrk">Clear breaking ticker</button>':''}</div></div>`;
+    <div class="grp"><button id="bTestBrk">Test with a sample warning</button>${testActive()?'<button id="bClrTest2" class="testclr">Clear test warning</button>':brkOn?'<button id="bClrBrk">Clear breaking ticker</button>':''}</div></div>`;
   h+=`<div class="sec"><h3>Show settings</h3>
     <label class="f">Station name<input type="text" id="s-station" data-s="station" value="${esc(st.station)}"></label>
     <div class="row2"><label class="f">Bug city<select id="s-bug" data-s="bugCity">${cityOpts(st.bugCity)}</select></label><label class="f">Transition<select id="s-trans" data-s="transition">${opts([['wipe','Branded wipe'],['fade','Dissolve'],['cut','Cut']],st.transition)}</select></label></div>
@@ -1948,7 +1963,7 @@ function renderInspector(){
   q1('[data-b]','change',x=>{const B=show.settings.breaking;B[x.dataset.b]=x.type==='checkbox'?x.checked:x.value;save()});
   wireBreakingUI(el);
   q1('[data-bev]','change',x=>{const B=show.settings.breaking;B.events=(B.events||[]).filter(e=>e!==x.dataset.bev);if(x.checked)B.events.push(x.dataset.bev);save()});
-  q1('#bTestBrk','click',()=>testBreaking());q1('#bClrBrk','click',()=>{show.settings.tickerOverride=null;save();renderInspector()});
+  q1('#bTestBrk','click',()=>{testBreaking();renderInspector()});q1('#bClrTest2','click',clearTest);q1('#bClrBrk','click',()=>{show.settings.tickerOverride=null;save();renderInspector()});
   el.querySelectorAll('[data-eutype]').forEach(c=>c.addEventListener('change',()=>{const tp=+c.dataset.eutype;sc.euTypesOff=(sc.euTypesOff||[]).filter(x=>x!==tp);if(!c.checked)sc.euTypesOff.push(tp);save();queueThumbs()}));
   el.querySelectorAll('[data-eusel]').forEach(d=>{const go=()=>{sc.euSel=d.dataset.eusel;alertSelStart=performance.now()/1000;save();queueThumbs();renderInspector()};d.addEventListener('click',go);d.addEventListener('keydown',e=>{if(e.key==='Enter')go()})});
   el.querySelectorAll('[data-euclear]').forEach(b=>b.addEventListener('click',()=>{sc.euSel=null;save();queueThumbs();renderInspector()}));
@@ -2089,7 +2104,7 @@ function takeNext(){const i=nextIdx();cued=null;goTo(i,true);drawPreview()}
 setInterval(drawPreview,700);
 $('#bTake').addEventListener('click',takeNext);$('#bCueClear').addEventListener('click',()=>{cued=null;renderRundown();drawPreview()});
 $('#bVert').addEventListener('click',exportVertical);
-$('#bTakeAlert').addEventListener('click',()=>{const a=$('#breaking')._alert;if(a)takeAlert(a)});$('#bDismiss').addEventListener('click',()=>{$('#breaking').hidden=true});
+$('#bTakeAlert').addEventListener('click',()=>{const a=$('#breaking')._alert;if(a)takeAlert(a)});$('#bDismiss').addEventListener('click',()=>{const a=$('#breaking')._alert;if(a&&a.test)clearTest();else $('#breaking').hidden=true});$('#bClrTest').addEventListener('click',clearTest);updTestBtn();
 
 /* ---------- Boot ---------- */
 genSample();updateStatus();$('#bLoop').classList.toggle('on',!!show.settings.loop);$('#stationSub').textContent=(show.settings.station||'')+' workstation';
