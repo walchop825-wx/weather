@@ -202,7 +202,7 @@ label.chk{display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer}
 <div class="status">
   <span><kbd>Space</kbd> play / stop</span><span><kbd>←</kbd><kbd>→</kbd> previous / next</span><span><kbd>V</kbd> select</span><span><kbd>T</kbd> pen</span><span><kbd>B</kbd> contour</span><span><kbd>N</kbd> total</span><span><kbd>Del</kbd> delete selection</span><span><kbd>E</kbd> export PNG</span><span><kbd>K</kbd> storm track</span><span><kbd>L</kbd> map label</span><span><kbd>1</kbd>–<kbd>9</kbd> cue</span><span><kbd>Enter</kbd> take</span>
   <span id="srcNote"></span>
-  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-11 · 13</span>
+  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-11 · 14</span>
 </div>
 <input type="file" id="fileIn" accept=".json,application/json" hidden>
 
@@ -1018,10 +1018,10 @@ function regionFor(k){const[,lat,lon]=CITIES[k];if(lon>-30)return(lat>49.3&&lon<
 function renderForecast(g,sc,t){
   blurBg(g,regionFor(sc.city));const d=sc.mode==='custom'&&sc.custom?customDays(sc):getDaily(sc.city);const n=7,x0=80,gap=16,cw=(W-160-gap*(n-1))/n,y0=250,ch=600;
   d.slice(0,n).forEach((day,i)=>{const p=ease((t-.4-i*.08)/.5);if(p<=0)return;const x=x0+i*(cw+gap),y=y0+60*(1-p);
-    const AD=isAlertDay(day.date);g.save();g.globalAlpha=p;glass(g,x,y,cw,ch,14);if(AD){g.save();g.strokeStyle=ADRED;g.lineWidth=5;g.shadowColor=ADRED;g.shadowBlur=18;rr(g,x,y,cw,ch,14);g.stroke();g.restore()}
+    const AI=dayAlertInfo(day.date),AD=!!AI;g.save();g.globalAlpha=p;glass(g,x,y,cw,ch,14);if(AD){g.save();g.strokeStyle=ADRED;g.lineWidth=5;g.shadowColor=ADRED;g.shadowBlur=18;rr(g,x,y,cw,ch,14);g.stroke();g.restore()}
     g.save();rr(g,x,y,cw,86,14);g.clip();g.fillStyle=AD?ADRED:i===0?'#ffb21e':'rgba(30,80,170,.9)';g.fillRect(x,y,cw,86);g.restore();
     const lbl=i===0?'TODAY':DOW[day.date.getDay()];text(g,lbl,x+cw/2,y+56,`800 46px ${FD}`,i===0&&!AD?'#0b1a38':'#ffffff','center','alphabetic',2);
-    if(AD){const al=(show.settings.alertDayLabel||'ALERT DAY').toUpperCase();let fs=22;while(measure(g,al,`800 ${fs}px ${FD}`,2)>cw-24&&fs>12)fs--;g.fillStyle=ADRED;rr(g,x+10,y+96,cw-20,34,8);g.fill();text(g,al,x+cw/2,y+120,`800 ${fs}px ${FD}`,'#ffffff','center','alphabetic',2)}
+    if(AD){let al=(show.settings.alertDayLabel||'ALERT DAY').toUpperCase();if(!AI.full){const w='ALERT '+winText(AI.from,AI.to);al=measure(g,w,`800 16px ${FD}`,2)<=cw-24?w:'ALERT '+(AI.from>=18||AI.to<6?'NIGHT':AI.from>=12?'PM':AI.to<12?'AM':'DAY')}let fs=22;while(measure(g,al,`800 ${fs}px ${FD}`,2)>cw-24&&fs>12)fs--;g.fillStyle=ADRED;rr(g,x+10,y+96,cw-20,34,8);g.fill();text(g,al,x+cw/2,y+120,`800 ${fs}px ${FD}`,'#ffffff','center','alphabetic',2)}
     else text(g,(day.date.getMonth()+1)+'/'+day.date.getDate(),x+cw/2,y+120,`600 26px ${FD}`,'#9fb4d8','center','alphabetic',1);
     drawIcon(g,day.code,x+cw/2,y+210,140);
     const desc=(day.desc||WMO[day.code]||'').toUpperCase();text(g,desc,x+cw/2,y+318,`700 26px ${FD}`,'#dfe8f7','center','alphabetic',1);
@@ -1616,12 +1616,15 @@ const isoDay=d=>{const x=new Date(d);return x.getFullYear()+'-'+String(x.getMont
 function alertDays(){const today=isoDay(new Date());return(show.settings.alertDates||[]).filter(x=>x>=today)}
 function isAlertDay(d){return !!d&&alertDays().includes(isoDay(d))}
 const hourKey=d=>isoDay(d)+'T'+String(new Date(d).getHours()).padStart(2,'0');
+function hrShort(h){return(h%12||12)+(h<12?' AM':' PM')}
+function winText(h1,h2){if(h1===h2)return hrShort(h1);const a=h1<12,b=h2<12;return a===b?(h1%12||12)+'–'+hrShort(h2):hrShort(h1)+'–'+hrShort(h2)}
+function dayAlertInfo(d){if(!d)return null;if(isAlertDay(d))return{full:true};const k=isoDay(d),m=show.settings.hourAlert||{};const hs=Object.keys(m).filter(x=>m[x]&&x.startsWith(k+'T')).map(x=>+x.slice(-2)).sort((a,b)=>a-b);return hs.length?{from:hs[0],to:hs[hs.length-1]}:null}
 function isAlertHour(d){if(!d)return false;const m=show.settings.hourAlert||{};const k=hourKey(d);return k in m?!!m[k]:isAlertDay(d)}
 function alertHoursSec(sc){const h=data.hourly&&data.hourly[sc.city];if(!h)return'';const i0=hourStart(h),step=+sc.step||2;const hrs=[];for(let c=0;c<12;c++){const d=h.time[i0+c*step];if(d)hrs.push(d)}
   return`<div class="sec"><h3>Alert hours</h3><p class="note">Check the exact hours that get the alert look on this hour-by-hour. They start out matching your alert days, and any hour you change here overrides its day. The list follows the Spacing setting.</p>
   <div class="chips">${hrs.map((d,i)=>`<label><input type="checkbox" data-ahour="${hourKey(d)}"${isAlertHour(d)?' checked':''}>${i===0?'Now':DOW[d.getDay()].slice(0,1)+DOW[d.getDay()].slice(1).toLowerCase()+' '+hrLbl(d)}</label>`).join('')}</div>
   <div class="grp"><button id="bAhAll">All on</button><button id="bAhNone">All off</button><button id="bAhDays">Match alert days</button></div></div>`}
-function alertDaysSec(){const A=alertDays(),t0=new Date();t0.setHours(12,0,0,0);return`<div class="sec"><h3>Alert days</h3><p class="note">Mark the days that get the alert treatment on every 7-day and hour-by-hour scene, whether the forecast is yours or the model's.</p>
+function alertDaysSec(){const A=alertDays(),t0=new Date();t0.setHours(12,0,0,0);return`<div class="sec"><h3>Alert days</h3><p class="note">Mark the days that get the alert treatment on every 7-day and hour-by-hour scene, whether the forecast is yours or the model's. Days with only some alert hours show on the 7-day with their time window.</p>
   <div class="chips">${Array.from({length:8},(_,i)=>{const d=new Date(t0.getTime()+i*864e5),k=isoDay(d);return`<label><input type="checkbox" data-aday="${k}"${A.includes(k)?' checked':''}>${i===0?'Today':DAYN[d.getDay()].slice(0,3)+' '+(d.getMonth()+1)+'/'+d.getDate()}</label>`}).join('')}</div>
   <label class="f">Label<input type="text" data-s="alertDayLabel" value="${esc(show.settings.alertDayLabel||'')}" placeholder="ALERT DAY"></label>
   <label class="chk"><input type="checkbox" data-s="alertDayAuto"${show.settings.alertDayAuto!==false?' checked':''}>Turn on the top banner automatically when today is an alert day</label></div>`}
@@ -1675,14 +1678,18 @@ function renderHourly(g,sc,t){
   for(let c=0;c<n;c++){const idx=i0+c*step;const d=h.time[idx];if(!d)break;const p=ease((t-.4-c*.05)/.5);if(p<=0)continue;const x=x0+c*(cw+gap),y=y0+50*(1-p),cx=x+cw/2;
     const AD=isAlertHour(d);g.save();g.globalAlpha=p;glass(g,x,y,cw,ch,12);if(AD){g.save();g.strokeStyle=ADRED;g.lineWidth=4;g.shadowColor=ADRED;g.shadowBlur=14;rr(g,x,y,cw,ch,12);g.stroke();g.restore()}g.save();rr(g,x,y,cw,70,12);g.clip();g.fillStyle=AD?ADRED:c===0?'#ffb21e':'rgba(30,80,170,.9)';g.fillRect(x,y,cw,70);g.restore();
     text(g,c===0?'NOW':hrLbl(d),cx,y+46,`800 ${c===0?32:28}px ${FD}`,c===0&&!AD?'#0b1a38':'#ffffff','center','alphabetic',1);
-    if(AD&&(c===0||d.getHours()===0||!isAlertHour(h.time[idx-step]))){const al=(show.settings.alertDayLabel||'ALERT DAY').toUpperCase();let fs=16;while(measure(g,al,`800 ${fs}px ${FD}`,1)>cw-14&&fs>10)fs--;text(g,al,cx,y+100,`800 ${fs}px ${FD}`,'#ff6b7a','center','alphabetic',1)}
-    else if(d.getHours()===0||c===0)text(g,DOW[d.getDay()],cx,y+100,`700 20px ${FD}`,'#9fb4d8','center','alphabetic',2);
+    if(d.getHours()===0||c===0)text(g,DOW[d.getDay()],cx,y+100,`700 20px ${FD}`,'#9fb4d8','center','alphabetic',2);
     const hr=d.getHours();const code=h.code?h.code[idx]:(getDaily(sc.city)[0]||{}).code;drawIcon(g,code??2,cx,y+190,Math.min(110,cw-20),hr<6||hr>=18);
     const tp=h.temp[idx];text(g,tp==null?'--':Math.round(tp)+'°',cx+4,y+330,`800 66px ${FD}`,'#ffffff','center');
     const col=tempRGB(tp);g.fillStyle=rgb(col);rr(g,cx-34,y+352,68,6,3);g.fill();
     const pop=h.pop?h.pop[idx]:null;text(g,pop==null?'':Math.round(pop)+'%',cx,y+430,`800 34px ${FD}`,pop>=50?'#7cc4ff':'#c8d4e8','center','alphabetic',1);text(g,'PRECIP',cx,y+458,`700 15px ${FD}`,'#9fb4d8','center','alphabetic',2);
     if(h.wind){const ws=h.wind[idx],wd=h.wdir?h.wdir[idx]:null;if(ws!=null){g.save();g.translate(cx,y+512);if(wd!=null)g.rotate((wd+180)*Math.PI/180);g.fillStyle='#ffffff';g.beginPath();g.moveTo(0,-14);g.lineTo(8,8);g.lineTo(0,3);g.lineTo(-8,8);g.closePath();g.fill();g.restore();text(g,Math.round(ws)+' MPH',cx,y+566,`700 20px ${FD}`,'#dfe8f7','center','alphabetic',1)}}
     g.restore()}
+  {const runs=[];let r=null;for(let c=0;c<n;c++){const d=h.time[i0+c*step];if(d&&isAlertHour(d)){if(!r){r={a:c,b:c,da:d,db:d};runs.push(r)}else{r.b=c;r.db=d}}else r=null}
+   const q=ease((t-.9)/.5);if(q>0)runs.forEach(R=>{let xa=x0+R.a*(cw+gap),xb=x0+R.b*(cw+gap)+cw;const by=y0-50;{const same0=isoDay(R.da)===isoDay(R.db),today0=isoDay(R.da)===isoDay(new Date());const pre=(show.settings.alertDayLabel?show.settings.alertDayLabel.toUpperCase()+' · ':'ALERT ');const l0=pre+(R.a===R.b?(today0?'':DOW[R.da.getDay()]+' ')+hrShort(R.da.getHours()):same0?(today0?'':DOW[R.da.getDay()]+' ')+winText(R.da.getHours(),R.db.getHours()):DOW[R.da.getDay()]+' '+hrShort(R.da.getHours())+' – '+DOW[R.db.getDay()]+' '+hrShort(R.db.getHours()));const need=measure(g,l0,`800 17px ${FD}`,2)+24;if(xb-xa<need){const c=(xa+xb)/2;xa=clamp(c-need/2,20,W-20-need);xb=xa+need}}g.save();g.globalAlpha=q;g.fillStyle=ADRED;g.shadowColor='rgba(0,0,0,.45)';g.shadowBlur=10;rr(g,xa,by,xb-xa,38,8);g.fill();g.shadowColor='transparent';
+     g.beginPath();g.moveTo((xa+xb)/2-10,by+38);g.lineTo((xa+xb)/2+10,by+38);g.lineTo((xa+xb)/2,by+48);g.closePath();g.fill();
+     const same=isoDay(R.da)===isoDay(R.db),today=isoDay(R.da)===isoDay(new Date());const lab=(show.settings.alertDayLabel?show.settings.alertDayLabel.toUpperCase()+' · ':'ALERT ')+(R.a===R.b?(today?'':DOW[R.da.getDay()]+' ')+hrShort(R.da.getHours()):same?(today?'':DOW[R.da.getDay()]+' ')+winText(R.da.getHours(),R.db.getHours()):DOW[R.da.getDay()]+' '+hrShort(R.da.getHours())+' – '+DOW[R.db.getDay()]+' '+hrShort(R.db.getHours()));
+     let fs=22;while(measure(g,lab,`800 ${fs}px ${FD}`,2)>xb-xa-16&&fs>17)fs--;text(g,lab,(xa+xb)/2,by+19+fs*.36,`800 ${fs}px ${FD}`,'#ffffff','center','alphabetic',2);g.restore()})}
   drawHeader(g,sc.title||DEF_TITLES.hourly,sc.sub||autoSub(sc),t);
 }
 
