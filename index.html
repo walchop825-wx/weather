@@ -145,6 +145,7 @@ label.chk{display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer}
         <option value="futuremap">Future Map (temps, wind)</option>
         <option value="winter">Winter Outlook (NWS)</option>
         <option value="rainfall">Rainfall Forecast</option>
+        <option value="snowfall">Future Snowfall (models)</option>
       </select>
       <button id="bAdd">Add</button>
     </div>
@@ -182,7 +183,7 @@ label.chk{display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer}
 <div class="status">
   <span><kbd>Space</kbd> play / stop</span><span><kbd>←</kbd><kbd>→</kbd> previous / next</span><span><kbd>V</kbd> select</span><span><kbd>T</kbd> pen</span><span><kbd>B</kbd> contour</span><span><kbd>N</kbd> total</span><span><kbd>Del</kbd> delete selection</span><span><kbd>E</kbd> export PNG</span><span><kbd>K</kbd> storm track</span><span><kbd>L</kbd> map label</span><span><kbd>1</kbd>–<kbd>9</kbd> cue</span><span><kbd>Enter</kbd> take</span>
   <span id="srcNote"></span>
-  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-11 · 2</span>
+  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-11 · 3</span>
 </div>
 <input type="file" id="fileIn" accept=".json,application/json" hidden>
 
@@ -829,8 +830,8 @@ function drawEuCard(g,sc,t){
   g.restore();return true}
 function euCountryAt(sc,lon,lat){if(sc.euWarn===false||!worldGeo)return null;let best=null;for(const[iso,l]of Object.entries(euWarn.byC)){const f=euFilter(sc,l);if(!f.length||!worldGeo[iso])continue;if(worldGeo[iso].rings.some(r=>pip(lon,lat,r))&&(!best||euMax(f)>best[1]))best=[iso,euMax(f)]}return best&&best[0]}
 /* ---------- Show state ---------- */
-const DEF_TITLES={rainfall:'Rainfall Forecast',futuremap:'Futurecast',winter:'Winter Outlook',ustemps:'National Temperatures',travel:'Travel Forecast',extremes:'National Extremes',temps:'Current Temperatures',conditions:'Right Now',forecast7:'7-Day Forecast',models:'Model Comparison',snow:'Snowfall Forecast',radar:'Doppler Radar'};
-const TYPE_NAMES={rainfall:'Rainfall',futuremap:'Future map',winter:'Winter',ustemps:'National temps',travel:'Travel',extremes:'Extremes',temps:'Temps map',conditions:'Conditions',forecast7:'7-Day',models:'Models',snow:'Snow map',radar:'Radar'};
+const DEF_TITLES={snowfall:'Future Snowfall',rainfall:'Rainfall Forecast',futuremap:'Futurecast',winter:'Winter Outlook',ustemps:'National Temperatures',travel:'Travel Forecast',extremes:'National Extremes',temps:'Current Temperatures',conditions:'Right Now',forecast7:'7-Day Forecast',models:'Model Comparison',snow:'Snowfall Forecast',radar:'Doppler Radar'};
+const TYPE_NAMES={snowfall:'Model snow',rainfall:'Rainfall',futuremap:'Future map',winter:'Winter',ustemps:'National temps',travel:'Travel',extremes:'Extremes',temps:'Temps map',conditions:'Conditions',forecast7:'7-Day',models:'Models',snow:'Snow map',radar:'Radar'};
 function newScene(type,o={}){
   const sc=Object.assign({id:uid(),type,title:'',sub:'',duration:type==='radar'?10:8,region:'pa',city:'harrisburg',tele:[]},o);
   if(type==='temps'){sc.hidden=sc.hidden||[];if(!sc.offsets)declutter(sc)}
@@ -842,6 +843,7 @@ function newScene(type,o={}){
   if(type==='futuremap'){sc.v=sc.v||'temp';sc.hours=sc.hours||24;sc.step=sc.step||3;if(!o.duration)sc.duration=11}
   if(type==='winter'){sc.layer=sc.layer||'wssi1'}
   if(type==='rainfall'){sc.src=sc.src||'consensus';sc.hours=sc.hours||48;sc.wpc=sc.wpc||'d13';sc.units=sc.units||'in';sc.clip=sc.clip||(REGIONS[sc.region]?.isolate?'state':'land');sc.cityVals=sc.cityVals!==false}
+  if(type==='snowfall'){sc.src=sc.src&&sc.src!=='wpc'?sc.src:'consensus';sc.hours=sc.hours||72;sc.units=sc.units||'in';sc.clip=sc.clip||(REGIONS[sc.region]?.isolate?'state':'land');sc.cityVals=sc.cityVals!==false}
   if(type==='radar'){sc.product=sc.product||'composite';sc.site=sc.site||'CCX';sc.tracks=sc.tracks||[];sc.flight=sc.flight||[];sc.trackMins=sc.trackMins||60}
   if(type==='extremes'){sc.field=sc.field||'current';sc.showAlerts=sc.showAlerts!==false}
   if(type==='radar'){sc.ptype=sc.ptype!==false;sc.bold=sc.bold!==false;if(!Array.isArray(sc.alertOff)){sc.alertOff=defaultAlertOff();if(sc.alerts===false)sc.alertOff.push(...ALERT_RANK.filter(e=>!sc.alertOff.includes(e)))}delete sc.alerts;delete sc.zones}
@@ -849,7 +851,7 @@ function newScene(type,o={}){
 }
 function blob(cx,cy,rx,ry,seed){const r=rng(seed),pts=[];for(let i=0;i<26;i++){const a=i/26*Math.PI*2;const w=.82+r()*.3;pts.push([cx+Math.cos(a)*rx*w,cy+Math.sin(a)*ry*w])}return pts}
 function defaultShow(){
-  const s={settings:{station:'WEATHER 8',ticker:'Snow chances return late this week across the northern tier · Watch for slick spots on untreated roads · Stay with Weather 8 for updates',tickerLabel:'Latest',showTicker:true,showBug:true,bugCity:'harrisburg',sampleTag:true,transition:'wipe',loop:false,paMapsAdded:true,ctMapAdded:true,nationalAdded:true,usLayout2:true,usLayout3:true,rainAdded:true},
+  const s={settings:{station:'WEATHER 8',ticker:'Snow chances return late this week across the northern tier · Watch for slick spots on untreated roads · Stay with Weather 8 for updates',tickerLabel:'Latest',showTicker:true,showBug:true,bugCity:'harrisburg',sampleTag:true,transition:'wipe',loop:false,paMapsAdded:true,ctMapAdded:true,nationalAdded:true,usLayout2:true,usLayout3:true,rainAdded:true,snowfallAdded:true},
   scenes:[
     newScene('radar',{region:'pa'}),
     newScene('temps',{region:'scpa'}),
@@ -863,6 +865,7 @@ function defaultShow(){
     newScene('snow',{region:'paonly',sub:'Thursday'}),
     newScene('snow',{region:'epa',sub:'Thursday'}),
     newScene('snow',{region:'ct',sub:'Next 72 Hours'}),
+    newScene('snowfall',{region:'pa'}),
     newScene('rainfall',{region:'pa'}),
     newScene('forecast7',{city:'harrisburg'}),
     newScene('radar',{region:'us'}),newScene('ustemps'),newScene('travel'),newScene('extremes')
@@ -891,6 +894,7 @@ if(!show.settings.nationalAdded){
 }
 if(!show.settings.euAdded){show.scenes.push(newScene('radar',{region:'eu',title:'European Radar'}),newScene('temps',{region:'eu',title:'Across Europe'}));show.settings.euAdded=true;save()}
 if(!show.settings.rainAdded){const i=show.scenes.map(x=>x.type).lastIndexOf('snow');show.scenes.splice(i<0?show.scenes.length:i+1,0,newScene('rainfall',{region:'pa'}));show.settings.rainAdded=true;save()}
+if(!show.settings.snowfallAdded){const i=show.scenes.findIndex(x=>x.type==='rainfall');show.scenes.splice(i<0?show.scenes.length:i,0,newScene('snowfall',{region:'pa'}));show.settings.snowfallAdded=true;save()}
 if(!show.settings.usLayout3){show.scenes.filter(s=>s.type==='temps'&&s.region==='us').forEach(s=>{s.hidden=s.hidden||[];declutter(s)});show.settings.usLayout3=true;show.settings.usLayout2=true;save()}
 if(!show.settings.usLayout2){show.scenes.filter(s=>s.type==='temps'&&s.region==='us').forEach(s=>{s.hidden=s.hidden||[];declutter(s)});show.settings.usLayout2=true;save()}
 if(!show.settings.ctMapAdded){
@@ -1211,7 +1215,7 @@ const TOWNS={hershey:['Hershey',40.286,-76.650,'PA'],palmyra:['Palmyra',40.309,-
 const TOWN_KEYS=Object.keys(TOWNS);
 function placeOf(k){if(CITIES[k])return{n:CITIES[k][0],lat:CITIES[k][1],lon:CITIES[k][2],st:cityST(k)};const t=TOWNS[k];return t?{n:t[0],lat:t[1],lon:t[2],st:t[3]}:null}
 function sceneProj(sc){return sc.type==='radar'?proj(regionForView(sc.region,sc.view)):proj(sc.region)}
-function isMapType(t){return['temps','snow','radar','futuremap','winter','rainfall'].includes(t)}
+function isMapType(t){return['temps','snow','radar','futuremap','winter','rainfall','snowfall'].includes(t)}
 
 /* ---------- Radar products ---------- */
 const IEM='https://mesonet.agron.iastate.edu';
@@ -1426,28 +1430,28 @@ function renderRadar(g,sc0,t,o){
 const GUST_STOPS=[[0,[60,110,215]],[15,[60,190,200]],[25,[90,205,90]],[35,[240,210,60]],[45,[242,140,40]],[55,[224,64,45]],[70,[163,33,142]]];
 function gustRGB(v){if(v==null)return[120,130,150];if(v<=0)return GUST_STOPS[0][1];for(let i=1;i<GUST_STOPS.length;i++){if(v<=GUST_STOPS[i][0]){const[a,ca]=GUST_STOPS[i-1],[b,cb]=GUST_STOPS[i];const f=(v-a)/(b-a);return ca.map((x,j)=>Math.round(lerp(x,cb[j],f)))}}return GUST_STOPS[GUST_STOPS.length-1][1]}
 function hourStart(h){if(!h)return 0;const now=Date.now()-30*60e3;const i=h.time.findIndex(d=>d.getTime()>=now);return i<0?0:i}
-function fmVal(k,v,i){if(v==='rain'){const r=rainTotal(k,'consensus',i);return r==null?null:+r.toFixed(2)}const h=data.hourly&&data.hourly[k];if(!h)return null;const a=h[v][hourStart(h)+i];return a==null?null:Math.round(a)}
+function fmVal(k,v,i){if(v==='rain'){const r=rainTotal(k,'consensus',i);return r==null?null:+r.toFixed(2)}if(v==='snow'){const r=rainTotal(k,'consensus',i,'snow');return r==null?null:+r.toFixed(1)}const h=data.hourly&&data.hourly[k];if(!h)return null;const a=h[v][hourStart(h)+i];return a==null?null:Math.round(a)}
 function fmTime(i){const h=data.hourly&&data.hourly.harrisburg;if(h){const d=h.time[hourStart(h)+i];if(d)return d}const d=new Date();d.setMinutes(0,0,0);return new Date(d.getTime()+i*3600e3)}
 const fmCache={};let fmOrder=[];
 function fmField(rk,v,i){const key=rk+'|'+v+'|'+i+'|'+(data.updated?data.updated.getTime():0);if(fmCache[key])return fmCache[key];
   const P=proj(rk);const pts=CITY_KEYS.map(k=>({lat:CITIES[k][1],lon:CITIES[k][2],v:fmVal(k,v,i)})).filter(p=>p.v!=null);const gw=96,gh=54;const sm=document.createElement('canvas');sm.width=gw;sm.height=gh;const sg=sm.getContext('2d');const id=sg.createImageData(gw,gh);
   for(let j=0;j<gh;j++)for(let x=0;x<gw;x++){const lon=P.lon((x+.5)/gw*W),lat=P.lat((j+.5)/gh*H);let ws=0,vs=0;for(const p of pts){const d2=(p.lon-lon)**2*.55+(p.lat-lat)**2+.02;const w=1/(d2*d2);ws+=w;vs+=w*p.v}
-    const val=ws?vs/ws:null;const c=v==='rain'?rainRGBA(val):v==='gust'?gustRGB(val):tempRGB(val);const o=(j*gw+x)*4;id.data[o]=c[0];id.data[o+1]=c[1];id.data[o+2]=c[2];id.data[o+3]=v==='rain'?c[3]:255}
+    const val=ws?vs/ws:null;const c=v==='snow'?snowRGBA(val):v==='rain'?rainRGBA(val):v==='gust'?gustRGB(val):tempRGB(val);const o=(j*gw+x)*4;id.data[o]=c[0];id.data[o+1]=c[1];id.data[o+2]=c[2];id.data[o+3]=v==='rain'||v==='snow'?c[3]:255}
   sg.putImageData(id,0,0);const c=document.createElement('canvas');c.width=W;c.height=H;const g=c.getContext('2d');if('filter' in g)g.filter='blur(14px)';g.drawImage(sm,-20,-20,W+40,H+40);
   fmCache[key]=c;fmOrder.push(key);while(fmOrder.length>40)delete fmCache[fmOrder.shift()];return c}
-const FM_NAMES={temp:'Temperatures',feels:'Feels Like',gust:'Wind Gusts',rain:'Rainfall So Far'};
+const FM_NAMES={temp:'Temperatures',feels:'Feels Like',gust:'Wind Gusts',rain:'Rainfall So Far',snow:'Snowfall So Far'};
 function renderFutureMap(g,sc,t,o){
   const rk=sc.region,P=proj(rk),R=REGIONS[rk];g.drawImage(mapBase(rk),0,0);const N=Math.floor(sc.hours/sc.step)+1;const fi=Math.min(N-1,Math.floor(Math.max(0,t-.5)/.6)%(N+3));const hi=fi*sc.step;
   g.save();g.clip(landPath(rk));g.globalAlpha=.8*ease((t-.2)/.5);g.drawImage(fmField(rk,sc.v,hi),0,0);g.restore();
   g.drawImage(mapOverlay(rk),0,0);drawCounties(g,sc);
   const cities=(rk==='us'?['seattle','sanfrancisco','losangeles','phoenix','denver','dallas','houston','minneapolis','chicago','stlouis','atlanta','miami','charlotte','washington','nyc','boston']:R.cities).filter(k=>{const x=P.x(CITIES[k][2]),y=P.y(CITIES[k][1]);return x>40&&x<W-40&&y>235&&y<H-120});
-  cities.forEach(k=>{const v=fmVal(k,sc.v,hi);if(v==null)return;const x=P.x(CITIES[k][2]),y=P.y(CITIES[k][1]);outlinedText(g,sc.v==='rain'?fmtRain(v):v+(sc.v==='gust'?'':'°'),x,y+6,`800 ${rk==='us'?42:48}px ${FD}`,'#ffffff');outlinedText(g,CITIES[k][0].toUpperCase(),x,y+30,`700 18px ${FD}`,'#dfe8f7')});
+  cities.forEach(k=>{const v=fmVal(k,sc.v,hi);if(v==null)return;const x=P.x(CITIES[k][2]),y=P.y(CITIES[k][1]);outlinedText(g,sc.v==='snow'?fmtSnow(v):sc.v==='rain'?fmtRain(v):v+(sc.v==='gust'?'':'°'),x,y+6,`800 ${rk==='us'?42:48}px ${FD}`,'#ffffff');outlinedText(g,CITIES[k][0].toUpperCase(),x,y+30,`700 18px ${FD}`,'#dfe8f7')});
   drawMapLabels(g,sc,P,o,t);
   const bx=W-430,by=50;glass(g,bx,by,360,140,12);const d=fmTime(hi);text(g,'FUTURECAST',bx+30,by+36,`700 22px ${FD}`,'#ffb21e','left','alphabetic',3);
   text(g,DOW[d.getDay()]+' '+fmtTime(d).replace(':00',''),bx+30,by+96,`800 56px ${FD}`,'#ffffff');
   const wd=Math.min(28,300/N);for(let i=0;i<N;i++){g.fillStyle=i<=fi?'#ffb21e':'rgba(255,255,255,.2)';rr(g,bx+30+i*wd,by+114,wd-5,8,4);g.fill()}
   const nat=!!R.national;const lx=nat?596:70,ly=H-(show.settings.showTicker?64:0)-104,lw=640;glass(g,lx,ly,lw+60,84,12);
-  if(sc.v==='rain'){const n=RAIN_RANGES.length,cw=lw/n;RAIN_RANGES.forEach((r,i)=>{g.fillStyle=r.c;rr(g,lx+30+i*cw,ly+18,cw-3,20,4);g.fill();text(g,rainLegendLabel(r,i,'in'),lx+30+i*cw+cw/2,ly+70,`700 22px ${FD}`,'#ffffff','center')})}else{
+  if(sc.v==='snow'){const n=SNOW_RANGES.length,cw=lw/n;SNOW_RANGES.forEach((r,i)=>{g.fillStyle=r.c;rr(g,lx+30+i*cw,ly+18,cw-3,20,4);g.fill();text(g,SNOW_SHORT[i],lx+30+i*cw+cw/2,ly+70,`700 22px ${FD}`,'#ffffff','center')})}else if(sc.v==='rain'){const n=RAIN_RANGES.length,cw=lw/n;RAIN_RANGES.forEach((r,i)=>{g.fillStyle=r.c;rr(g,lx+30+i*cw,ly+18,cw-3,20,4);g.fill();text(g,rainLegendLabel(r,i,'in'),lx+30+i*cw+cw/2,ly+70,`700 22px ${FD}`,'#ffffff','center')})}else{
   const gr=g.createLinearGradient(lx+30,0,lx+30+lw,0);if(sc.v==='gust'){for(let v=0;v<=70;v+=5)gr.addColorStop(v/70,rgb(gustRGB(v)))}else{for(let v=-10;v<=110;v+=10)gr.addColorStop((v+10)/120,rgb(tempRGB(v)))}
   g.fillStyle=gr;rr(g,lx+30,ly+18,lw,20,6);g.fill();if(sc.v==='gust'){for(let v=0;v<=70;v+=10)text(g,v+(v===70?' MPH':''),lx+30+v/70*lw,ly+70,`700 22px ${FD}`,'#ffffff','center')}else{for(let v=0;v<=100;v+=20)text(g,v+'°',lx+30+(v+10)/120*lw,ly+70,`700 22px ${FD}`,'#ffffff','center')}}
   drawHeader(g,sc.title||DEF_TITLES.futuremap,sc.sub||FM_NAMES[sc.v],t);
@@ -1492,16 +1496,19 @@ function rainIdx(v){let k=-1;RAIN_RANGES.forEach((r,i)=>{if(v>=r.min)k=i});retur
 function rainRGBA(v){if(v==null||v<.04)return[0,0,0,0];const i=rainIdx(v);if(i<0){const c=hex3(RAIN_RANGES[0].c);return[...c,Math.round(255*clamp((v-.04)/.06))]}return[...hex3(RAIN_RANGES[i].c),255]}
 function fmtRain(v,u){if(v==null)return'';if(u==='mm'){const m=v*25.4;return(m<10?m.toFixed(1):Math.round(m))+' mm'}return(v<.01?'0':v<10?v.toFixed(2).replace(/^0/,''):Math.round(v))+'"'}
 function rainLegendLabel(r,i,u){const last=i===RAIN_RANGES.length-1;if(u==='mm'){const m=r.min*25.4;return(m<10?m.toFixed(1):Math.round(m))+(last?'+ mm':' mm')}return(r.min<1?String(r.min).replace(/^0/,''):r.min)+(last?'"+':'"')}
+function snowRGBA(v){if(v==null||v<.05)return[0,0,0,0];const i=snowIdx(v);if(i<0)return[...hex3(SNOW_RANGES[0].c),Math.round(255*clamp((v-.05)/.05))];return[...hex3(SNOW_RANGES[i].c),255]}
+function fmtSnow(v,u){if(v==null)return'';if(u==='mm'){const c=v*2.54;return(c<.5?'0':c<10?c.toFixed(1):Math.round(c))+' cm'}return(v<.05?'0':v<1?v.toFixed(1).replace(/^0/,''):Math.round(v))+'"'}
+const SNOW_CM=['Coating–2 cm','2–8 cm','8–15 cm','15–30 cm','30–45 cm','45+ cm'];const SNOW_SHORT=['Coating','1"','3"','6"','12"','18"+'];
 const RAIN_SRC_NAMES={consensus:'Model Blend',gfs_hrrr:'HRRR',gfs_seamless:'GFS',ecmwf_ifs025:'ECMWF',icon_seamless:'ICON',wpc:'NWS WPC'};
-function rainTotal(k,src,hours){if(hours<=0)return 0;
-  const one=mid=>{const s=modelSeries(k,mid,'precip',hours);if(!s)return null;let t=0,n=0;s.val.forEach(v=>{if(v!=null){t+=v;n++}});return n>=hours-2?t:null};
+function rainTotal(k,src,hours,v='precip'){if(hours<=0)return 0;
+  const one=mid=>{const s=modelSeries(k,mid,v,hours);if(!s)return null;let t=0,n=0;s.val.forEach(v=>{if(v!=null){t+=v;n++}});return n>=hours-2?t:null};
   if(src&&src!=='consensus')return one(src);
   const vals=MODELS.filter(m=>m.id!=='gfs_hrrr').map(m=>one(m.id)).filter(v=>v!=null);return vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:null}
 const rainCache={};let rainOrder=[];
-function rainField(rk,src,hours){const key=rk+'|'+src+'|'+hours+'|'+(data.updated?data.updated.getTime():0);if(rainCache[key])return rainCache[key];
-  const P=proj(rk);const pts=CITY_KEYS.map(k=>({lat:CITIES[k][1],lon:CITIES[k][2],v:rainTotal(k,src,hours)})).filter(p=>p.v!=null);const gw=96,gh=54;const sm=document.createElement('canvas');sm.width=gw;sm.height=gh;const sg=sm.getContext('2d');const id=sg.createImageData(gw,gh);
+function rainField(rk,src,hours,v='precip'){const key=rk+'|'+src+'|'+hours+'|'+v+'|'+(data.updated?data.updated.getTime():0);if(rainCache[key])return rainCache[key];
+  const P=proj(rk);const pts=CITY_KEYS.map(k=>({lat:CITIES[k][1],lon:CITIES[k][2],v:rainTotal(k,src,hours,v)})).filter(p=>p.v!=null);const gw=96,gh=54;const sm=document.createElement('canvas');sm.width=gw;sm.height=gh;const sg=sm.getContext('2d');const id=sg.createImageData(gw,gh);
   for(let j=0;j<gh;j++)for(let x=0;x<gw;x++){const lon=P.lon((x+.5)/gw*W),lat=P.lat((j+.5)/gh*H);let ws=0,vs=0;for(const p of pts){const d2=(p.lon-lon)**2*.55+(p.lat-lat)**2+.01;const w=1/(d2*d2);ws+=w;vs+=w*p.v}
-    const c=rainRGBA(ws?vs/ws:null);const o=(j*gw+x)*4;id.data[o]=c[0];id.data[o+1]=c[1];id.data[o+2]=c[2];id.data[o+3]=c[3]}
+    const c=(v==='snow'?snowRGBA:rainRGBA)(ws?vs/ws:null);const o=(j*gw+x)*4;id.data[o]=c[0];id.data[o+1]=c[1];id.data[o+2]=c[2];id.data[o+3]=c[3]}
   sg.putImageData(id,0,0);const c=document.createElement('canvas');c.width=W;c.height=H;const g=c.getContext('2d');if('filter' in g)g.filter='blur(12px)';g.drawImage(sm,-20,-20,W+40,H+40);
   c.pts=pts.length;rainCache[key]=c;rainOrder.push(key);while(rainOrder.length>24)delete rainCache[rainOrder.shift()];return c}
 WSVC.qpf='https://mapservices.weather.noaa.gov/vector/rest/services/precip/wpc_qpf/MapServer';
@@ -1511,17 +1518,18 @@ function wpcPeriod(key){const L=WPC_QPF[key]||WPC_QPF.d13;if(L[2]===1)return win
 function qpfImage(rk,key){const L=WPC_QPF[key]||WPC_QPF.d13;const ck='qpf'+key;WINTER_LAYERS[ck]=WINTER_LAYERS[ck]||['qpf',L[0],'Rainfall',L[1]];return winterImage(rk,ck)}
 function rainHoursSub(h){return h<=24?'Next 24 Hours':h<=48?'Next 48 Hours':'Next 72 Hours'}
 function renderRainfall(g,sc,t,o){
-  const rk=sc.region,P=proj(rk),R=REGIONS[rk];const wpc=sc.src==='wpc';g.drawImage(mapBase(rk),0,0);const fade=ease((t-.2)/.6);let msg=null;
+  const rk=sc.region,P=proj(rk),R=REGIONS[rk];const SN=sc.type==='snowfall',VV=SN?'snow':'precip',fmt=SN?fmtSnow:fmtRain,NOUN=SN?'SNOWFALL':'RAINFALL';const wpc=!SN&&sc.src==='wpc';g.drawImage(mapBase(rk),0,0);const fade=ease((t-.2)/.6);let msg=null;
   g.save();if(sc.clip==='state'&&R.focus.length)g.clip(statePath(rk,focusState(rk)));else if(sc.clip!=='none')g.clip(landPath(rk));
   if(wpc){const S=qpfImage(rk,sc.wpc);winterLegend('qpf');if(S.ok&&S.img.naturalWidth){g.globalAlpha=.9*fade;g.drawImage(S.img,0,0,W,H)}
     if(isEU(rk)||rk==='ak'||rk==='hi')msg='NWS RAINFALL MAPS COVER THE LOWER 48 ONLY';else if(S.ok===false)msg='NWS RAINFALL DATA COULD NOT LOAD';else if(S.ok&&S.empty)msg='NO RAIN EXPECTED IN THIS PERIOD'}
-  else{const F=rainField(rk,sc.src,sc.hours);g.globalAlpha=.85*fade;g.drawImage(F,0,0);if(!F.pts)msg=sc.src==='gfs_hrrr'&&sc.hours>48?'THE HRRR RUNS 48 HOURS · PICK 24 OR 48':sc.src==='gfs_hrrr'&&isEU(rk)?'THE HRRR COVERS NORTH AMERICA ONLY':'MODEL RAINFALL COULD NOT LOAD'}
+  else{const F=rainField(rk,sc.src,sc.hours,VV);g.globalAlpha=.85*fade;g.drawImage(F,0,0);if(!F.pts)msg=sc.src==='gfs_hrrr'&&sc.hours>48?'THE HRRR RUNS 48 HOURS · PICK 24 OR 48':sc.src==='gfs_hrrr'&&isEU(rk)?'THE HRRR COVERS NORTH AMERICA ONLY':'MODEL '+NOUN+' COULD NOT LOAD'}
   g.restore();
   g.drawImage(mapOverlay(rk),0,0);drawCounties(g,sc);
   const list=(rk==='us'?['nyc','chicago','losangeles','dallas','atlanta','denver','seattle','miami','houston','phoenix','minneapolis','sanfrancisco','stlouis','boston','washington','charlotte']:R.cities).filter(k=>{const x=P.x(CITIES[k][2]),y=P.y(CITIES[k][1]);return x>40&&x<W-40&&y>170&&y<H-150&&!(y>H-260&&x>W-560)&&!(x<300&&y>260&&y<830)});
-  const vals=!wpc&&sc.cityVals!==false;const placed=[];const hit=(a)=>placed.some(b=>a.x<b.x+b.w&&b.x<a.x+a.w&&a.y<b.y+b.h&&b.y<a.y+a.h);
+  let noSnow=false;if(SN&&!msg){const vs=list.map(k=>rainTotal(k,sc.src,sc.hours,'snow')).filter(v=>v!=null);noSnow=vs.length>0&&Math.max(...vs)<.1;if(noSnow)msg='NO SNOW EXPECTED IN THE NEXT '+sc.hours+' HOURS'}
+  const vals=!wpc&&!noSnow&&sc.cityVals!==false;const placed=[];const hit=(a)=>placed.some(b=>a.x<b.x+b.w&&b.x<a.x+a.w&&a.y<b.y+b.h&&b.y<a.y+a.h);
   list.forEach((k,i)=>{let x=P.x(CITIES[k][2]),y=P.y(CITIES[k][1]);const nm=CITIES[k][0].toUpperCase();
-    if(vals){const v=rainTotal(k,sc.src,sc.hours);if(v==null)return;const f=`800 ${rk==='us'?34:38}px ${FD}`,s=fmtRain(v,sc.units);const w=measure(g,s,f)+26,h=rk==='us'?44:50;const nw=Math.max(w,measure(g,nm,`700 18px ${FD}`)+10);
+    if(vals){const v=rainTotal(k,sc.src,sc.hours,VV);if(v==null)return;const f=`800 ${rk==='us'?34:38}px ${FD}`,s=fmt(v,sc.units);const w=measure(g,s,f)+26,h=rk==='us'?44:50;const nw=Math.max(w,measure(g,nm,`700 18px ${FD}`)+10);
       const base=y<260?[0,40]:[0,0];const spot=[[0,0],[0,-56],[80,-36],[-80,-36],[80,36],[-80,36],[0,56]].map(([dx,dy])=>[x+base[0]+dx,y+base[1]+dy]).find(([cx,cy])=>cy-h/2>205&&cy+h/2+32<H-10&&cx-nw/2>10&&cx+nw/2<W-10&&!hit({x:cx-nw/2,y:cy-h/2,w:nw,h:h+32}));if(!spot)return;
       placed.push({x:spot[0]-nw/2,y:spot[1]-h/2,w:nw,h:h+32});if(spot[0]!==x||spot[1]!==y){g.save();g.strokeStyle='rgba(255,255,255,.85)';g.lineWidth=2;g.beginPath();g.moveTo(x,y);g.lineTo(spot[0],spot[1]);g.stroke();g.fillStyle='#ffffff';g.beginPath();g.arc(x,y,5,0,7);g.fill();g.restore()}x=spot[0];y=spot[1];
       const q=easeBack(clamp((t-.9-i*.04)/.45));if(q<=0)return;
@@ -1533,13 +1541,15 @@ function renderRainfall(g,sc,t,o){
   if(wpc){const Lg=winterLegends.qpf;const items=Lg&&Lg.status==='ok'?(Lg.map[(WPC_QPF[sc.wpc]||WPC_QPF.d13)[0]]||[]):[];
     if(items.length){const rh=Math.min(46,Math.floor(560/items.length));glass(g,lx,ly,260,70+items.length*rh,12);text(g,'RAINFALL',lx+24,ly+44,`800 28px ${FD}`,'#ffb21e','left','alphabetic',3);const fs=Math.min(24,rh-6);
       items.forEach((it,i)=>{const y=ly+58+i*rh;try{g.drawImage(it.im,lx+24,y+3,36,rh-6)}catch(e){}let lab=it.label.replace(/\s*-\s*/,'–').toUpperCase();while(measure(g,lab,`700 ${fs}px ${FD}`,1)>160&&lab.length>4)lab=lab.slice(0,-2)+'…';text(g,lab,lx+74,y+rh/2+fs/2-2,`700 ${fs}px ${FD}`,'#ffffff','left','alphabetic',1)})}}
+  else if(SN){const rh=60,lw=sc.units==='mm'?290:260;glass(g,lx,ly,lw,70+SNOW_RANGES.length*rh,12);text(g,'SNOWFALL',lx+24,ly+44,`800 28px ${FD}`,'#ffb21e','left','alphabetic',3);
+    SNOW_RANGES.slice().reverse().forEach((r,i)=>{const j=SNOW_RANGES.length-1-i,y=ly+58+i*rh;g.fillStyle=r.c;rr(g,lx+24,y+10,48,38,6);g.fill();text(g,(sc.units==='mm'?SNOW_CM[j]:r.l).replace('–','-'),lx+88,y+40,`700 ${sc.units==='mm'?24:28}px ${FD}`,'#ffffff')})}
   else{const rh=54;glass(g,lx,ly,220,70+RAIN_RANGES.length*rh,12);text(g,'RAINFALL',lx+24,ly+44,`800 28px ${FD}`,'#ffb21e','left','alphabetic',3);
     RAIN_RANGES.slice().reverse().forEach((r,i)=>{const y=ly+58+i*rh;g.fillStyle=r.c;rr(g,lx+24,y+9,48,34,6);g.fill();text(g,rainLegendLabel(r,RAIN_RANGES.length-1-i,sc.units),lx+88,y+37,`700 28px ${FD}`,'#ffffff')})}
   g.restore();
   if(msg){const f=`800 34px ${FD}`;const w=measure(g,msg,f,2)+60;glass(g,(W-w)/2,H/2-40,w,80,12);text(g,msg,W/2,H/2+12,f,'#ffffff','center','alphabetic',2)}
   const bx=W-430,by=50;glass(g,bx,by,360,110,12);text(g,wpc?'NWS WEATHER PREDICTION':(sc.src==='consensus'?'MODEL BLEND':RAIN_SRC_NAMES[sc.src]+' MODEL'),bx+30,by+40,`700 20px ${FD}`,wpc?'#3ddc8c':'#4fb3ff','left','alphabetic',2.5);
   text(g,wpc?(WPC_QPF[sc.wpc]||WPC_QPF.d13)[3].toUpperCase():'NEXT '+sc.hours+' HOURS',bx+30,by+88,`800 44px ${FD}`,'#ffffff');
-  drawHeader(g,sc.title||DEF_TITLES.rainfall,sc.sub||autoSub(sc),t);
+  drawHeader(g,sc.title||DEF_TITLES[sc.type],sc.sub||autoSub(sc),t);
 }
 
 /* ---------- Breaking alert takeover ---------- */
@@ -1751,7 +1761,7 @@ function drawChrome(g,T){
 }
 function renderScene(g,sc,t,o={}){
   g.fillStyle='#000';g.fillRect(0,0,W,H);
-  switch(sc.type){case'temps':renderTemps(g,sc,t,o);break;case'forecast7':renderForecast(g,sc,t,o);break;case'conditions':renderConditions(g,sc,t,o);break;case'models':renderModels(g,sc,t,o);break;case'snow':renderSnow(g,sc,t,o);break;case'radar':renderRadar(g,sc,t,o);break;case'ustemps':renderUsTemps(g,sc,t,o);break;case'travel':renderTravel(g,sc,t,o);break;case'extremes':renderExtremes(g,sc,t,o);break;case'futuremap':renderFutureMap(g,sc,t,o);break;case'winter':renderWinter(g,sc,t,o);break;case'rainfall':renderRainfall(g,sc,t,o);break}
+  switch(sc.type){case'temps':renderTemps(g,sc,t,o);break;case'forecast7':renderForecast(g,sc,t,o);break;case'conditions':renderConditions(g,sc,t,o);break;case'models':renderModels(g,sc,t,o);break;case'snow':renderSnow(g,sc,t,o);break;case'radar':renderRadar(g,sc,t,o);break;case'ustemps':renderUsTemps(g,sc,t,o);break;case'travel':renderTravel(g,sc,t,o);break;case'extremes':renderExtremes(g,sc,t,o);break;case'futuremap':renderFutureMap(g,sc,t,o);break;case'winter':renderWinter(g,sc,t,o);break;case'rainfall':case'snowfall':renderRainfall(g,sc,t,o);break}
   const anim=o.animTele;sc.tele.forEach((s,i)=>drawStroke(g,s,anim?clamp((t-1.2-i*.35)/.6):1));
   if(o.interactive&&draft&&draft.kind==='tele')drawStroke(g,draft.s,1);
 }
@@ -1818,7 +1828,7 @@ const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&g
 function opts(list,val){return list.map(([v,l])=>`<option value="${v}"${String(v)===String(val)?' selected':''}>${esc(l)}</option>`).join('')}
 const cityOpts=v=>opts(CITY_KEYS.map(k=>[k,cityFull(k)]).sort((a,b)=>a[1].localeCompare(b[1])),v);
 const regionOpts=v=>{const all=Object.entries(REGIONS).filter(([k,r])=>!r.zoomOf);const grp=(lab,l)=>`<optgroup label="${lab}">${opts(l.map(([k,r])=>[k,r.name]),v)}</optgroup>`;return grp('United States',all.filter(([k,r])=>!r.eu))+grp('Europe',all.filter(([k,r])=>r.eu))};
-function autoSub(sc){if(sc.type==='rainfall')return sc.src==='wpc'?wpcPeriod(sc.wpc):rainHoursSub(sc.hours);if(sc.type==='futuremap')return FM_NAMES[sc.v];if(sc.type==='winter')return winterDays((WINTER_LAYERS[sc.layer]||[])[3]||1);if(sc.type==='ustemps')return NAT_FIELD_NAMES[sc.field];if(sc.type==='travel')return'Major Cities';if(sc.type==='extremes')return'Across the Country';return sc.type==='temps'||sc.type==='radar'?REGIONS[sc.region].name:sc.type==='snow'?'':CITIES[sc.city][0]}
+function autoSub(sc){if(sc.type==='snowfall')return rainHoursSub(sc.hours);if(sc.type==='rainfall')return sc.src==='wpc'?wpcPeriod(sc.wpc):rainHoursSub(sc.hours);if(sc.type==='futuremap')return FM_NAMES[sc.v];if(sc.type==='winter')return winterDays((WINTER_LAYERS[sc.layer]||[])[3]||1);if(sc.type==='ustemps')return NAT_FIELD_NAMES[sc.field];if(sc.type==='travel')return'Major Cities';if(sc.type==='extremes')return'Across the Country';return sc.type==='temps'||sc.type==='radar'?REGIONS[sc.region].name:sc.type==='snow'?'':CITIES[sc.city][0]}
 function euInspector(sc){const v=euCountriesInView(sc);const types=[...new Set(Object.values(euWarn.byC).flat().map(w=>w.type))];const allT=Object.keys(AW_TYPES).map(Number);
   return`<div class="sec"><h3>European warnings</h3>
   <label class="chk"><input type="checkbox" id="i-euw" data-k="euWarn"${sc.euWarn!==false?' checked':''}>Show MeteoAlarm warnings, shaded by country</label>
@@ -1896,8 +1906,8 @@ function renderInspector(){
     <div class="row2"><label class="f">Text<input type="text" id="i-lbltext" value="${esc(window._lblText||'Heaviest snow')}"></label><label class="f">Style<select id="i-lblstyle">${opts(LABEL_STYLES,window._lblStyle||'callout')}</select></label></div>
     ${L?`<div class="row2"><label class="f">Selected label<input type="text" id="i-sellbl" value="${esc(L.text)}"></label><label class="f">Style<select id="i-sellsty">${opts(LABEL_STYLES,L.style)}</select></label></div><button data-lbldel>Delete label</button>`:''}
     ${(sc.labels||[]).length?'<button data-lblclear>Clear all labels</button>':''}</div>`}
-  if(sc.type==='futuremap'){const N=Math.floor(sc.hours/sc.step)+1;h+=`<div class="sec"><h3>Future map</h3><div class="row2"><label class="f">Show<select id="i-fmv" data-k="v">${opts([['temp','Temperature'],['feels','Feels like (wind chill)'],['gust','Wind gusts'],['rain','Rainfall adding up']],sc.v)}</select></label><label class="f">Hours<select id="i-fmh" data-k="hours">${opts([[12,'12'],[24,'24'],[48,'48']],sc.hours)}</select></label></div>
-    <label class="f">Step<select id="i-fms" data-k="step">${opts([[1,'Every hour'],[3,'Every 3 hours'],[6,'Every 6 hours']],sc.step)}</select></label><p class="note">Hour-by-hour Open-Meteo forecast, blended between cities.${sc.v==='rain'?' Rainfall is the GFS, ECMWF and ICON blend, adding up from now. Liquid totals, so snow counts as melted water.':''} ${N} frames, about ${(N*.6).toFixed(0)} seconds per loop.</p></div>`}
+  if(sc.type==='futuremap'){const N=Math.floor(sc.hours/sc.step)+1;h+=`<div class="sec"><h3>Future map</h3><div class="row2"><label class="f">Show<select id="i-fmv" data-k="v">${opts([['temp','Temperature'],['feels','Feels like (wind chill)'],['gust','Wind gusts'],['rain','Rainfall adding up'],['snow','Snowfall adding up']],sc.v)}</select></label><label class="f">Hours<select id="i-fmh" data-k="hours">${opts([[12,'12'],[24,'24'],[48,'48']],sc.hours)}</select></label></div>
+    <label class="f">Step<select id="i-fms" data-k="step">${opts([[1,'Every hour'],[3,'Every 3 hours'],[6,'Every 6 hours']],sc.step)}</select></label><p class="note">Hour-by-hour Open-Meteo forecast, blended between cities.${sc.v==='rain'?' Rainfall is the GFS, ECMWF and ICON blend, adding up from now. Liquid totals, so snow counts as melted water.':sc.v==='snow'?' Snowfall is the GFS, ECMWF and ICON blend, adding up from now.':''} ${N} frames, about ${(N*.6).toFixed(0)} seconds per loop.</p></div>`}
   if(sc.type==='winter'){const grp=(lab,keys)=>`<optgroup label="${lab}">${keys.map(k=>`<option value="${k}"${sc.layer===k?' selected':''}>${esc(WINTER_LAYERS[k][2]+(WINTER_LAYERS[k][3]?' · Day '+WINTER_LAYERS[k][3]:' · Days 1–3'))}</option>`).join('')}</optgroup>`;
     const S=winterImgs[sc.region+'|'+sc.layer];h+=`<div class="sec"><h3>NWS winter outlook</h3><label class="f">Map<select id="i-wl" data-k="layer">${grp('Winter Storm Severity Index',['wssi1','wssi2','wssi3','wssi13'])}${grp('Day 1 odds',['s4d1','s8d1','s12d1','ice1'])}${grp('Day 2 odds',['s4d2','s8d2','s12d2','ice2'])}${grp('Day 3 odds',['s4d3','s8d3','s12d3','ice3'])}</select></label>
     <p class="note">From the NWS Weather Prediction Center. The severity index only shows impacts during winter events, and the odds maps update twice a day in season.${S&&S.ok===false?' This map could not load in this view; it loads in the standalone file.':S&&S.empty?' Nothing to show right now.':''}</p></div>`}
@@ -1907,6 +1917,11 @@ function renderInspector(){
     <div class="row2"><label class="f">Units<select id="i-ru" data-k="units">${opts([['in','Inches'],['mm','Millimeters']],sc.units)}</select></label><label class="f">Shade<select id="i-rclip" data-k="clip">${opts([['land','Land only'],...(REGIONS[sc.region].focus.length?[['state','Featured state only']]:[]),['none','Whole map']],sc.clip)}</select></label></div>
     ${W2?'':`<label class="chk"><input type="checkbox" id="i-rcv" data-k="cityVals"${sc.cityVals!==false?' checked':''}>Show totals at cities</label>`}
     <p class="note">${W2?`The official NWS rainfall forecast. Days run 7 AM to 7 AM Eastern and update several times a day. Lower 48 only.${S&&S.ok===false?' This map could not load in this view; it loads in the standalone file.':''}`:`Open-Meteo hourly model output, added up for each city and blended between cities. ${sc.src==='gfs_hrrr'?'The HRRR only runs 48 hours and covers North America.':'The blend averages GFS, ECMWF and ICON.'}`} Totals are liquid, so snow and sleet count as melted water.</p></div>`}
+  if(sc.type==='snowfall'){h+=`<div class="sec"><h3>Future snowfall</h3><label class="f">Source<select id="i-ssrc" data-k="src">${opts([['consensus','Model blend (GFS, ECMWF, ICON)'],['gfs_hrrr','HRRR (US, 48 hours)'],['gfs_seamless','GFS'],['ecmwf_ifs025','ECMWF'],['icon_seamless','ICON']],sc.src)}</select></label>
+    <label class="f">Hours<select id="i-sh" data-k="hours">${opts([[24,'Next 24 hours'],[48,'Next 48 hours'],[72,'Next 72 hours']],sc.hours)}</select></label>
+    <div class="row2"><label class="f">Units<select id="i-su" data-k="units">${opts([['in','Inches'],['mm','Centimeters']],sc.units)}</select></label><label class="f">Shade<select id="i-sclip" data-k="clip">${opts([['land','Land only'],...(REGIONS[sc.region].focus.length?[['state','Featured state only']]:[]),['none','Whole map']],sc.clip)}</select></label></div>
+    <label class="chk"><input type="checkbox" id="i-scv" data-k="cityVals"${sc.cityVals!==false?' checked':''}>Show totals at cities</label>
+    <p class="note">Open-Meteo hourly model snowfall, added up for each city and blended between cities. ${sc.src==='gfs_hrrr'?'The HRRR only runs 48 hours and covers North America.':'The blend averages GFS, ECMWF and ICON.'} Models use a fixed snow-to-liquid ratio, so wet snow runs high and fluffy snow runs low. For your own forecast, use the Snow map scene; for NWS odds, use Winter Outlook.</p></div>`}
   const st=show.settings;
   const EU_CITIES=CITY_KEYS.filter(k=>CITIES[k][2]>-30);const natChips=(sel,max,list=NAT_CITIES)=>`<div class="chips">${list.map(k=>`<label><input type="checkbox" data-natcity="${k}"${sel.includes(k)?' checked':''}>${esc(cityFull(k))}</label>`).join('')}</div>${max?`<p class="note">Up to ${max} cities. ${sel.length} picked.</p>`:''}`;
   if(sc.type==='ustemps')h+=`<div class="sec"><h3>National temps</h3><label class="f">Show<select id="i-field" data-k="field">${opts([['current','Temperatures right now'],['high',"Today's highs"],['tomorrow',"Tomorrow's highs"]],sc.field)}</select></label><p class="note">The shading blends every city in the studio. Pick which cities get a number on the map.</p>${natChips(sc.cities)}</div>`;
@@ -1940,7 +1955,7 @@ function renderInspector(){
     <button id="bReset">Reset to starter rundown</button><div id="resetConfirm" hidden class="row2"><button id="bResetYes" class="primary">Replace my rundown</button><button id="bResetNo">Keep it</button></div></div>`;
   const el=$('#insp');el.innerHTML=h;
   el.querySelectorAll('[data-k]').forEach(inp=>inp.addEventListener(inp.type==='checkbox'||inp.tagName==='SELECT'?'change':'input',()=>{const k=inp.dataset.k;let v=inp.type==='checkbox'?inp.checked:inp.type==='number'?+inp.value:inp.value;if(['hours','trackMins','step'].includes(k))v=+v;if(k==='cityVals')v=!!v;
-    sc[k]=v;if(k==='trackMins')(sc.tracks||[]).forEach(t=>t.mins=v);if(k==='product'){if(isSite(v)&&!sc.view)centerOnSite(sc);renderInspector()}if(k==='site'&&isSite(sc.product))centerOnSite(sc);if(['v','hours','step','layer'].includes(k))renderInspector();if(k==='region'&&sc.type==='temps'){sc.hidden=[];declutter(sc)}if(k==='region'&&sc.type==='snow'&&REGIONS[v].isolate)sc.clip='state';if(k==='region'&&sc.type==='rainfall')sc.clip=REGIONS[v].isolate?'state':'land';if(k==='wpc')renderInspector();if(['region','src'].includes(k)||k==='city'){renderInspector()}
+    sc[k]=v;if(k==='trackMins')(sc.tracks||[]).forEach(t=>t.mins=v);if(k==='product'){if(isSite(v)&&!sc.view)centerOnSite(sc);renderInspector()}if(k==='site'&&isSite(sc.product))centerOnSite(sc);if(['v','hours','step','layer'].includes(k))renderInspector();if(k==='region'&&sc.type==='temps'){sc.hidden=[];declutter(sc)}if(k==='region'&&sc.type==='snow'&&REGIONS[v].isolate)sc.clip='state';if(k==='region'&&(sc.type==='rainfall'||sc.type==='snowfall'))sc.clip=REGIONS[v].isolate?'state':'land';if(k==='wpc')renderInspector();if(['region','src'].includes(k)||k==='city'){renderInspector()}
     if(k==='region'||k==='city'||k==='v'){sceneStart=performance.now()/1000}if(k==='city'&&show.settings.forecastSource==='nws'&&!nws.fc[v])nwsForecast(v).then(()=>queueThumbs()).catch(()=>{});if(k==='area'&&v==='eu')loadEuWarnings(true);if(k==='area')renderInspector();if(k==='region'&&sc.type==='radar'){loadAlerts();if(isEU(v)){loadRV();loadEuWarnings(true);sc.view=null;sc.flight=[];sc.flightOn=false;if(!isSat(sc.product))sc.product='composite'}renderInspector()}save();renderRundown()}));
   el.querySelectorAll('[data-s]').forEach(inp=>inp.addEventListener(inp.type==='checkbox'||inp.tagName==='SELECT'?'change':'input',()=>{show.settings[inp.dataset.s]=inp.type==='checkbox'?inp.checked:inp.value;if(['currentSource','forecastSource'].includes(inp.dataset.s)){loadNws();renderInspector()}$('#stationSub').textContent=(show.settings.station||'')+' workstation';save();queueThumbs()}));
   el.querySelectorAll('[data-city]').forEach(c=>c.addEventListener('change',()=>{const k=c.dataset.city;sc.hidden=sc.hidden.filter(x=>x!==k);if(!c.checked)sc.hidden.push(k);save();queueThumbs()}));
