@@ -226,7 +226,7 @@ button.pill{cursor:pointer;background:transparent}
 <div class="status">
   <span><kbd>Space</kbd> play / stop</span><span><kbd>←</kbd><kbd>→</kbd> previous / next</span><span><kbd>V</kbd> select</span><span><kbd>T</kbd> pen</span><span><kbd>B</kbd> contour</span><span><kbd>N</kbd> total</span><span><kbd>Del</kbd> delete selection</span><span><kbd>E</kbd> export PNG</span><span><kbd>K</kbd> storm track</span><span><kbd>L</kbd> map label</span><span><kbd>1</kbd>–<kbd>9</kbd> cue</span><span><kbd>Enter</kbd> take</span>
   <span id="srcNote"></span>
-  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-11 · 17</span>
+  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-11 · 18</span>
 </div>
 <input type="file" id="fileIn" accept=".json,application/json" hidden>
 
@@ -1565,7 +1565,7 @@ const WINTER_LAYERS={wssi1:['wssi',1,'Winter Storm Severity',1],wssi2:['wssi',2,
 const winterImgs={},winterLegends={};
 function winterImage(rk,key){const L=WINTER_LAYERS[key];const bust=Math.floor(Date.now()/900000);const ck=rk+'|'+key;let S=winterImgs[ck];if(S&&S.bust===bust)return S;const P=proj(rk);
   S={bust,ok:null,empty:false,img:new Image()};S.img.crossOrigin='anonymous';
-  S.img.onload=()=>{S.ok=true;try{const c=document.createElement('canvas');c.width=96;c.height=54;const g=c.getContext('2d');g.drawImage(S.img,0,0,96,54);const d=g.getImageData(0,0,96,54).data;let n=0;for(let i=3;i<d.length;i+=4)if(d[i]>20)n++;S.empty=n<4}catch(e){}queueThumbs()};
+  S.img.onload=()=>{S.ok=true;try{const c=document.createElement('canvas');c.width=96;c.height=54;const g=c.getContext('2d');g.drawImage(S.img,0,0,96,54);const d=g.getImageData(0,0,96,54).data;let n=0;const A=new Uint8Array(96*54);for(let i=3;i<d.length;i+=4)if(d[i]>20){n++;A[(i-3)>>2]=1}S.alpha=A;S.empty=n<4}catch(e){}queueThumbs()};
   S.img.onerror=()=>{S.ok=false;queueThumbs()};
   S.img.src=`${WSVC[L[0]]}/export?bbox=${P.west.toFixed(3)},${P.south.toFixed(3)},${P.east.toFixed(3)},${P.north.toFixed(3)}&bboxSR=4326&imageSR=4326&size=1600,900&format=png32&transparent=true&layers=show:${L[1]}&dpi=96&f=image&_=${bust}`;
   winterImgs[ck]=S;return S}
@@ -1847,6 +1847,7 @@ Object.keys(NWS_SVCS).forEach(k=>WSVC[k]=NWS_SVCS[k][0]);
 const arcInfo={};
 async function loadArc(svc){if(arcInfo[svc])return;arcInfo[svc]={status:'loading'};try{const j=await fetchJSON(NWS_SVCS[svc][0]+'?f=json',12000);const L=(j.layers||[]).filter(l=>!l.subLayerIds||!l.subLayerIds.length).map(l=>({id:l.id,name:String(l.name||'Layer '+l.id)}));if(!L.length)throw 0;arcInfo[svc]={status:'ok',leaf:L}}catch(e){arcInfo[svc]={status:'fail'}}queueThumbs();softInspect('nwsmap')}
 function nwsLayers(sc){const A=arcInfo[sc.svc];if(!A||A.status!=='ok')return null;if(Array.isArray(sc.lyr)&&sc.lyr.length){const ok=sc.lyr.filter(id=>A.leaf.some(l=>l.id===id));if(ok.length)return ok}const S=NWS_SVCS[sc.svc];const m=A.leaf.filter(l=>S[3].test(l.name));return(S[4]?m.slice(0,6):m.slice(0,1)).map(l=>l.id).concat(m.length?[]:[A.leaf[0].id])}
+function quietSpot(alpha,w,h,cands){if(!alpha)return cands[0];let best=cands[0],bs=1e9;cands.forEach(([x,y],ci)=>{let n=0;const x0=Math.max(0,Math.floor(x/20)),x1=Math.min(95,Math.ceil((x+w)/20)),y0=Math.max(0,Math.floor(y/20)),y1=Math.min(53,Math.ceil((y+h)/20));for(let j=y0;j<=y1;j++)for(let i=x0;i<=x1;i++)n+=alpha[j*96+i];n+=ci*.5;if(n<bs){bs=n;best=[x,y]}});return best}
 function renderNwsMap(g,sc,t,o){const rk=sc.region,P=proj(rk),R=REGIONS[rk],S=NWS_SVCS[sc.svc]||NWS_SVCS.spc;loadArc(sc.svc);winterLegend(sc.svc);g.drawImage(mapBase(rk),0,0);let msg=null;const ids=nwsLayers(sc);let nm=S[1];
   if(ids){const A=arcInfo[sc.svc];nm=ids.length===1?(A.leaf.find(l=>l.id===ids[0])||{}).name||S[1]:S[1];const key=sc.svc+':'+ids.join(',');WINTER_LAYERS[key]=WINTER_LAYERS[key]||[sc.svc,ids.join(','),nm,0];const I=winterImage(rk,key);
     if(I.ok&&I.img.naturalWidth){g.save();g.globalAlpha=.85*ease((t-.2)/.6);g.drawImage(I.img,0,0,W,H);g.restore()}
@@ -1856,9 +1857,9 @@ function renderNwsMap(g,sc,t,o){const rk=sc.region,P=proj(rk),R=REGIONS[rk],S=NW
   mapCities(sc).forEach(k=>{const x=P.x(CITIES[k][2]),y=P.y(CITIES[k][1]);if(x<40||x>W-40||y<235||y>H-120)return;g.fillStyle='#ffffff';g.strokeStyle='#0a1a3a';g.lineWidth=3;g.beginPath();g.arc(x,y,6,0,7);g.fill();g.stroke();g.save();g.shadowColor='rgba(0,0,0,.9)';g.shadowBlur=6;text(g,CITIES[k][0].toUpperCase(),x+12,y-10,`700 24px ${FD}`,'#ffffff','left','alphabetic',1);g.restore()});
   drawMapLabels(g,sc,P,o,t);
   const Lg=winterLegends[sc.svc];let items=[];if(ids&&Lg&&Lg.status==='ok'){const seen=new Set();ids.forEach(id=>(Lg.map[id]||[]).forEach(it=>{const k=it.label.toUpperCase();if(!k||seen.has(k))return;seen.add(k);items.push(it)}))}items=items.slice(0,9);
-  if(items.length){const q=ease((t-.5)/.6),rh=44,lx=70,ly=290;g.save();g.globalAlpha=q;glass(g,lx,ly,330,30+items.length*rh,12);items.forEach((it,i)=>{const y=ly+16+i*rh;try{g.drawImage(it.im,lx+20,y+6,40,28)}catch(e){}let lab=it.label.toUpperCase();while(measure(g,lab,`700 22px ${FD}`,1)>230&&lab.length>4)lab=lab.slice(0,-2)+'…';text(g,lab,lx+74,y+28,`700 22px ${FD}`,'#ffffff','left','alphabetic',1)});g.restore()}
+  if(items.length){const q=ease((t-.5)/.6),rh=44,lh=30+items.length*rh,bot=H-(show.settings.showTicker?64:0)-30-lh;const I2=ids&&winterImgs[rk+'|'+sc.svc+':'+ids.join(',')];const[lx,ly]=quietSpot(I2&&I2.alpha,330,lh,[[70,290],[70,bot],[W-400,200],[W-400,Math.min(bot,560)],[660,bot]]);g.save();g.globalAlpha=q;glass(g,lx,ly,330,30+items.length*rh,12);items.forEach((it,i)=>{const y=ly+16+i*rh;try{g.drawImage(it.im,lx+20,y+6,40,28)}catch(e){}let lab=it.label.toUpperCase();while(measure(g,lab,`700 22px ${FD}`,1)>230&&lab.length>4)lab=lab.slice(0,-2)+'…';text(g,lab,lx+74,y+28,`700 22px ${FD}`,'#ffffff','left','alphabetic',1)});g.restore()}
   if(msg)centerMsg(g,msg);
-  const bx=W-470,by=50;glass(g,bx,by,400,110,12);text(g,S[2],bx+30,by+40,`700 18px ${FD}`,'#3ddc8c','left','alphabetic',2);let ln=nm.toUpperCase();while(measure(g,ln,`800 34px ${FD}`)>340&&ln.length>4)ln=ln.slice(0,-2)+'…';text(g,ln,bx+30,by+86,`800 34px ${FD}`,'#ffffff');
+  let ln=nm.toUpperCase().replace(/ OUTLOOK$/,'');let fs=34;while(measure(g,ln,`800 ${fs}px ${FD}`)>500&&fs>22)fs--;while(measure(g,ln,`800 ${fs}px ${FD}`)>500&&ln.length>4)ln=ln.slice(0,-2)+'…';const bw=Math.max(400,Math.min(560,measure(g,ln,`800 ${fs}px ${FD}`)+60,measure(g,S[2],`700 18px ${FD}`,2)+60));const bx=W-70-bw,by=50;glass(g,bx,by,bw,110,12);text(g,S[2],bx+30,by+40,`700 18px ${FD}`,'#3ddc8c','left','alphabetic',2);text(g,ln,bx+30,by+86,`800 ${fs}px ${FD}`,'#ffffff');
   drawHeader(g,sc.title||S[1],sc.sub||autoSub(sc),t)}
 
 /* ---------- Point probe ---------- */
