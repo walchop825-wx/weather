@@ -226,7 +226,7 @@ button.pill{cursor:pointer;background:transparent}
 <div class="status">
   <span><kbd>Space</kbd> play / stop</span><span><kbd>←</kbd><kbd>→</kbd> previous / next</span><span><kbd>V</kbd> select</span><span><kbd>T</kbd> pen</span><span><kbd>B</kbd> contour</span><span><kbd>N</kbd> total</span><span><kbd>Del</kbd> delete selection</span><span><kbd>E</kbd> export PNG</span><span><kbd>K</kbd> storm track</span><span><kbd>L</kbd> map label</span><span><kbd>1</kbd>–<kbd>9</kbd> cue</span><span><kbd>Enter</kbd> take</span>
   <span id="srcNote"></span>
-  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-11 · 18</span>
+  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-11 · 19</span>
 </div>
 <input type="file" id="fileIn" accept=".json,application/json" hidden>
 
@@ -552,36 +552,63 @@ function genSample(){
 }
 async function fetchJSON(url,ms=9000){const ac=new AbortController();const id=setTimeout(()=>ac.abort(),ms);try{const r=await fetch(url,{signal:ac.signal});if(!r.ok)throw new Error('HTTP '+r.status);return await r.json()}finally{clearTimeout(id)}}
 const parseLocal=s=>new Date(s.length===10?s+'T12:00':s);
-async function loadLive(){
+/* Open-Meteo: counts every city in a request as one call (free limit 600 a minute, 5,000 an hour, 10,000 a day), so results are cached and spread out */
+const OMC='wgs-om-cache-v2';
+const idb={p:null,open(){return this.p||(this.p=new Promise((res,rej)=>{try{const r=indexedDB.open('wgs-cache',1);r.onupgradeneeded=()=>r.result.createObjectStore('kv');r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)}catch(e){rej(e)}}))},
+  async get(k){try{const d=await this.open();return await new Promise(res=>{const q=d.transaction('kv').objectStore('kv').get(k);q.onsuccess=()=>res(q.result);q.onerror=()=>res(null)})}catch(e){return null}},
+  async set(k,v){try{const d=await this.open();await new Promise(res=>{const t=d.transaction('kv','readwrite');t.objectStore('kv').put(v,k);t.oncomplete=res;t.onerror=res;t.onabort=res})}catch(e){}},
+  async del(k){try{const d=await this.open();await new Promise(res=>{const t=d.transaction('kv','readwrite');t.objectStore('kv').delete(k);t.oncomplete=res;t.onerror=res})}catch(e){}}};
+async function omRead(){return(await idb.get(OMC))||{}}
+async function omWrite(C){await idb.set(OMC,C)}
+const revD=a=>a.map(x=>new Date(x));
+function omErrText(e){const m=String(e&&e.message||e);return/429/.test(m)?"Open-Meteo's free limit is used up for now (too many requests)":/abort/i.test(m)?'Open-Meteo did not answer in time':/Failed to fetch|NetworkError|Load failed/i.test(m)?'Could not reach Open-Meteo':'Open-Meteo error: '+m}
+function omCities(){const eu=show.scenes.some(sc=>isEU(sc.region)||(sc.city&&CITIES[sc.city]&&CITIES[sc.city][2]>=-30)||(sc.type==='travel'&&(sc.cities||[]).some(k=>CITIES[k]&&CITIES[k][2]>=-30))||(sc.type==='extremes'&&sc.area==='eu'));return CITY_KEYS.filter(k=>eu||CITIES[k][2]<-30)}
+let omBusy=false;
+async function loadLive(force){
   const qFor=(keys,tz)=>`latitude=${keys.map(k=>CITIES[k][1]).join(',')}&longitude=${keys.map(k=>CITIES[k][2]).join(',')}&temperature_unit=fahrenheit&wind_speed_unit=mph&precipitation_unit=inch&timezone=${tz}`;
-  const q=qFor(CITY_KEYS,'America%2FNew_York');const cur={},daily={};
+  const C=await omRead(),now=Date.now();data.omErr=null;
   const NA=CITY_KEYS.filter(k=>CITIES[k][2]<-30),EU=CITY_KEYS.filter(k=>CITIES[k][2]>=-30);
-  const getCD=async(keys,tz)=>{const j=await fetchJSON(`https://api.open-meteo.com/v1/forecast?${qFor(keys,tz)}&current=temperature_2m,apparent_temperature,relative_humidity_2m,dew_point_2m,weather_code,wind_speed_10m,wind_direction_10m,wind_gusts_10m,is_day&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,snowfall_sum&forecast_days=7`,15000);
-    const arr=Array.isArray(j)?j:[j];arr.forEach((r,i)=>{const k=keys[i];const c=r.current;
-    cur[k]={t:Math.round(c.temperature_2m),feels:Math.round(c.apparent_temperature),rh:Math.round(c.relative_humidity_2m),dew:Math.round(c.dew_point_2m),code:c.weather_code,wind:Math.round(c.wind_speed_10m),wdir:c.wind_direction_10m,gust:Math.round(c.wind_gusts_10m),day:!!c.is_day};
-    const d=r.daily;daily[k]=d.time.map((t,x)=>({date:parseLocal(t),code:d.weather_code[x],hi:Math.round(d.temperature_2m_max[x]),lo:Math.round(d.temperature_2m_min[x]),pop:d.precipitation_probability_max[x]??0,snow:+(d.snowfall_sum[x]||0).toFixed(1)}))})};
-  await getCD(NA,'America%2FNew_York');try{if(EU.length)await getCD(EU,'auto')}catch(e){EU.forEach(k=>{if(data.cur[k])cur[k]=data.cur[k];if(data.daily[k])daily[k]=data.daily[k]})}
-  data.cur=cur;data.daily=daily;data.models={};CITY_KEYS.forEach(k=>data.models[k]={});
-  await Promise.all(MODELS.map(async m=>{
-    const mk=m.id==='gfs_hrrr'?CITY_KEYS.filter(k=>CITIES[k][2]<-50&&CITIES[k][2]>-135&&CITIES[k][1]>21&&CITIES[k][1]<55):CITY_KEYS;
-    try{const mj=await fetchJSON(`https://api.open-meteo.com/v1/forecast?${qFor(mk,'America%2FNew_York')}&hourly=temperature_2m,precipitation,snowfall&models=${m.id}&forecast_days=4`,20000);
-      const ma=Array.isArray(mj)?mj:[mj];
-      ma.forEach((r,i)=>{const h=r.hourly;const key=p=>Object.keys(h).find(x=>x.startsWith(p));
-        data.models[mk[i]][m.id]={time:h.time.map(parseLocal),temp:h[key('temperature_2m')],precip:h[key('precipitation')],snow:h[key('snowfall')]}});
-      data.modelOK[m.id]=true;
-    }catch(e){data.modelOK[m.id]=false}
-  }));
-  try{const hj=await fetchJSON(`https://api.open-meteo.com/v1/forecast?${q}&hourly=temperature_2m,apparent_temperature,wind_gusts_10m,wind_speed_10m,wind_direction_10m,weather_code,precipitation_probability&forecast_hours=49`,15000);const ha=Array.isArray(hj)?hj:[hj];data.hourly={};
-    ha.forEach((r,i)=>{const h=r.hourly;data.hourly[CITY_KEYS[i]]={time:h.time.map(parseLocal),temp:h.temperature_2m,feels:h.apparent_temperature,gust:h.wind_gusts_10m,wind:h.wind_speed_10m,wdir:h.wind_direction_10m,code:h.weather_code,pop:h.precipitation_probability}})}catch(e){if(!data.hourly)genHourly()}
-  data.source='live';data.updated=new Date();
+  const applyCD=cd=>{data.cur=cd.cur;data.daily={};for(const k in cd.daily)data.daily[k]=cd.daily[k].map(d=>Object.assign({},d,{date:new Date(d.date)}))};
+  if(!force&&C.cd&&now-C.cd.at<10*60e3){applyCD(C.cd);data.liveAt=new Date(C.cd.at)}
+  else{const cur={},daily={};
+    const getCD=async(keys,tz)=>{const j=await fetchJSON(`https://api.open-meteo.com/v1/forecast?${qFor(keys,tz)}&current=temperature_2m,apparent_temperature,relative_humidity_2m,dew_point_2m,weather_code,wind_speed_10m,wind_direction_10m,wind_gusts_10m,is_day&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,snowfall_sum&forecast_days=7`,15000);
+      const arr=Array.isArray(j)?j:[j];arr.forEach((r,i)=>{const k=keys[i];const c=r.current;
+      cur[k]={t:Math.round(c.temperature_2m),feels:Math.round(c.apparent_temperature),rh:Math.round(c.relative_humidity_2m),dew:Math.round(c.dew_point_2m),code:c.weather_code,wind:Math.round(c.wind_speed_10m),wdir:c.wind_direction_10m,gust:Math.round(c.wind_gusts_10m),day:!!c.is_day};
+      const d=r.daily;daily[k]=d.time.map((t,x)=>({date:parseLocal(t),code:d.weather_code[x],hi:Math.round(d.temperature_2m_max[x]),lo:Math.round(d.temperature_2m_min[x]),pop:d.precipitation_probability_max[x]??0,snow:+(d.snowfall_sum[x]||0).toFixed(1)}))})};
+    try{await getCD(NA,'America%2FNew_York');
+      const wantEU=omCities().some(k=>CITIES[k][2]>=-30);
+      if(wantEU){try{await getCD(EU,'auto')}catch(e){}}
+      EU.forEach(k=>{if(!cur[k]){const o=C.cd&&C.cd.cur[k];if(o){cur[k]=o;daily[k]=C.cd.daily[k].map(d=>Object.assign({},d,{date:new Date(d.date)}))}else if(data.cur[k]){cur[k]=data.cur[k];daily[k]=data.daily[k]}}});
+      data.cur=cur;data.daily=daily;C.cd={at:now,cur,daily};data.liveAt=new Date(now)}
+    catch(e){data.omErr=omErrText(e);if(C.cd&&now-C.cd.at<36*3600e3){applyCD(C.cd);data.liveAt=new Date(C.cd.at)}else{throw e}}}
+  // hourly: every 30 minutes
+  if(!force&&C.hr&&now-C.hr.at<30*60e3){data.hourly={};for(const k in C.hr.h)data.hourly[k]=Object.assign({},C.hr.h[k],{time:revD(C.hr.h[k].time)})}
+  else{const keys=omCities();try{const hj=await fetchJSON(`https://api.open-meteo.com/v1/forecast?${qFor(keys,'America%2FNew_York')}&hourly=temperature_2m,apparent_temperature,wind_gusts_10m,wind_speed_10m,wind_direction_10m,weather_code,precipitation_probability&forecast_hours=49`,15000);const ha=Array.isArray(hj)?hj:[hj];const H={};
+      ha.forEach((r,i)=>{const h=r.hourly;H[keys[i]]={time:h.time.map(parseLocal),temp:h.temperature_2m,feels:h.apparent_temperature,gust:h.wind_gusts_10m,wind:h.wind_speed_10m,wdir:h.wind_direction_10m,code:h.weather_code,pop:h.precipitation_probability}});
+      data.hourly=H;C.hr={at:now,h:H}}
+    catch(e){data.omErr=data.omErr||omErrText(e);if(C.hr){data.hourly={};for(const k in C.hr.h)data.hourly[k]=Object.assign({},C.hr.h[k],{time:revD(C.hr.h[k].time)})}else if(!data.hourly)genHourly()}}
+  // models: cached for an hour, fetched one at a time in the background
+  const cachedModels=()=>{if(!C.md)return false;data.models={};CITY_KEYS.forEach(k=>data.models[k]={});for(const k in C.md.m){for(const mid in C.md.m[k]){const o=C.md.m[k][mid];data.models[k][mid]=Object.assign({},o,{time:revD(o.time)})}}MODELS.forEach(m=>data.modelOK[m.id]=C.md.ok[m.id]!==false);return true};
+  const haveCache=cachedModels();if(!haveCache&&data.source!=='live'){data.models={};CITY_KEYS.forEach(k=>data.models[k]={});MODELS.forEach(m=>delete data.modelOK[m.id])}
+  data.source='live';data.updated=new Date();await omWrite(C);
+  if(force||!C.md||now-C.md.at>60*60e3)loadModelsBg(qFor,haveCache);
 }
+async function loadModelsBg(qFor,haveCache){if(omBusy)return;omBusy=true;const keys=omCities();const M={},ok={};const out={};
+  try{for(const m of MODELS){const mk=m.id==='gfs_hrrr'?keys.filter(k=>CITIES[k][2]<-50&&CITIES[k][2]>-135&&CITIES[k][1]>21&&CITIES[k][1]<55):keys;
+    try{const mj=await fetchJSON(`https://api.open-meteo.com/v1/forecast?${qFor(mk,'America%2FNew_York')}&hourly=temperature_2m,precipitation,snowfall&models=${m.id}&forecast_days=4`,20000);const ma=Array.isArray(mj)?mj:[mj];
+      ma.forEach((r,i)=>{const h=r.hourly;const key=p=>Object.keys(h).find(x=>x.startsWith(p));const o={time:h.time.map(parseLocal),temp:h[key('temperature_2m')],precip:h[key('precipitation')],snow:h[key('snowfall')]};(out[mk[i]]=out[mk[i]]||{})[m.id]=o;
+        if(!data.models[mk[i]])data.models[mk[i]]={};data.models[mk[i]][m.id]=o});ok[m.id]=true;data.modelOK[m.id]=true}
+    catch(e){ok[m.id]=false;if(!haveCache)data.modelOK[m.id]=false;data.omErr=data.omErr||omErrText(e)}
+    data.updated=new Date();for(const k in guideCache)delete guideCache[k];queueThumbs();if(m!==MODELS[MODELS.length-1])await new Promise(r=>setTimeout(r,16000))}
+    if(Object.values(ok).some(Boolean)){const C=await omRead();C.md={at:Date.now(),m:out,ok};await omWrite(C)}}
+  finally{omBusy=false}}
 function genHourly(){data.hourly={};const now=new Date();now.setMinutes(0,0,0);for(const k of CITY_KEYS){const d=data.daily[k];if(!d)continue;const h=hash(k+'w');const o={time:[],temp:[],feels:[],gust:[],wind:[],wdir:[],code:[],pop:[]};
   for(let i=0;i<49;i++){const t=new Date(now.getTime()+i*3600e3);const di=Math.min(d.length-1,Math.max(0,Math.floor((t-new Date(now.getFullYear(),now.getMonth(),now.getDate()))/864e5)));const dd=d[di];const dn=.5-.5*Math.cos(2*Math.PI*(t.getHours()-3)/24);
     const tp=lerp(dd.lo,dd.hi,dn);const gu=Math.max(5,14+12*Math.sin((i+h*20)/7)+(dd.code>=60?10:0)+h*6);o.time.push(t);o.temp.push(+tp.toFixed(1));o.gust.push(Math.round(gu));o.wind.push(Math.round(gu*.6));o.wdir.push(Math.round((260+h*60+i*3)%360));o.code.push(dd.code);o.pop.push(dd.pop);o.feels.push(Math.round(tp<50?tp-gu*.35:tp))}data.hourly[k]=o}}
 async function refresh(){
   $('#dataTxt').textContent='Loading';
-  try{await loadLive();data.note='';}
-  catch(e){if(data.source!=='live'){genSample();}data.note='Live data could not load here. Showing sample data. Open the standalone file in a browser for live Open-Meteo and NOAA data.'}
+  try{await loadLive(refresh.force);refresh.force=false;data.note=data.omErr?data.omErr+'. Showing live data saved at '+(data.liveAt?data.liveAt.toLocaleTimeString([], {hour:'numeric',minute:'2-digit'}):'earlier')+'.':'';}
+  catch(e){if(data.source!=='live'){genSample();}data.note=(data.omErr||omErrText(e))+'. Showing sample data until it answers. It tries again every 15 minutes.'}
   for(const k in guideCache)delete guideCache[k];
   updateStatus();queueThumbs();renderInspector();loadNws();loadAlerts();loadEuWarnings();
 }
@@ -2541,7 +2568,7 @@ $('#bClickAdv').addEventListener('click',e=>{show.settings.clickAdvance=!show.se
 function updClickAdv(){const b=$('#bClickAdv');b.classList.toggle('on',clickMode());b.textContent=clickMode()?'Click to advance: on':'Click to advance'}
 $('#bLoop').addEventListener('click',e=>{show.settings.loop=!show.settings.loop;e.currentTarget.classList.toggle('on',show.settings.loop);save()});
 $('#bPng').addEventListener('click',exportPng);$('#bRec').addEventListener('click',startRec);
-$('#bRefresh').addEventListener('click',()=>{for(const k in radarImgs)delete radarImgs[k];refresh()});
+$('#bRefresh').addEventListener('click',()=>{for(const k in radarImgs)delete radarImgs[k];refresh.force=true;refresh()});
 $('#bSafe').addEventListener('click',e=>{const s=$('#safe');s.hidden=!s.hidden;e.currentTarget.classList.toggle('on',!s.hidden)});
 $('#bAdd').addEventListener('click',()=>{const t=$('#addType').value;const sc=newScene(t,{region:'pa',city:show.settings.bugCity||'harrisburg'});show.scenes.splice(cur+1,0,sc);save();goTo(cur+1)});
 document.addEventListener('keydown',e=>{
@@ -2636,8 +2663,8 @@ document.addEventListener('keydown',e=>{if(e.target.closest&&e.target.closest('i
 function stRow(ok,name,detail,when){const col=ok==='ok'?'var(--ok)':ok==='warn'?'var(--warn)':ok==='bad'?'var(--onair)':'var(--muted)';return`<div class="strow"><i style="background:${col}"></i><div><b>${esc(name)}</b><small>${esc(detail)}</small></div><small>${when?esc(when):''}</small></div>`}
 const tm=d=>d?new Date(d).toLocaleTimeString([], {hour:'numeric',minute:'2-digit'}):'';
 function renderStatus(){const R=[];const live=data.source==='live';
-  R.push(stRow(live?'ok':'warn','Forecasts and current conditions',live?'Open-Meteo, live':'Sample data. Live data loads on the GitHub site and in the standalone file.',tm(data.updated)));
-  MODELS.forEach(m=>R.push(stRow(data.modelOK[m.id]===false?'bad':live?'ok':'warn',m.n+' model',data.modelOK[m.id]===false?'Could not load':live?'Live':'Sample','')));
+  R.push(stRow(live&&!data.omErr?'ok':'warn','Forecasts and current conditions',live?(data.omErr?data.omErr+'. Using live data saved at '+tm(data.liveAt)+'.':'Open-Meteo, live'):(data.omErr||'Sample data')+(/^https?:/.test(location.protocol)&&!/claude/.test(location.host)?'':' Live data loads on the GitHub site and in the standalone file.'),tm(data.liveAt||data.updated)));
+  MODELS.forEach(m=>R.push(stRow(data.modelOK[m.id]===false?'bad':data.modelOK[m.id]==null?'idle':live?'ok':'warn',m.n+' model',data.modelOK[m.id]===false?'Could not load':data.modelOK[m.id]==null?'Loading, one model every 16 seconds to stay under the free limit':live?'Live':'Sample','')));
   R.push(stRow(nws.obsStatus==='ok'?'ok':nws.obsStatus==='fail'?'bad':'idle','NWS station observations',nws.obsStatus==='off'?'Not in use. Turn on under Show, Data sources.':nws.obsStatus,tm(nws.obsAt)));
   R.push(stRow(nws.fcStatus==='ok'?'ok':nws.fcStatus==='fail'?'bad':'idle','NWS official forecast',nws.fcStatus==='off'?'Not in use. Turn on under Show, Data sources.':nws.fcStatus,''));
   R.push(stRow(alerts.sample?'warn':alerts.status==='ok'?'ok':alerts.status==='loading'?'idle':'bad','NWS watches and warnings',alerts.sample?'Sample alerts':alerts.status==='ok'?alerts.list.length+' active alerts':alerts.status,tm(alerts.at)));
