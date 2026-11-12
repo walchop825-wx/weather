@@ -226,7 +226,7 @@ button.pill{cursor:pointer;background:transparent}
 <div class="status">
   <span><kbd>Space</kbd> play / stop</span><span><kbd>←</kbd><kbd>→</kbd> previous / next</span><span><kbd>V</kbd> select</span><span><kbd>T</kbd> pen</span><span><kbd>B</kbd> contour</span><span><kbd>N</kbd> total</span><span><kbd>Del</kbd> delete selection</span><span><kbd>E</kbd> export PNG</span><span><kbd>K</kbd> storm track</span><span><kbd>L</kbd> map label</span><span><kbd>1</kbd>–<kbd>9</kbd> cue</span><span><kbd>Enter</kbd> take</span>
   <span id="srcNote"></span>
-  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-11 · 19</span>
+  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-11 · 20</span>
 </div>
 <input type="file" id="fileIn" accept=".json,application/json" hidden>
 
@@ -562,13 +562,14 @@ async function omRead(){return(await idb.get(OMC))||{}}
 async function omWrite(C){await idb.set(OMC,C)}
 const revD=a=>a.map(x=>new Date(x));
 function omErrText(e){const m=String(e&&e.message||e);return/429/.test(m)?"Open-Meteo's free limit is used up for now (too many requests)":/abort/i.test(m)?'Open-Meteo did not answer in time':/Failed to fetch|NetworkError|Load failed/i.test(m)?'Could not reach Open-Meteo':'Open-Meteo error: '+m}
+function modelCities(){const S=new Set();show.scenes.forEach(sc=>{if(['futuremap','rainfall','snowfall','snow','timeline'].includes(sc.type)){try{candCities(sc.region).forEach(k=>S.add(k));mapCities(sc).forEach(k=>S.add(k))}catch(e){}}if(['hourly','models'].includes(sc.type)&&CITIES[sc.city])S.add(sc.city)});return CITY_KEYS.filter(k=>S.has(k))}
+function usedCities(){const S=new Set(modelCities());S.add(show.settings.bugCity||'harrisburg');show.scenes.forEach(sc=>{if(sc.city&&CITIES[sc.city])S.add(sc.city);if(isMapType(sc.type)&&sc.region!=='us'){try{mapCities(sc).forEach(k=>S.add(k))}catch(e){}}if(['travel','ustemps'].includes(sc.type))(sc.cities||[]).forEach(k=>S.add(k))});return CITY_KEYS.filter(k=>S.has(k))}
 function omCities(){const eu=show.scenes.some(sc=>isEU(sc.region)||(sc.city&&CITIES[sc.city]&&CITIES[sc.city][2]>=-30)||(sc.type==='travel'&&(sc.cities||[]).some(k=>CITIES[k]&&CITIES[k][2]>=-30))||(sc.type==='extremes'&&sc.area==='eu'));return CITY_KEYS.filter(k=>eu||CITIES[k][2]<-30)}
-let omBusy=false;
+let omBusy=false;const omQ=(keys,tz)=>`latitude=${keys.map(k=>CITIES[k][1]).join(',')}&longitude=${keys.map(k=>CITIES[k][2]).join(',')}&temperature_unit=fahrenheit&wind_speed_unit=mph&precipitation_unit=inch&timezone=${tz}`;
 async function loadLive(force){
-  const qFor=(keys,tz)=>`latitude=${keys.map(k=>CITIES[k][1]).join(',')}&longitude=${keys.map(k=>CITIES[k][2]).join(',')}&temperature_unit=fahrenheit&wind_speed_unit=mph&precipitation_unit=inch&timezone=${tz}`;
-  const C=await omRead(),now=Date.now();data.omErr=null;
+  const qFor=omQ;const C=await omRead(),now=Date.now();data.omErr=null;
   const NA=CITY_KEYS.filter(k=>CITIES[k][2]<-30),EU=CITY_KEYS.filter(k=>CITIES[k][2]>=-30);
-  const applyCD=cd=>{data.cur=cd.cur;data.daily={};for(const k in cd.daily)data.daily[k]=cd.daily[k].map(d=>Object.assign({},d,{date:new Date(d.date)}))};
+  const applyCD=cd=>{data.cur=Object.assign({},cd.cur);data.daily={};for(const k in cd.daily)data.daily[k]=cd.daily[k].map(d=>Object.assign({},d,{date:new Date(d.date)}))};
   if(!force&&C.cd&&now-C.cd.at<10*60e3){applyCD(C.cd);data.liveAt=new Date(C.cd.at)}
   else{const cur={},daily={};
     const getCD=async(keys,tz)=>{const j=await fetchJSON(`https://api.open-meteo.com/v1/forecast?${qFor(keys,tz)}&current=temperature_2m,apparent_temperature,relative_humidity_2m,dew_point_2m,weather_code,wind_speed_10m,wind_direction_10m,wind_gusts_10m,is_day&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,snowfall_sum&forecast_days=7`,15000);
@@ -576,45 +577,67 @@ async function loadLive(force){
       cur[k]={t:Math.round(c.temperature_2m),feels:Math.round(c.apparent_temperature),rh:Math.round(c.relative_humidity_2m),dew:Math.round(c.dew_point_2m),code:c.weather_code,wind:Math.round(c.wind_speed_10m),wdir:c.wind_direction_10m,gust:Math.round(c.wind_gusts_10m),day:!!c.is_day};
       const d=r.daily;daily[k]=d.time.map((t,x)=>({date:parseLocal(t),code:d.weather_code[x],hi:Math.round(d.temperature_2m_max[x]),lo:Math.round(d.temperature_2m_min[x]),pop:d.precipitation_probability_max[x]??0,snow:+(d.snowfall_sum[x]||0).toFixed(1)}))})};
     try{await getCD(NA,'America%2FNew_York');
-      const wantEU=omCities().some(k=>CITIES[k][2]>=-30);
-      if(wantEU){try{await getCD(EU,'auto')}catch(e){}}
+      if(omCities().some(k=>CITIES[k][2]>=-30)){try{await getCD(EU,'auto')}catch(e){}}
       EU.forEach(k=>{if(!cur[k]){const o=C.cd&&C.cd.cur[k];if(o){cur[k]=o;daily[k]=C.cd.daily[k].map(d=>Object.assign({},d,{date:new Date(d.date)}))}else if(data.cur[k]){cur[k]=data.cur[k];daily[k]=data.daily[k]}}});
       data.cur=cur;data.daily=daily;C.cd={at:now,cur,daily};data.liveAt=new Date(now)}
     catch(e){data.omErr=omErrText(e);if(C.cd&&now-C.cd.at<36*3600e3){applyCD(C.cd);data.liveAt=new Date(C.cd.at)}else{throw e}}}
-  // hourly: every 30 minutes
-  if(!force&&C.hr&&now-C.hr.at<30*60e3){data.hourly={};for(const k in C.hr.h)data.hourly[k]=Object.assign({},C.hr.h[k],{time:revD(C.hr.h[k].time)})}
-  else{const keys=omCities();try{const hj=await fetchJSON(`https://api.open-meteo.com/v1/forecast?${qFor(keys,'America%2FNew_York')}&hourly=temperature_2m,apparent_temperature,wind_gusts_10m,wind_speed_10m,wind_direction_10m,weather_code,precipitation_probability&forecast_hours=49`,15000);const ha=Array.isArray(hj)?hj:[hj];const H={};
-      ha.forEach((r,i)=>{const h=r.hourly;H[keys[i]]={time:h.time.map(parseLocal),temp:h.temperature_2m,feels:h.apparent_temperature,gust:h.wind_gusts_10m,wind:h.wind_speed_10m,wdir:h.wind_direction_10m,code:h.weather_code,pop:h.precipitation_probability}});
-      data.hourly=H;C.hr={at:now,h:H}}
-    catch(e){data.omErr=data.omErr||omErrText(e);if(C.hr){data.hourly={};for(const k in C.hr.h)data.hourly[k]=Object.assign({},C.hr.h[k],{time:revD(C.hr.h[k].time)})}else if(!data.hourly)genHourly()}}
+  data.nwsFb=false;
+  // hourly, only for cities a scene needs; every 30 minutes, filling in new cities as scenes are added
+  const need=modelCities();const cachedH=()=>{data.hourly={};if(C.hr)for(const k in C.hr.h)data.hourly[k]=Object.assign({},C.hr.h[k],{time:revD(C.hr.h[k].time)})};
+  const staleH=force||!C.hr||now-C.hr.at>30*60e3;const getH=staleH?need:need.filter(k=>!(C.hr&&C.hr.h[k]));cachedH();
+  if(getH.length){try{const hj=await fetchJSON(`https://api.open-meteo.com/v1/forecast?${qFor(getH,'America%2FNew_York')}&hourly=temperature_2m,apparent_temperature,wind_gusts_10m,wind_speed_10m,wind_direction_10m,weather_code,precipitation_probability&forecast_hours=49`,15000);const ha=Array.isArray(hj)?hj:[hj];const H=staleH?{}:Object.assign({},(C.hr&&C.hr.h)||{});
+      ha.forEach((r,i)=>{const h=r.hourly;H[getH[i]]={time:h.time.map(parseLocal),temp:h.temperature_2m,feels:h.apparent_temperature,gust:h.wind_gusts_10m,wind:h.wind_speed_10m,wdir:h.wind_direction_10m,code:h.weather_code,pop:h.precipitation_probability}});
+      C.hr={at:staleH?now:(C.hr?C.hr.at:now),h:H};cachedH()}
+    catch(e){data.omErr=data.omErr||omErrText(e);if(!C.hr&&!Object.keys(data.hourly).length)genHourly()}}
   // models: cached for an hour, fetched one at a time in the background
   const cachedModels=()=>{if(!C.md)return false;data.models={};CITY_KEYS.forEach(k=>data.models[k]={});for(const k in C.md.m){for(const mid in C.md.m[k]){const o=C.md.m[k][mid];data.models[k][mid]=Object.assign({},o,{time:revD(o.time)})}}MODELS.forEach(m=>data.modelOK[m.id]=C.md.ok[m.id]!==false);return true};
   const haveCache=cachedModels();if(!haveCache&&data.source!=='live'){data.models={};CITY_KEYS.forEach(k=>data.models[k]={});MODELS.forEach(m=>delete data.modelOK[m.id])}
   data.source='live';data.updated=new Date();await omWrite(C);
-  if(force||!C.md||now-C.md.at>60*60e3)loadModelsBg(qFor,haveCache);
+  const staleM=force||!C.md||now-C.md.at>60*60e3;const getM=staleM?need:need.filter(k=>!(C.md&&C.md.m[k]));
+  if(getM.length)loadModelsBg(getM,haveCache,!staleM);
 }
-async function loadModelsBg(qFor,haveCache){if(omBusy)return;omBusy=true;const keys=omCities();const M={},ok={};const out={};
-  try{for(const m of MODELS){const mk=m.id==='gfs_hrrr'?keys.filter(k=>CITIES[k][2]<-50&&CITIES[k][2]>-135&&CITIES[k][1]>21&&CITIES[k][1]<55):keys;
-    try{const mj=await fetchJSON(`https://api.open-meteo.com/v1/forecast?${qFor(mk,'America%2FNew_York')}&hourly=temperature_2m,precipitation,snowfall&models=${m.id}&forecast_days=4`,20000);const ma=Array.isArray(mj)?mj:[mj];
+async function loadModelsBg(keys,haveCache,merge){if(omBusy)return;omBusy=true;const ok={};const out={};
+  try{for(const m of MODELS){const mk=m.id==='gfs_hrrr'?keys.filter(k=>CITIES[k][2]<-50&&CITIES[k][2]>-135&&CITIES[k][1]>21&&CITIES[k][1]<55):keys;if(!mk.length)continue;
+    try{const mj=await fetchJSON(`https://api.open-meteo.com/v1/forecast?${omQ(mk,'America%2FNew_York')}&hourly=temperature_2m,precipitation,snowfall&models=${m.id}&forecast_days=4`,20000);const ma=Array.isArray(mj)?mj:[mj];
       ma.forEach((r,i)=>{const h=r.hourly;const key=p=>Object.keys(h).find(x=>x.startsWith(p));const o={time:h.time.map(parseLocal),temp:h[key('temperature_2m')],precip:h[key('precipitation')],snow:h[key('snowfall')]};(out[mk[i]]=out[mk[i]]||{})[m.id]=o;
         if(!data.models[mk[i]])data.models[mk[i]]={};data.models[mk[i]][m.id]=o});ok[m.id]=true;data.modelOK[m.id]=true}
     catch(e){ok[m.id]=false;if(!haveCache)data.modelOK[m.id]=false;data.omErr=data.omErr||omErrText(e)}
-    data.updated=new Date();for(const k in guideCache)delete guideCache[k];queueThumbs();if(m!==MODELS[MODELS.length-1])await new Promise(r=>setTimeout(r,16000))}
-    if(Object.values(ok).some(Boolean)){const C=await omRead();C.md={at:Date.now(),m:out,ok};await omWrite(C)}}
+    data.updated=new Date();for(const k in guideCache)delete guideCache[k];queueThumbs();if(m!==MODELS[MODELS.length-1])await new Promise(r=>setTimeout(r,keys.length>60?16000:5000))}
+    if(Object.values(ok).some(Boolean)){const C=await omRead();if(merge&&C.md){Object.assign(C.md.m,out)}else C.md={at:Date.now(),m:out,ok};await omWrite(C)}}
   finally{omBusy=false}}
+let covT=null;function ensureCoverage(){clearTimeout(covT);covT=setTimeout(async()=>{if(data.source!=='live')return;const need=modelCities();if(need.some(k=>!data.hourly[k]||!MODELS.some(m=>data.models[k]&&data.models[k][m.id]))){try{await loadLive(false);queueThumbs()}catch(e){}}},2500)}
+
+/* ---------- NWS backup when Open-Meteo is unavailable (US cities) ---------- */
+const COMPASS={N:0,NNE:22.5,NE:45,ENE:67.5,E:90,ESE:112.5,SE:135,SSE:157.5,S:180,SSW:202.5,SW:225,WSW:247.5,W:270,WNW:292.5,NW:315,NNW:337.5};
+async function nwsPoint(k){const ck='wgs-pt2-'+k;try{const c=JSON.parse(localStorage.getItem(ck)||'null');if(c&&c.forecastGridData)return c}catch(e){}
+  const p=(await fetchJSON(`https://api.weather.gov/points/${CITIES[k][1].toFixed(4)},${CITIES[k][2].toFixed(4)}`,10000)).properties;const o={forecast:p.forecast,forecastHourly:p.forecastHourly,forecastGridData:p.forecastGridData};try{localStorage.setItem(ck,JSON.stringify(o));localStorage.setItem('wgs-pt-'+k,o.forecast)}catch(e){}return o}
+const isoDur=s=>{const m=String(s).match(/P(?:(\d+)D)?T?(?:(\d+)H)?/);return m?((+m[1]||0)*24+(+m[2]||0))||1:1};
+async function nwsBackupCity(k){const P=await nwsPoint(k);
+  const per=(await fetchJSON(P.forecastHourly,12000)).properties.periods.slice(0,60);const mph=w=>{const n=String(w||'').match(/\d+/g);return n?Math.max(...n.map(Number)):null};
+  data.hourly[k]={time:per.map(p=>new Date(p.startTime)),temp:per.map(p=>p.temperature),feels:per.map(p=>p.temperature),wind:per.map(p=>mph(p.windSpeed)),gust:per.map(p=>{const w=mph(p.windSpeed);return w==null?null:Math.round(w*1.4)}),wdir:per.map(p=>COMPASS[p.windDirection]??null),code:per.map(p=>textCode(p.shortForecast,3)),pop:per.map(p=>(p.probabilityOfPrecipitation&&p.probabilityOfPrecipitation.value)||0)};
+  const G=(await fetchJSON(P.forecastGridData,15000)).properties;const t0=new Date();t0.setHours(0,0,0,0);const N=96;const time=Array.from({length:N},(_,i)=>new Date(t0.getTime()+i*3600e3));
+  const spread=(L,conv)=>{const a=new Array(N).fill(0);((L&&L.values)||[]).forEach(v=>{const[st,du]=v.validTime.split('/');const h=isoDur(du),s0=Math.round((new Date(st)-t0)/3600e3);for(let x=0;x<h;x++){const i=s0+x;if(i>=0&&i<N)a[i]+=conv(v.value)/h}});return a};
+  const temps=new Array(N).fill(null);((G.temperature&&G.temperature.values)||[]).forEach(v=>{const[st,du]=v.validTime.split('/');const h=isoDur(du),s0=Math.round((new Date(st)-t0)/3600e3);for(let x=0;x<h;x++){const i=s0+x;if(i>=0&&i<N)temps[i]=Math.round(v.value*9/5+32)}});
+  (data.models[k]=data.models[k]||{}).nws={time,temp:temps,precip:spread(G.quantitativePrecipitation,mm=>(mm||0)/25.4),snow:spread(G.snowfallAmount,mm=>(mm||0)/25.4)};
+  await nwsForecast(k);if(nws.fc[k])data.daily[k]=nws.fc[k].map(d=>Object.assign({},d,{snow:0}))}
+async function loadNwsBackup(){data.nwsFb=true;data.nwsFbStatus='loading';CITY_KEYS.forEach(k=>{const n=data.models[k]&&data.models[k].nws;data.models[k]=n?{nws:n}:{}});MODELS.forEach(m=>data.modelOK[m.id]=false);updateStatus();
+  try{await loadNwsObs();for(const k in nws.obs){const o=nws.obs[k];data.cur[k]=Object.assign({},data.cur[k]||{},o,{feels:o.feels??o.t})}}catch(e){}
+  const ks=usedCities().filter(k=>CITIES[k][2]<-50&&CITIES[k][1]>17);let ok=0;
+  await pool(ks,4,async k=>{try{await nwsBackupCity(k);ok++}catch(e){}});data.nwsFbStatus=ok||Object.keys(nws.obs).length?'ok':'fail';if(data.nwsFbStatus==='ok'){data.source='nws';data.liveAt=new Date()}
+  data.updated=new Date();for(const k in guideCache)delete guideCache[k];updateStatus();queueThumbs();renderInspector()}
 function genHourly(){data.hourly={};const now=new Date();now.setMinutes(0,0,0);for(const k of CITY_KEYS){const d=data.daily[k];if(!d)continue;const h=hash(k+'w');const o={time:[],temp:[],feels:[],gust:[],wind:[],wdir:[],code:[],pop:[]};
   for(let i=0;i<49;i++){const t=new Date(now.getTime()+i*3600e3);const di=Math.min(d.length-1,Math.max(0,Math.floor((t-new Date(now.getFullYear(),now.getMonth(),now.getDate()))/864e5)));const dd=d[di];const dn=.5-.5*Math.cos(2*Math.PI*(t.getHours()-3)/24);
     const tp=lerp(dd.lo,dd.hi,dn);const gu=Math.max(5,14+12*Math.sin((i+h*20)/7)+(dd.code>=60?10:0)+h*6);o.time.push(t);o.temp.push(+tp.toFixed(1));o.gust.push(Math.round(gu));o.wind.push(Math.round(gu*.6));o.wdir.push(Math.round((260+h*60+i*3)%360));o.code.push(dd.code);o.pop.push(dd.pop);o.feels.push(Math.round(tp<50?tp-gu*.35:tp))}data.hourly[k]=o}}
 async function refresh(){
   $('#dataTxt').textContent='Loading';
   try{await loadLive(refresh.force);refresh.force=false;data.note=data.omErr?data.omErr+'. Showing live data saved at '+(data.liveAt?data.liveAt.toLocaleTimeString([], {hour:'numeric',minute:'2-digit'}):'earlier')+'.':'';}
-  catch(e){if(data.source!=='live'){genSample();}data.note=(data.omErr||omErrText(e))+'. Showing sample data until it answers. It tries again every 15 minutes.'}
+  catch(e){if(data.source==='nws'){data.note=(data.omErr||omErrText(e))+'. Using NWS data for US cities. Open-Meteo is tried again every 15 minutes.';loadNwsBackup()}else if(data.source!=='live'){genSample();data.note=(data.omErr||omErrText(e))+'. Switching to NWS data for US cities. Open-Meteo is tried again every 15 minutes.';loadNwsBackup()}else data.note=(data.omErr||omErrText(e))+'. It tries again every 15 minutes.'}
   for(const k in guideCache)delete guideCache[k];
   updateStatus();queueThumbs();renderInspector();loadNws();loadAlerts();loadEuWarnings();
 }
 function updateStatus(){
-  const live=data.source==='live';const p=$('#dataPill');p.className='pill '+(live?'live':'sample');
-  $('#dataTxt').textContent=(live?'Live data · ':'Sample data · ')+(data.updated?data.updated.toLocaleTimeString([], {hour:'numeric',minute:'2-digit'}):'');
+  const live=data.source==='live',nw=data.source==='nws';const p=$('#dataPill');p.className='pill '+(live&&!data.omErr?'live':'sample');
+  $('#dataTxt').textContent=(live?(data.omErr?'Saved live data · ':'Live data · '):nw?'NWS backup · ':data.nwsFb?'Loading NWS · ':'Sample data · ')+(data.updated?data.updated.toLocaleTimeString([], {hour:'numeric',minute:'2-digit'}):'');
   $('#srcNote').textContent=data.note;
 }
 function startIndex(series){if(!series)return 0;const now=Date.now()-40*60e3;const i=series.time.findIndex(d=>d.getTime()>=now);return i<0?0:i}
@@ -623,11 +646,11 @@ function snowTotal(k,src,hours=72){
   const one=mid=>{const s=modelSeries(k,mid,'snow',hours);if(!s)return null;let t=0,n=0;s.val.forEach(v=>{if(v!=null){t+=v;n++}});return n?t:null};
   if(src&&src!=='consensus')return one(src);
   const vals=MODELS.filter(m=>m.id!=='gfs_hrrr').map(m=>one(m.id)).filter(v=>v!=null);
-  return vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:null;
+  return vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:one('nws');
 }
 
 /* ---------- National Weather Service: observations, official forecast, alerts ---------- */
-const STATIONS={erie:'KERI',bradford:'KBFD',williamsport:'KIPT',scranton:'KAVP',pittsburgh:'KPIT',statecollege:'KUNV',altoona:'KAOO',johnstown:'KJST',
+const STATIONS={tampa:'KTPA',jacksonville:'KJAX',charleston:'KCHS',norfolk:'KORF',corpuschristi:'KCRP',sanjuan:'TJSJ',erie:'KERI',bradford:'KBFD',williamsport:'KIPT',scranton:'KAVP',pittsburgh:'KPIT',statecollege:'KUNV',altoona:'KAOO',johnstown:'KJST',
  harrisburg:'KMDT',lancaster:'KLNS',york:'KTHV',reading:'KRDG',allentown:'KABE',philadelphia:'KPHL',lebanon:'KMUI',pottsville:'KZER',carlisle:'KCXY',
  sunbury:'KSEG',lewistown:'KRVL',wilkesbarre:'KWBW',stroudsburg:'KMPO',hazleton:'KHZL',doylestown:'KDYL',dubois:'KDUJ',
  nyc:'KNYC',albany:'KALB',buffalo:'KBUF',syracuse:'KSYR',rochester:'KROC',binghamton:'KBGM',boston:'KBOS',hartford:'KHFD',providence:'KPVD',
@@ -979,7 +1002,7 @@ function defaultShow(){
 }
 const STORE='wgs-show-v2';
 function loadShow(){try{const s=JSON.parse(localStorage.getItem(STORE)||'null');if(s&&Array.isArray(s.scenes)&&s.scenes.length){s.scenes=s.scenes.map(x=>newScene(x.type,x));return s}}catch(e){}return null}
-let saveT,appReady=false;function save(){if(appReady&&!fileDirty){fileDirty=true;try{localStorage.setItem('wgs-dirty','1')}catch(e){}updSaveBtn()}clearTimeout(saveT);saveT=setTimeout(()=>{try{localStorage.setItem(STORE,JSON.stringify(show))}catch(e){}if(typeof snapShow==='function')snapShow()},400)}
+let saveT,appReady=false;function save(){if(appReady&&!fileDirty){fileDirty=true;try{localStorage.setItem('wgs-dirty','1')}catch(e){}updSaveBtn()}clearTimeout(saveT);saveT=setTimeout(()=>{try{localStorage.setItem(STORE,JSON.stringify(show))}catch(e){}if(typeof snapShow==='function')snapShow();if(typeof ensureCoverage==='function')ensureCoverage()},400)}
 let show=loadShow()||defaultShow();
 show.settings.breaking=show.settings.breaking||{on:true,auto:false,events:['Tornado Warning','Severe Thunderstorm Warning','Flash Flood Warning','Snow Squall Warning'],areas:{PA:[]}};
 if(!show.settings.paMapsAdded){
@@ -1629,7 +1652,7 @@ const RAIN_SRC_NAMES={consensus:'Model Blend',gfs_hrrr:'HRRR',gfs_seamless:'GFS'
 function rainTotal(k,src,hours,v='precip'){if(hours<=0)return 0;
   const one=mid=>{const s=modelSeries(k,mid,v,hours);if(!s)return null;let t=0,n=0;s.val.forEach(v=>{if(v!=null){t+=v;n++}});return n>=hours-2?t:null};
   if(src&&src!=='consensus')return one(src);
-  const vals=MODELS.filter(m=>m.id!=='gfs_hrrr').map(m=>one(m.id)).filter(v=>v!=null);return vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:null}
+  const vals=MODELS.filter(m=>m.id!=='gfs_hrrr').map(m=>one(m.id)).filter(v=>v!=null);return vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:one('nws')}
 const rainCache={};let rainOrder=[];
 function rainField(rk,src,hours,v='precip'){const key=rk+'|'+src+'|'+hours+'|'+v+'|'+(data.updated?data.updated.getTime():0);if(rainCache[key])return rainCache[key];
   const P=proj(rk);const pts=CITY_KEYS.map(k=>({lat:CITIES[k][1],lon:CITIES[k][2],v:rainTotal(k,src,hours,v)})).filter(p=>p.v!=null);const gw=96,gh=54;const sm=document.createElement('canvas');sm.width=gw;sm.height=gh;const sg=sm.getContext('2d');const id=sg.createImageData(gw,gh);
@@ -1672,14 +1695,14 @@ function renderRainfall(g,sc,t,o){
     RAIN_RANGES.slice().reverse().forEach((r,i)=>{const y=ly+58+i*rh;g.fillStyle=r.c;rr(g,lx+24,y+9,48,34,6);g.fill();text(g,rainLegendLabel(r,RAIN_RANGES.length-1-i,sc.units),lx+88,y+37,`700 28px ${FD}`,'#ffffff')})}
   g.restore();
   if(msg){const f=`800 34px ${FD}`;const w=measure(g,msg,f,2)+60;glass(g,(W-w)/2,H/2-40,w,80,12);text(g,msg,W/2,H/2+12,f,'#ffffff','center','alphabetic',2)}
-  const bx=W-430,by=50;glass(g,bx,by,360,110,12);text(g,wpc?'NWS WEATHER PREDICTION':(sc.src==='consensus'?'MODEL BLEND':RAIN_SRC_NAMES[sc.src]+' MODEL'),bx+30,by+40,`700 20px ${FD}`,wpc?'#3ddc8c':'#4fb3ff','left','alphabetic',2.5);
+  const bx=W-430,by=50;glass(g,bx,by,360,110,12);text(g,wpc?'NWS WEATHER PREDICTION':data.source==='nws'&&sc.src==='consensus'?'NWS FORECAST':(sc.src==='consensus'?'MODEL BLEND':RAIN_SRC_NAMES[sc.src]+' MODEL'),bx+30,by+40,`700 20px ${FD}`,wpc?'#3ddc8c':'#4fb3ff','left','alphabetic',2.5);
   text(g,wpc?(WPC_QPF[sc.wpc]||WPC_QPF.d13)[3].toUpperCase():'NEXT '+sc.hours+' HOURS',bx+30,by+88,`800 44px ${FD}`,'#ffffff');
   drawHeader(g,sc.title||DEF_TITLES[sc.type],sc.sub||autoSub(sc),t);
 }
 
 /* ---------- MAX batch: shared helpers ---------- */
 const DAYN=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
-function consAt(k,v,i){const vals=MODELS.filter(m=>m.id!=='gfs_hrrr').map(m=>{const s=data.models[k]&&data.models[k][m.id];if(!s||!s[v])return null;const x=s[v][startIndex(s)+i];return x==null?null:x}).filter(x=>x!=null);return vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:null}
+function consAt(k,v,i){const vals=[...MODELS.filter(m=>m.id!=='gfs_hrrr'),...(MODELS.some(m=>m.id!=='gfs_hrrr'&&data.models[k]&&data.models[k][m.id])?[]:[{id:'nws'}])].map(m=>{const s=data.models[k]&&data.models[k][m.id];if(!s||!s[v])return null;const x=s[v][startIndex(s)+i];return x==null?null:x}).filter(x=>x!=null);return vals.length?vals.reduce((a,b)=>a+b,0)/vals.length:null}
 function modelTime(i){for(const m of MODELS){const s=data.models.harrisburg&&data.models.harrisburg[m.id];if(s){const d=s.time[startIndex(s)+i];if(d)return d}}const d=new Date();d.setMinutes(0,0,0);return new Date(d.getTime()+i*3600e3)}
 function ptypeOf(p,s){if(p==null||p<.004)return null;const f=(s||0)/(7*p);return f>.7?'snow':f>.3?'mix':'rain'}
 function rateDbz(inHr){const R=Math.max(.01,inHr*25.4);return 10*Math.log10(200*Math.pow(R,1.6))}
@@ -1753,7 +1776,7 @@ function renderTimeline(g,sc,t){
       const amt=ty==='snow'&&sn>=.1?(sn<1?'<1"':Math.round(sn)+'"'):liq>=.01?fmtRain(liq):'';if(amt)line+=' · '+amt}
     text(g,line,90,y+rowH/2+24,`700 18px ${FD}`,col,'left','alphabetic',1);g.restore()});
   const ly=y0+ks.length*rowH+18;let lx=x0;[['RAIN','rain'],['MIX','mix'],['SNOW','snow']].forEach(([l,p])=>{const c=radarColor(p==='rain'?30:28,p);g.fillStyle=`rgb(${c[0]},${c[1]},${c[2]})`;rr(g,lx,ly,34,20,4);g.fill();text(g,l,lx+44,ly+18,`700 20px ${FD}`,'#ffffff','left','alphabetic',2);lx+=150});
-  text(g,'GFS · ECMWF · ICON BLEND',lx+20,ly+18,`700 18px ${FD}`,'#9fb4d8','left','alphabetic',2);
+  text(g,data.source==='nws'?'NWS FORECAST':'GFS · ECMWF · ICON BLEND',lx+20,ly+18,`700 18px ${FD}`,'#9fb4d8','left','alphabetic',2);
   if(!any&&t>1.2)centerMsg(g,'NO RAIN OR SNOW IN THE NEXT '+hours+' HOURS');
   drawHeader(g,sc.title||DEF_TITLES.timeline,sc.sub||autoSub(sc),t);
 }
@@ -2664,6 +2687,7 @@ function stRow(ok,name,detail,when){const col=ok==='ok'?'var(--ok)':ok==='warn'?
 const tm=d=>d?new Date(d).toLocaleTimeString([], {hour:'numeric',minute:'2-digit'}):'';
 function renderStatus(){const R=[];const live=data.source==='live';
   R.push(stRow(live&&!data.omErr?'ok':'warn','Forecasts and current conditions',live?(data.omErr?data.omErr+'. Using live data saved at '+tm(data.liveAt)+'.':'Open-Meteo, live'):(data.omErr||'Sample data')+(/^https?:/.test(location.protocol)&&!/claude/.test(location.host)?'':' Live data loads on the GitHub site and in the standalone file.'),tm(data.liveAt||data.updated)));
+  if(data.nwsFb)R.push(stRow(data.nwsFbStatus==='ok'?'warn':data.nwsFbStatus==='fail'?'bad':'idle','NWS backup for US cities',data.nwsFbStatus==='ok'?'Station readings, NWS hourly and 7-day forecasts, and NWS rain and snow amounts. Computer models wait for Open-Meteo.':data.nwsFbStatus==='fail'?'NWS could not load either':'Loading',tm(data.liveAt)));
   MODELS.forEach(m=>R.push(stRow(data.modelOK[m.id]===false?'bad':data.modelOK[m.id]==null?'idle':live?'ok':'warn',m.n+' model',data.modelOK[m.id]===false?'Could not load':data.modelOK[m.id]==null?'Loading, one model every 16 seconds to stay under the free limit':live?'Live':'Sample','')));
   R.push(stRow(nws.obsStatus==='ok'?'ok':nws.obsStatus==='fail'?'bad':'idle','NWS station observations',nws.obsStatus==='off'?'Not in use. Turn on under Show, Data sources.':nws.obsStatus,tm(nws.obsAt)));
   R.push(stRow(nws.fcStatus==='ok'?'ok':nws.fcStatus==='fail'?'bad':'idle','NWS official forecast',nws.fcStatus==='off'?'Not in use. Turn on under Show, Data sources.':nws.fcStatus,''));
