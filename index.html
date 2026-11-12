@@ -122,6 +122,7 @@ label.chk{display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer}
     <button id="bRefresh" title="Refresh data">Refresh data</button>
     <button id="bPlay" class="primary" title="Play rundown (Space)">Play rundown</button>
     <button id="bLoop" title="Loop the rundown">Loop</button>
+    <button id="bClickAdv" title="Run the whole show by hand: each click, Enter, right arrow or presenter clicker press does the next camera move or the next scene">Click to advance</button>
     <button id="bPng" title="Export this frame (E)">Export PNG</button>
     <button id="bVert" title="Export a 9:16 vertical image for social">Vertical PNG</button>
     <select id="recFmt" aria-label="Video format" style="width:auto"><option value="h">Video 16:9</option><option value="v">Video 9:16</option></select>
@@ -187,7 +188,7 @@ label.chk{display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer}
 <div class="status">
   <span><kbd>Space</kbd> play / stop</span><span><kbd>←</kbd><kbd>→</kbd> previous / next</span><span><kbd>V</kbd> select</span><span><kbd>T</kbd> pen</span><span><kbd>B</kbd> contour</span><span><kbd>N</kbd> total</span><span><kbd>Del</kbd> delete selection</span><span><kbd>E</kbd> export PNG</span><span><kbd>K</kbd> storm track</span><span><kbd>L</kbd> map label</span><span><kbd>1</kbd>–<kbd>9</kbd> cue</span><span><kbd>Enter</kbd> take</span>
   <span id="srcNote"></span>
-  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-11 · 8</span>
+  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-11 · 9</span>
 </div>
 <input type="file" id="fileIn" accept=".json,application/json" hidden>
 
@@ -1275,10 +1276,11 @@ function drawViewInto(g,src,vFrom,vTo,alpha){const lc=lonSpanOf(vFrom),lp=lonSpa
 /* ---------- Camera moves ---------- */
 let flightPrev=null;const FLY=2.6;
 function flightTotal(sc){const k=sc.flight||[];if(k.length<2)return 0;return k.reduce((a,x)=>a+(x.hold??1.5),0)+(k.length-1)*FLY}
-function sceneDur(sc){if((sc.type==='radar'&&sc.flightAdv==='take'&&sc.flightOn&&(sc.flight||[]).length>1)||(FLY_TYPES.includes(sc.type)&&sc.flyAdv==='take'&&sc.flyIn&&flyFrom(sc)))return Infinity;if(FLY_TYPES.includes(sc.type)&&sc.flyIn&&flyFrom(sc))return sc.duration+FLYIN_T;return sc.type==='radar'&&sc.flightOn&&(sc.flight||[]).length>1?Math.max(sc.duration,flightTotal(sc)+2):sc.duration}
+function sceneDur(sc){if(clickMode()&&playing)return Infinity;if((sc.type==='radar'&&sc.flightAdv==='take'&&sc.flightOn&&(sc.flight||[]).length>1)||(FLY_TYPES.includes(sc.type)&&sc.flyAdv==='take'&&sc.flyIn&&flyFrom(sc)))return Infinity;if(FLY_TYPES.includes(sc.type)&&sc.flyIn&&flyFrom(sc))return sc.duration+FLYIN_T;return sc.type==='radar'&&sc.flightOn&&(sc.flight||[]).length>1?Math.max(sc.duration,flightTotal(sc)+2):sc.duration}
 let mstep=null;
-function radarManual(sc){return sc.type==='radar'&&sc.flightAdv==='take'&&(sc.flight||[]).length>1&&((playing&&sc.flightOn)||(flightPrev&&flightPrev.id===sc.id))}
-function flyManual(sc){return FLY_TYPES.includes(sc.type)&&sc.flyAdv==='take'&&sc.flyIn&&!!flyFrom(sc)&&(playing||flyPrev===sc.id)}
+function clickMode(){return !!show.settings.clickAdvance}
+function radarManual(sc){return sc.type==='radar'&&(sc.flightAdv==='take'||(clickMode()&&playing&&sc.flightOn))&&(sc.flight||[]).length>1&&((playing&&sc.flightOn)||(flightPrev&&flightPrev.id===sc.id))}
+function flyManual(sc){return FLY_TYPES.includes(sc.type)&&(sc.flyAdv==='take'||(clickMode()&&playing))&&sc.flyIn&&!!flyFrom(sc)&&(playing||flyPrev===sc.id)}
 function mState(sc){if(!mstep||mstep.id!==sc.id)mstep={id:sc.id,idx:0,at:null};return mstep}
 function canArm(sc){if(playing||!sc)return false;if(sc.type==='radar')return sc.flightAdv==='take'&&sc.flightOn&&(sc.flight||[]).length>1&&!(flightPrev&&flightPrev.id===sc.id);return FLY_TYPES.includes(sc.type)&&sc.flyAdv==='take'&&sc.flyIn&&!!flyFrom(sc)&&flyPrev!==sc.id}
 function stepRunning(){const sc=scene();return stepPending()&&!canArm(sc)}
@@ -1289,7 +1291,7 @@ function advanceStep(){const sc=scene();if(!stepPending())return false;const now
   if(radarManual(sc)){if(m.idx<sc.flight.length-1){m.idx++;m.at=now}else{flightPrev=null;mstep=null;renderInspector()}}else m.at=now;
   updateStepHint();return true}
 function updateStepHint(){const b=$('#bTake');if(!b)return;const p=stepPending();const sc=scene(),arm=canArm(sc);const last=p&&!arm&&!playing&&sc&&sc.type==='radar'&&mstep&&mstep.id===sc.id&&mstep.idx>=(sc.flight||[]).length-1;b.textContent=arm?'Start moves':last?'End moves':p?'Next move':'Take';b.title=p?'Run the next camera move (Enter or click the monitor)':'Take the next scene to air (Enter)'}
-setInterval(updateStepHint,400);
+setInterval(()=>{updateStepHint();if(typeof updClickAdv==='function')updClickAdv()},400);
 function flightState(sc,t,o){const k=sc.flight||[];if(k.length<2||o.thumb)return null;let ft=null;
   if(radarManual(sc)){const m=mState(sc),now=performance.now()/1000;if(m.at!=null&&m.idx>0&&now-m.at<FLY){const u=(now-m.at)/FLY;const e=u<.5?4*u*u*u:1-Math.pow(-2*u+2,3)/2;const A=k[m.idx-1],B=k[m.idx];return{blend:true,u:e,A,B,V:{lon:lerp(A.lon,B.lon,e),lat:lerp(A.lat,B.lat,e),latSpan:Math.exp(lerp(Math.log(A.latSpan),Math.log(B.latSpan),e))}}}return{V:k[Math.min(m.idx,k.length-1)]}}
   if(flightPrev&&flightPrev.id===sc.id)ft=performance.now()/1000-flightPrev.start;else if(playing&&sc.flightOn)ft=t;if(ft==null)return null;
@@ -1790,7 +1792,7 @@ function drawFlyIn(g,sc,t){const fr=flyFrom(sc);const RA=REGIONS[fr],RB=REGIONS[
   if(flyPrev===sc.id&&!playing){const f=`700 22px ${FD}`;glass(g,W-300,50,230,56,10);text(g,'FLY-IN PREVIEW',W-185,86,f,'#ffb21e','center','alphabetic',2)}}
 function renderScene(g,sc,t,o={}){
   g.fillStyle='#000';g.fillRect(0,0,W,H);
-  if(flyActive(sc,o)){if(sc.flyAdv==='take'){const m=mState(sc);if(m.at==null){drawFlyIn(g,sc,0);return}t=FLY_HOLD+performance.now()/1000-m.at}if(t<FLYIN_T){drawFlyIn(g,sc,t);return}t-=FLYIN_T;if(flyPrev===sc.id&&!playing&&t>sc.duration+.5){flyPrev=null;if(mstep&&mstep.id===sc.id)mstep=null}}
+  if(flyActive(sc,o)){if(flyManual(sc)){const m=mState(sc);if(m.at==null){drawFlyIn(g,sc,0);return}t=FLY_HOLD+performance.now()/1000-m.at}if(t<FLYIN_T){drawFlyIn(g,sc,t);return}t-=FLYIN_T;if(flyPrev===sc.id&&!playing&&t>sc.duration+.5){flyPrev=null;if(mstep&&mstep.id===sc.id)mstep=null}}
   switch(sc.type){case'temps':renderTemps(g,sc,t,o);break;case'forecast7':renderForecast(g,sc,t,o);break;case'conditions':renderConditions(g,sc,t,o);break;case'models':renderModels(g,sc,t,o);break;case'snow':renderSnow(g,sc,t,o);break;case'radar':renderRadar(g,sc,t,o);break;case'ustemps':renderUsTemps(g,sc,t,o);break;case'travel':renderTravel(g,sc,t,o);break;case'extremes':renderExtremes(g,sc,t,o);break;case'futuremap':renderFutureMap(g,sc,t,o);break;case'winter':renderWinter(g,sc,t,o);break;case'rainfall':case'snowfall':renderRainfall(g,sc,t,o);break}
   const anim=o.animTele;sc.tele.forEach((s,i)=>drawStroke(g,s,anim?clamp((t-1.2-i*.35)/.6):1));
   if(o.interactive&&draft&&draft.kind==='tele')drawStroke(g,draft.s,1);
@@ -2065,7 +2067,7 @@ $('#bClearTele').addEventListener('click',()=>{scene().tele=[];save();queueThumb
 function toCanvas(e){const r=cv.getBoundingClientRect();return[(e.clientX-r.left)/r.width*W,(e.clientY-r.top)/r.height*H]}
 const inside=(p,r)=>p[0]>=r.x&&p[0]<=r.x+r.w&&p[1]>=r.y&&p[1]<=r.y+r.h;
 cv.addEventListener('pointerdown',e=>{
-  const p=toCanvas(e);const sc=scene();if(stepRunning()&&(playing||tool==='select')){advanceStep();return}cv.setPointerCapture(e.pointerId);if(trans)return;
+  const p=toCanvas(e);const sc=scene();if(playing&&clickMode()){takeNext();return}if(stepRunning()&&(playing||tool==='select')){advanceStep();return}cv.setPointerCapture(e.pointerId);if(trans)return;
   if(['pen','arrow','line','circle'].includes(tool)){draft={kind:'tele',s:{tool,color:penColor,w:+$('#penW').value,pts:[p]}};return}
   if(tool==='erase'){const i=sc.tele.findIndex(s=>s.pts.some(q=>Math.hypot(q[0]-p[0],q[1]-p[1])<28)||(s.tool!=='pen'&&s.tool!=='arrow'&&near(s,p)));if(i>=0){sc.tele.splice(i,1);save();queueThumbs()}return}
   if(tool==='track'){if(sc.type==='radar')draft={kind:'track',a:p,b:p};return}
@@ -2132,6 +2134,8 @@ function startRec(){
 
 /* ---------- Top bar & keys ---------- */
 $('#bPlay').addEventListener('click',()=>{if(playing){stopPlay();if(recorder)recorder.stop()}else startPlay(false)});
+$('#bClickAdv').addEventListener('click',e=>{show.settings.clickAdvance=!show.settings.clickAdvance;mstep=null;updClickAdv();save();toast(show.settings.clickAdvance?'Click to advance is on. Press Play rundown, then click the monitor, press Enter, the right arrow or your presenter clicker for each move and scene.':'Click to advance is off. Scenes run on their timers again.')});
+function updClickAdv(){const b=$('#bClickAdv');b.classList.toggle('on',clickMode());b.textContent=clickMode()?'Click to advance: on':'Click to advance'}
 $('#bLoop').addEventListener('click',e=>{show.settings.loop=!show.settings.loop;e.currentTarget.classList.toggle('on',show.settings.loop);save()});
 $('#bPng').addEventListener('click',exportPng);$('#bRec').addEventListener('click',startRec);
 $('#bRefresh').addEventListener('click',()=>{for(const k in radarImgs)delete radarImgs[k];refresh()});
@@ -2140,8 +2144,8 @@ $('#bAdd').addEventListener('click',()=>{const t=$('#addType').value;const sc=ne
 document.addEventListener('keydown',e=>{
   if(e.target.closest('input,textarea,select'))return;if(e.key==='Enter'&&e.target.closest('button,[role=button],a'))return;
   if(e.key===' '){e.preventDefault();$('#bPlay').click()}
-  else if(e.key==='ArrowRight')goTo(Math.min(show.scenes.length-1,cur+1),true);
-  else if(e.key==='ArrowLeft')goTo(Math.max(0,cur-1),true);
+  else if(e.key==='ArrowRight'||e.key==='PageDown'){e.preventDefault();if(clickMode())takeNext();else goTo(Math.min(show.scenes.length-1,cur+1),true)}
+  else if(e.key==='ArrowLeft'||e.key==='PageUp'){e.preventDefault();goTo(Math.max(0,cur-1),true)}
   else if(e.key==='v'||e.key==='V'||e.key==='Escape')setTool('select');
   else if(e.key==='t'||e.key==='T')setTool('pen');
   else if(e.key==='b'||e.key==='B')setTool('band');
@@ -2171,7 +2175,7 @@ $('#bVert').addEventListener('click',exportVertical);
 $('#bTakeAlert').addEventListener('click',()=>{const a=$('#breaking')._alert;if(a)takeAlert(a)});$('#bDismiss').addEventListener('click',()=>{const a=$('#breaking')._alert;if(a&&a.test)clearTest();else $('#breaking').hidden=true});$('#bClrTest').addEventListener('click',clearTest);updTestBtn();
 
 /* ---------- Boot ---------- */
-genSample();updateStatus();$('#bLoop').classList.toggle('on',!!show.settings.loop);$('#stationSub').textContent=(show.settings.station||'')+' workstation';
+genSample();updateStatus();$('#bLoop').classList.toggle('on',!!show.settings.loop);updClickAdv();$('#stationSub').textContent=(show.settings.station||'')+' workstation';
 renderRundown();renderInspector();updateTools();
 (document.fonts&&document.fonts.load?Promise.all([document.fonts.load(`800 40px ${FD}`),document.fonts.load(`700 40px ${FD}`),document.fonts.load(`600 40px ${FD}`)]).catch(()=>{}):Promise.resolve()).then(()=>{sceneStart=performance.now()/1000;requestAnimationFrame(frame);queueThumbs(true)});
 loadUSStates();loadWorld();loadGeo('PA');loadGeo('CT');refresh();setInterval(()=>{if(!playing)refresh()},15*60e3);setInterval(loadAlerts,120e3);setInterval(()=>loadEuWarnings(),10*60e3);
