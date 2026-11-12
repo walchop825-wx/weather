@@ -128,7 +128,7 @@ button.pill{cursor:pointer;background:transparent}
 .models-st{display:grid;grid-template-columns:auto 1fr;gap:4px 10px;font-size:12px}
 .models-st b{font-family:var(--display);letter-spacing:.06em}
 @media (prefers-reduced-motion:reduce){.pill.air i{animation:none}}
-#bClrTrack{color:#ffb4b4}
+#bClrTrack,#bClrProbe{color:#ffb4b4}
 </style>
 
 <header class="top">
@@ -215,6 +215,7 @@ button.pill{cursor:pointer;background:transparent}
       <button id="bClrTrack" hidden title="Remove the storm tracks from this scene">Clear track</button>
       <button data-tool="label" data-map title="Click the map to place a label (L)">Map label</button>
       <button data-tool="probe" data-map title="Click the map for a point forecast card (P)">Probe</button>
+      <button id="bClrProbe" hidden title="Remove the point forecast card from this scene">Clear probe</button>
     </div>
     <div class="live"><canvas id="pv" width="480" height="270" aria-label="Preview of the next scene"></canvas><div class="lvc"><div class="note" style="letter-spacing:.1em">PREVIEW · NEXT UP</div><div id="pvName" class="pvn"></div><div class="grp"><button id="bTake" class="primary" title="Take the next scene to air (Enter)">Take</button><button id="bCueClear">Clear cue</button></div><p class="note">Press 1–9 to cue a scene, then Enter to take it to air.</p></div></div>
   </section>
@@ -228,7 +229,7 @@ button.pill{cursor:pointer;background:transparent}
 <div class="status">
   <span><kbd>Space</kbd> play / stop</span><span><kbd>←</kbd><kbd>→</kbd> previous / next</span><span><kbd>V</kbd> select</span><span><kbd>T</kbd> pen</span><span><kbd>B</kbd> contour</span><span><kbd>N</kbd> total</span><span><kbd>Del</kbd> delete selection</span><span><kbd>E</kbd> export PNG</span><span><kbd>K</kbd> storm track</span><span><kbd>L</kbd> map label</span><span><kbd>1</kbd>–<kbd>9</kbd> cue</span><span><kbd>Enter</kbd> take</span>
   <span id="srcNote"></span>
-  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-12 · 5</span>
+  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-12 · 6</span>
 </div>
 <input type="file" id="fileIn" accept=".json,application/json" hidden>
 
@@ -2531,7 +2532,7 @@ $('#swatches').addEventListener('click',e=>{const b=e.target.closest('[data-c]')
 document.querySelectorAll('[data-tool]').forEach(b=>b.addEventListener('click',()=>setTool(b.dataset.tool)));
 function setTool(t){const ty=scene().type;if((t==='band'||t==='total')&&ty!=='snow')t='select';if(t==='track'&&ty!=='radar')t='select';if((t==='label'||t==='probe')&&!isMapType(ty))t='select';tool=t;updateTools()}
 function updateTools(){const ty=scene()?.type;const snow=ty==='snow',rad=ty==='radar',map=isMapType(ty);if((!snow&&(tool==='band'||tool==='total'))||(!rad&&tool==='track')||(!map&&(tool==='label'||tool==='probe')))tool='select';document.querySelectorAll('[data-tool]').forEach(b=>{b.classList.toggle('on',b.dataset.tool===tool);if(b.hasAttribute('data-snow'))b.disabled=!snow;if(b.hasAttribute('data-radar'))b.disabled=!rad;if(b.hasAttribute('data-map'))b.disabled=!map});document.querySelectorAll('#tools [data-snow],#tools [data-radar],#tools [data-map]').forEach(x=>{x.hidden=x.hasAttribute('data-snow')?!snow:x.hasAttribute('data-radar')?!rad:!map});cv.style.cursor=tool==='select'?'default':'crosshair';syncClrTrack()}
-function syncClrTrack(){const b=$('#bClrTrack');if(!b)return;const sc=scene();const n=sc&&sc.type==='radar'?(sc.tracks||[]).length:0;b.hidden=!n;b.textContent=n>1?`Clear tracks (${n})`:'Clear track'}
+function syncClrTrack(){const b=$('#bClrTrack');if(!b)return;const sc=scene();const n=sc&&sc.type==='radar'?(sc.tracks||[]).length:0;b.hidden=!n;b.textContent=n>1?`Clear tracks (${n})`:'Clear track';const pb=$('#bClrProbe');if(pb)pb.hidden=!(sc&&sc.probe&&isMapType(sc.type))}
 $('#bClearTele').addEventListener('click',()=>{scene().tele=[];save();queueThumbs()});
 function toCanvas(e){const r=cv.getBoundingClientRect();return[(e.clientX-r.left)/r.width*W,(e.clientY-r.top)/r.height*H]}
 const inside=(p,r)=>p[0]>=r.x&&p[0]<=r.x+r.w&&p[1]>=r.y&&p[1]<=r.y+r.h;
@@ -2645,7 +2646,7 @@ function drawPreview(){const i=nextIdx(),sc=show.scenes[i];if(!sc)return;pvG.set
   $('#pvName').textContent=`${String(i+1).padStart(2,'0')} · ${sc.title||DEF_TITLES[sc.type]}${cued!=null?' (cued)':''}`}
 function takeNext(){if(advanceStep())return;const i=nextIdx();cued=null;goTo(i,true);drawPreview()}
 setInterval(drawPreview,700);
-$('#bTake').addEventListener('click',takeNext);$('#bClrTrack').addEventListener('click',()=>{const sc=scene();if(!sc||!(sc.tracks||[]).length)return;const n=sc.tracks.length;sc.tracks=[];draft=null;save();queueThumbs();renderInspector();toast(n>1?'Storm tracks cleared.':'Storm track cleared.')});$('#bCueClear').addEventListener('click',()=>{cued=null;renderRundown();drawPreview()});
+$('#bTake').addEventListener('click',takeNext);$('#bClrTrack').addEventListener('click',()=>{const sc=scene();if(!sc||!(sc.tracks||[]).length)return;const n=sc.tracks.length;sc.tracks=[];draft=null;save();queueThumbs();renderInspector();toast(n>1?'Storm tracks cleared.':'Storm track cleared.')});$('#bClrProbe').addEventListener('click',()=>{const sc=scene();if(!sc||!sc.probe)return;delete sc.probe;save();queueThumbs();renderInspector();toast('Probe cleared.')});$('#bCueClear').addEventListener('click',()=>{cued=null;renderRundown();drawPreview()});
 $('#bVert').addEventListener('click',exportVertical);
 $('#bTakeAlert').addEventListener('click',()=>{const a=$('#breaking')._alert;if(a)takeAlert(a)});$('#bDismiss').addEventListener('click',()=>{const a=$('#breaking')._alert;if(a&&a.test)clearTest();else $('#breaking').hidden=true});$('#bClrTest').addEventListener('click',clearTest);updTestBtn();
 
