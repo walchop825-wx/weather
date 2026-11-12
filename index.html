@@ -226,7 +226,7 @@ button.pill{cursor:pointer;background:transparent}
 <div class="status">
   <span><kbd>Space</kbd> play / stop</span><span><kbd>←</kbd><kbd>→</kbd> previous / next</span><span><kbd>V</kbd> select</span><span><kbd>T</kbd> pen</span><span><kbd>B</kbd> contour</span><span><kbd>N</kbd> total</span><span><kbd>Del</kbd> delete selection</span><span><kbd>E</kbd> export PNG</span><span><kbd>K</kbd> storm track</span><span><kbd>L</kbd> map label</span><span><kbd>1</kbd>–<kbd>9</kbd> cue</span><span><kbd>Enter</kbd> take</span>
   <span id="srcNote"></span>
-  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-11 · 20</span>
+  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-12 · 1</span>
 </div>
 <input type="file" id="fileIn" accept=".json,application/json" hidden>
 
@@ -1915,21 +1915,33 @@ function renderNwsMap(g,sc,t,o){const rk=sc.region,P=proj(rk),R=REGIONS[rk],S=NW
 /* ---------- Point probe ---------- */
 const probeCache={};
 async function loadProbe(pr){const key=pr.lat.toFixed(2)+','+pr.lon.toFixed(2);if(probeCache[key])return;probeCache[key]={status:'loading'};
-  try{const j=await fetchJSON(`https://api.open-meteo.com/v1/forecast?latitude=${pr.lat.toFixed(3)}&longitude=${pr.lon.toFixed(3)}&current=temperature_2m,weather_code,is_day&daily=temperature_2m_max,temperature_2m_min&hourly=precipitation,snowfall&forecast_hours=24&forecast_days=2&temperature_unit=fahrenheit&precipitation_unit=inch&timezone=auto`,12000);
-    const sum=a=>(a||[]).reduce((x,y)=>x+(y||0),0);probeCache[key]={status:'ok',t:Math.round(j.current.temperature_2m),code:j.current.weather_code,day:!!j.current.is_day,hi:Math.round(j.daily.temperature_2m_max[0]),lo:Math.round(j.daily.temperature_2m_min[0]),rain:sum(j.hourly.precipitation),snow:sum(j.hourly.snowfall)}}
+  try{const j=await fetchJSON(`https://api.open-meteo.com/v1/forecast?latitude=${pr.lat.toFixed(3)}&longitude=${pr.lon.toFixed(3)}&current=temperature_2m,weather_code,is_day&daily=temperature_2m_max,temperature_2m_min&hourly=precipitation,rain,showers,snowfall,weather_code&forecast_hours=72&forecast_days=3&temperature_unit=fahrenheit&precipitation_unit=inch&timezone=auto`,12000);
+    const h=j.hourly;probeCache[key]={status:'ok',t:Math.round(j.current.temperature_2m),code:j.current.weather_code,day:!!j.current.is_day,hi:Math.round(j.daily.temperature_2m_max[0]),lo:Math.round(j.daily.temperature_2m_min[0]),
+      hrs:h.time.map((tm,i)=>({t:parseLocal(tm),p:h.precipitation[i]||0,rain:(h.rain[i]||0)+(h.showers[i]||0),s:h.snowfall[i]||0,code:h.weather_code[i]}))}}
   catch(e){probeCache[key]={status:'fail'}}queueThumbs()}
-function probeData(pr){const key=pr.lat.toFixed(2)+','+pr.lon.toFixed(2);const C=probeCache[key];if(C&&C.status==='ok')return C;
-  const near=CITY_KEYS.map(k=>[k,(CITIES[k][2]-pr.lon)**2*.55+(CITIES[k][1]-pr.lat)**2]).sort((a,b)=>a[1]-b[1])[0][0];const dl=k=>getDaily(k)[0]||{};
-  const r=v=>v==null?null:Math.round(v);return{status:'est',t:r(idwCity(pr.lon,pr.lat,k=>(getCur(k)||{}).t)),code:(getCur(near)||{}).code??dl(near).code,day:(getCur(near)||{}).day!==false,hi:r(idwCity(pr.lon,pr.lat,k=>dl(k).hi)),lo:r(idwCity(pr.lon,pr.lat,k=>dl(k).lo)),rain:idwCity(pr.lon,pr.lat,k=>rainTotal(k,'consensus',24))||0,snow:idwCity(pr.lon,pr.lat,k=>rainTotal(k,'consensus',24,'snow'))||0}}
-function drawProbe(g,sc,t){const pr=sc.probe;if(!pr)return;const P=sceneProj(sc);const x=P.x(pr.lon),y=P.y(pr.lat);if(x<0||x>W||y<0||y>H)return;loadProbe(pr);const D=probeData(pr);const q=easeBack(clamp((t-1.1)/.5));if(q<=0)return;
-  const pl=nearestPlace(pr.lon,pr.lat);const name=pl?((pl.near?'NEAR ':'')+pl.n+(pl.st?', '+pl.st:'')).toUpperCase():'THIS SPOT';const cw=420,ch=210;const cx=x+30+cw>W-40?x-30-cw:x+30,cy=clamp(y-ch/2,210,H-ch-130);
-  g.save();g.strokeStyle='#ffffff';g.lineWidth=3;g.beginPath();g.moveTo(x,y);g.lineTo(cx<x?cx+cw:cx,cy+ch/2);g.stroke();g.fillStyle='#ffb21e';g.strokeStyle='#0b1a38';g.lineWidth=3;g.beginPath();g.arc(x,y,10,0,7);g.fill();g.stroke();
-  g.translate(cx+cw/2,cy+ch/2);g.scale(q,q);g.translate(-cw/2,-ch/2);glass(g,0,0,cw,ch,14);g.fillStyle='#ffb21e';rr(g,0,0,cw,52,14);g.fill();g.fillRect(0,30,cw,22);
+const PTYPES=[['snow','SNOW','#9cc9ff'],['ice','ICE','#ff8fd8'],['mix','MIX','#c9a2ff'],['rain','RAIN','#7fe08f']];
+function precipBreak(hrs,n){const T={};const now=Date.now()-30*60e3;hrs.filter(h=>h.t.getTime()>=now).slice(0,n).forEach(h=>{if(!h.p||h.p<.003)return;
+    const ty=[56,57,66,67].includes(h.code)?'ice':h.s>.01&&h.rain>.003?'mix':h.s>.005?'snow':'rain';const amt=ty==='snow'?h.s:h.p;const o=T[ty]||(T[ty]={amt:0,snowAlso:0,a:h.t,b:h.t});o.amt+=amt;if(ty==='mix')o.snowAlso+=h.s;o.b=h.t});
+  return PTYPES.map(([k,l,c])=>T[k]?Object.assign({k,l,c},T[k]):null).filter(o=>o&&(o.k==='snow'?o.amt>=.1:o.amt>=.01))}
+function probeData(pr,n){const key=pr.lat.toFixed(2)+','+pr.lon.toFixed(2);const C=probeCache[key];if(C&&C.status==='ok')return Object.assign({},C,{types:precipBreak(C.hrs,n)});
+  const near=CITY_KEYS.map(k=>[k,(CITIES[k][2]-pr.lon)**2*.55+(CITIES[k][1]-pr.lat)**2]).sort((a,b)=>a[1]-b[1])[0][0];const dl=k=>getDaily(k)[0]||{};const r=v=>v==null?null:Math.round(v);
+  const hrs=[];for(let i=0;i<n;i++){const p=idwCity(pr.lon,pr.lat,k=>consAt(k,'precip',i)),sn=idwCity(pr.lon,pr.lat,k=>consAt(k,'snow',i));const ty=ptypeOf(p,sn);hrs.push({t:modelTime(i),p:p||0,s:sn||0,rain:ty==='rain'||ty==='mix'?(p||0)*(ty==='mix'?.5:1):0,code:0})}
+  return{status:'est',t:r(idwCity(pr.lon,pr.lat,k=>(getCur(k)||{}).t)),code:(getCur(near)||{}).code??dl(near).code,day:(getCur(near)||{}).day!==false,hi:r(idwCity(pr.lon,pr.lat,k=>dl(k).hi)),lo:r(idwCity(pr.lon,pr.lat,k=>dl(k).lo)),types:precipBreak(hrs,n)}}
+function drawProbe(g,sc,t){const pr=sc.probe;if(!pr)return;const P=sceneProj(sc);const x=P.x(pr.lon),y=P.y(pr.lat);if(x<0||x>W||y<0||y>H)return;loadProbe(pr);const N=+sc.probeHours||48;const D=probeData(pr,N);const q=easeBack(clamp((t-1.1)/.5));if(q<=0)return;
+  const pl=nearestPlace(pr.lon,pr.lat);const name=pl?((pl.near?'NEAR ':'')+pl.n+(pl.st?', '+pl.st:'')).toUpperCase():'THIS SPOT';const L=D.types,ice=L.some(o=>o.k==='ice');
+  const cw=L.length?480:440,ch=176+(L.length?L.length*62:44)+(ice?24:0)+(D.status==='est'?18:0);const cx=x+30+cw>W-40?x-30-cw:x+30,cy=clamp(y-ch/2,210,H-ch-(show.settings.showTicker?80:20));
+  g.save();g.strokeStyle='#ffffff';g.lineWidth=3;g.beginPath();g.moveTo(x,y);g.lineTo(cx<x?cx+cw:cx,cy+Math.min(ch/2,90));g.stroke();g.fillStyle='#ffb21e';g.strokeStyle='#0b1a38';g.lineWidth=3;g.beginPath();g.arc(x,y,10,0,7);g.fill();g.stroke();
+  g.translate(cx+cw/2,cy+ch/2);g.scale(q,q);g.translate(-cw/2,-ch/2);glass(g,0,0,cw,ch,14);g.fillStyle=BA();rr(g,0,0,cw,52,14);g.fill();g.fillRect(0,30,cw,22);
   let nm=name;while(measure(g,nm,`800 24px ${FD}`,1)>cw-40&&nm.length>6)nm=nm.slice(0,-2)+'…';text(g,nm,20,36,`800 24px ${FD}`,'#0b1a38','left','alphabetic',1);
-  drawIcon(g,D.code??2,72,122,96,!D.day);text(g,D.t==null?'--':D.t+'°',140,140,`800 72px ${FD}`,'#ffffff');text(g,`HI ${D.hi??'--'}°  LO ${D.lo??'--'}°`,cw-20,104,`700 22px ${FD}`,'#dfe8f7','right','alphabetic',1);
-  const amt=D.snow>=.1?'SNOW '+fmtSnow(D.snow):D.rain>=.01?'RAIN '+fmtRain(D.rain):'DRY';text(g,'NEXT 24 HRS',cw-20,140,`700 16px ${FD}`,'#9fb4d8','right','alphabetic',2);text(g,amt,cw-20,172,`800 26px ${FD}`,D.snow>=.1?'#9cc9ff':D.rain>=.01?'#7fe08f':'#ffffff','right','alphabetic',1);
-  if(D.status==='est')text(g,'ESTIMATED FROM NEARBY CITIES',20,ch-14,`600 13px ${FD}`,'#9fb4d8','left','alphabetic',1.5);g.restore()}
-
+  drawIcon(g,D.code??2,72,118,92,!D.day);text(g,D.t==null?'--':D.t+'°',140,138,`800 70px ${FD}`,'#ffffff');text(g,`HI ${D.hi??'--'}°  LO ${D.lo??'--'}°`,cw-20,102,`700 22px ${FD}`,'#dfe8f7','right','alphabetic',1);
+  text(g,'NEXT '+N+' HOURS',cw-20,136,`700 16px ${FD}`,'#9fb4d8','right','alphabetic',2);
+  g.fillStyle='rgba(255,255,255,.12)';g.fillRect(20,160,cw-40,2);
+  if(!L.length)text(g,'DRY',20,202,`800 28px ${FD}`,'#ffffff','left','alphabetic',1);
+  L.forEach((o,i)=>{const yy=198+i*62;g.fillStyle=o.c;rr(g,20,yy-22,10,50,3);g.fill();text(g,o.l,42,yy,`800 26px ${FD}`,o.c,'left','alphabetic',2);
+    const amt=o.k==='snow'?fmtSnow(o.amt):fmtRain(o.amt)+(o.k==='mix'&&o.snowAlso>=.1?' + '+fmtSnow(o.snowAlso)+' SNOW':'');text(g,amt,150,yy,`800 26px ${FD}`,'#ffffff','left','alphabetic',1);
+    const same=o.a.toDateString()===o.b.toDateString(),b2=new Date(o.b.getTime()+3600e3);text(g,(DOW[o.a.getDay()]+' '+hrLbl(o.a)+' – '+(same&&b2.getDate()===o.a.getDate()?'':DOW[b2.getDay()]+' ')+hrLbl(b2)),42,yy+25,`700 18px ${FD}`,'#c8d4e8','left','alphabetic',1)});
+  let fy=ch-12;if(D.status==='est'){text(g,'ESTIMATED FROM NEARBY CITIES',20,fy,`600 13px ${FD}`,'#9fb4d8','left','alphabetic',1.5);fy-=18}
+  if(ice)text(g,'ICE = FREEZING RAIN, AS MELTED WATER. ACTUAL ICE BUILDUP IS USUALLY LESS.',20,fy,`600 13px ${FD}`,'#ffb3e6','left','alphabetic',1);g.restore()}
 /* ---------- Precip type and wind flow for the future map ---------- */
 const ptCache={};
 function ptField(rk,i){const key=rk+'|pt|'+i+'|'+(data.updated?data.updated.getTime():0);if(ptCache[key])return ptCache[key];const P=proj(rk);const pts=CITY_KEYS.map(k=>({lat:CITIES[k][1],lon:CITIES[k][2],p:consAt(k,'precip',i),s:consAt(k,'snow',i)})).filter(p=>p.p!=null);
@@ -2375,7 +2387,7 @@ function renderInspector(){
   if(sc.type==='nwsmap'){const A=arcInfo[sc.svc];loadArc(sc.svc);const ids=nwsLayers(sc)||[];h+=`<div class="sec"><h3>NWS outlook</h3><label class="f">Product<select id="i-svc" data-k="svc">${opts([['spc','Severe storm outlook (SPC)'],['fire','Fire weather outlook (SPC)'],['nhc','Active tropical storms (NHC)'],['nhc7','Tropical outlook, 2 and 7 day (NHC)'],['fronts','Fronts and weather map (WPC)'],['cpc','Hazards outlook, days 3 to 14 (CPC)']],sc.svc)}</select></label>
     ${A&&A.status==='ok'?`<p class="note">Layers from NOAA. Check the ones to show.</p><div class="chips" style="max-height:220px;overflow:auto">${A.leaf.map(l=>`<label><input type="checkbox" data-nlyr="${l.id}"${ids.includes(l.id)?' checked':''}>${esc(l.name)}</label>`).join('')}</div>`:A&&A.status==='fail'?'<p class="note">NOAA map services could not load in this view. They load on the GitHub site and in the standalone file.</p>':'<p class="note">Loading layers from NOAA.</p>'}</div>`}
   if(ZOOM_TYPES.includes(sc.type))h+=`<div class="sec"><h3>Map</h3><div class="grp"><button data-zoom="in" title="Zoom in (+)">Zoom in</button><button data-zoom="out" title="Zoom out (−)">Zoom out</button><button data-zoom="reset" title="Reset view (0)"${sc.view?'':' disabled'}>Reset view</button></div><p class="note">${sc.view?`Zoomed ${(REGIONS[sc.region].latSpan/sc.view.latSpan).toFixed(1)}× from the ${esc(REGIONS[sc.region].name)} map. `:''}Scroll on the monitor to zoom and drag an empty spot to move. The forecast fills in with more detail as you zoom.${sc.type==='snow'?' Contours and totals stay pinned to their places.':''}</p></div>`;
-  if(isMapType(sc.type))h+=`<div class="sec"><h3>Point forecast</h3><p class="note">Pick Probe in the toolbar, then click anywhere on the map. A forecast card for that spot appears on air.</p>${sc.probe?'<button id="bProbeClr">Remove point forecast</button>':''}</div>`;
+  if(isMapType(sc.type))h+=`<div class="sec"><h3>Point forecast</h3><p class="note">Pick Probe in the toolbar, then click anywhere on the map. A forecast card for that spot appears on air. If more than one type of precipitation is expected, the card lists each one with its amount and timing.</p><label class="f">Precipitation window<select id="i-ph" data-k="probeHours">${opts([[24,'Next 24 hours'],[48,'Next 48 hours'],[72,'Next 72 hours']],+sc.probeHours||48)}</select></label>${sc.probe?'<button id="bProbeClr">Remove point forecast</button>':''}</div>`;
   const st=show.settings;
   const EU_CITIES=CITY_KEYS.filter(k=>CITIES[k][2]>-30);const natChips=(sel,max,list=NAT_CITIES)=>`<div class="chips">${list.map(k=>`<label><input type="checkbox" data-natcity="${k}"${sel.includes(k)?' checked':''}>${esc(cityFull(k))}</label>`).join('')}</div>${max?`<p class="note">Up to ${max} cities. ${sel.length} picked.</p>`:''}`;
   if(sc.type==='ustemps')h+=`<div class="sec"><h3>National temps</h3><label class="f">Show<select id="i-field" data-k="field">${opts([['current','Temperatures right now'],['high',"Today's highs"],['tomorrow',"Tomorrow's highs"]],sc.field)}</select></label><p class="note">The shading blends every city in the studio. Pick which cities get a number on the map.</p>${natChips(sc.cities)}</div>`;
