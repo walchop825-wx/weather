@@ -187,7 +187,7 @@ label.chk{display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer}
 <div class="status">
   <span><kbd>Space</kbd> play / stop</span><span><kbd>←</kbd><kbd>→</kbd> previous / next</span><span><kbd>V</kbd> select</span><span><kbd>T</kbd> pen</span><span><kbd>B</kbd> contour</span><span><kbd>N</kbd> total</span><span><kbd>Del</kbd> delete selection</span><span><kbd>E</kbd> export PNG</span><span><kbd>K</kbd> storm track</span><span><kbd>L</kbd> map label</span><span><kbd>1</kbd>–<kbd>9</kbd> cue</span><span><kbd>Enter</kbd> take</span>
   <span id="srcNote"></span>
-  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-11 · 6</span>
+  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-11 · 7</span>
 </div>
 <input type="file" id="fileIn" accept=".json,application/json" hidden>
 
@@ -1275,8 +1275,19 @@ function drawViewInto(g,src,vFrom,vTo,alpha){const lc=lonSpanOf(vFrom),lp=lonSpa
 /* ---------- Camera moves ---------- */
 let flightPrev=null;const FLY=2.6;
 function flightTotal(sc){const k=sc.flight||[];if(k.length<2)return 0;return k.reduce((a,x)=>a+(x.hold??1.5),0)+(k.length-1)*FLY}
-function sceneDur(sc){if(FLY_TYPES.includes(sc.type)&&sc.flyIn&&flyFrom(sc))return sc.duration+FLYIN_T;return sc.type==='radar'&&sc.flightOn&&(sc.flight||[]).length>1?Math.max(sc.duration,flightTotal(sc)+2):sc.duration}
+function sceneDur(sc){if((sc.type==='radar'&&sc.flightAdv==='take'&&sc.flightOn&&(sc.flight||[]).length>1)||(FLY_TYPES.includes(sc.type)&&sc.flyAdv==='take'&&sc.flyIn&&flyFrom(sc)))return Infinity;if(FLY_TYPES.includes(sc.type)&&sc.flyIn&&flyFrom(sc))return sc.duration+FLYIN_T;return sc.type==='radar'&&sc.flightOn&&(sc.flight||[]).length>1?Math.max(sc.duration,flightTotal(sc)+2):sc.duration}
+let mstep=null;
+function radarManual(sc){return sc.type==='radar'&&sc.flightAdv==='take'&&(sc.flight||[]).length>1&&((playing&&sc.flightOn)||(flightPrev&&flightPrev.id===sc.id))}
+function flyManual(sc){return FLY_TYPES.includes(sc.type)&&sc.flyAdv==='take'&&sc.flyIn&&!!flyFrom(sc)&&(playing||flyPrev===sc.id)}
+function mState(sc){if(!mstep||mstep.id!==sc.id)mstep={id:sc.id,idx:0,at:null};return mstep}
+function stepPending(){const sc=scene();if(!sc)return false;if(radarManual(sc)){const m=mState(sc);return m.idx<sc.flight.length-1||(!playing&&flightPrev&&flightPrev.id===sc.id)}if(flyManual(sc))return mState(sc).at==null;return false}
+function advanceStep(){const sc=scene();if(!stepPending())return false;const m=mState(sc),now=performance.now()/1000;
+  if(radarManual(sc)){if(m.idx<sc.flight.length-1){m.idx++;m.at=now}else{flightPrev=null;mstep=null;renderInspector()}}else m.at=now;
+  updateStepHint();return true}
+function updateStepHint(){const b=$('#bTake');if(!b)return;const p=stepPending();b.textContent=p?'Next move':'Take';b.title=p?'Run the next camera move (Enter or click the monitor)':'Take the next scene to air (Enter)'}
+setInterval(updateStepHint,400);
 function flightState(sc,t,o){const k=sc.flight||[];if(k.length<2||o.thumb)return null;let ft=null;
+  if(radarManual(sc)){const m=mState(sc),now=performance.now()/1000;if(m.at!=null&&m.idx>0&&now-m.at<FLY){const u=(now-m.at)/FLY;const e=u<.5?4*u*u*u:1-Math.pow(-2*u+2,3)/2;const A=k[m.idx-1],B=k[m.idx];return{blend:true,u:e,A,B,V:{lon:lerp(A.lon,B.lon,e),lat:lerp(A.lat,B.lat,e),latSpan:Math.exp(lerp(Math.log(A.latSpan),Math.log(B.latSpan),e))}}}return{V:k[Math.min(m.idx,k.length-1)]}}
   if(flightPrev&&flightPrev.id===sc.id)ft=performance.now()/1000-flightPrev.start;else if(playing&&sc.flightOn)ft=t;if(ft==null)return null;
   let acc=0;for(let i=0;i<k.length;i++){const hold=k[i].hold??1.5;if(ft<acc+hold)return{V:k[i]};acc+=hold;if(i===k.length-1)break;
     if(ft<acc+FLY){const u=(ft-acc)/FLY;const e=u<.5?4*u*u*u:1-Math.pow(-2*u+2,3)/2;const A=k[i],B=k[i+1];return{blend:true,u:e,A,B,V:{lon:lerp(A.lon,B.lon,e),lat:lerp(A.lat,B.lat,e),latSpan:Math.exp(lerp(Math.log(A.latSpan),Math.log(B.latSpan),e))}}}acc+=FLY}
@@ -1775,7 +1786,7 @@ function drawFlyIn(g,sc,t){const fr=flyFrom(sc);const RA=REGIONS[fr],RB=REGIONS[
   if(flyPrev===sc.id&&!playing){const f=`700 22px ${FD}`;glass(g,W-300,50,230,56,10);text(g,'FLY-IN PREVIEW',W-185,86,f,'#ffb21e','center','alphabetic',2)}}
 function renderScene(g,sc,t,o={}){
   g.fillStyle='#000';g.fillRect(0,0,W,H);
-  if(flyActive(sc,o)){if(t<FLYIN_T){drawFlyIn(g,sc,t);return}t-=FLYIN_T;if(flyPrev===sc.id&&!playing&&t>sceneDur(sc))flyPrev=null}
+  if(flyActive(sc,o)){if(sc.flyAdv==='take'){const m=mState(sc);if(m.at==null){drawFlyIn(g,sc,0);return}t=FLY_HOLD+performance.now()/1000-m.at}if(t<FLYIN_T){drawFlyIn(g,sc,t);return}t-=FLYIN_T;if(flyPrev===sc.id&&!playing&&t>sc.duration+.5){flyPrev=null;if(mstep&&mstep.id===sc.id)mstep=null}}
   switch(sc.type){case'temps':renderTemps(g,sc,t,o);break;case'forecast7':renderForecast(g,sc,t,o);break;case'conditions':renderConditions(g,sc,t,o);break;case'models':renderModels(g,sc,t,o);break;case'snow':renderSnow(g,sc,t,o);break;case'radar':renderRadar(g,sc,t,o);break;case'ustemps':renderUsTemps(g,sc,t,o);break;case'travel':renderTravel(g,sc,t,o);break;case'extremes':renderExtremes(g,sc,t,o);break;case'futuremap':renderFutureMap(g,sc,t,o);break;case'winter':renderWinter(g,sc,t,o);break;case'rainfall':case'snowfall':renderRainfall(g,sc,t,o);break}
   const anim=o.animTele;sc.tele.forEach((s,i)=>drawStroke(g,s,anim?clamp((t-1.2-i*.35)/.6):1));
   if(o.interactive&&draft&&draft.kind==='tele')drawStroke(g,draft.s,1);
@@ -1807,7 +1818,7 @@ function frame(ms){
 function goTo(i,withTrans=false,T=performance.now()/1000){
   if(i<0||i>=show.scenes.length)return;
   if(withTrans&&show.settings.transition!=='cut'&&i!==cur){trans={from:cur,to:i,start:T,dur:show.settings.transition==='fade'?.6:.75,outStart:sceneStart}}
-  cur=i;sceneStart=T;sel=null;draft=null;renderRundown();renderInspector();updateTools();
+  cur=i;sceneStart=T;sel=null;draft=null;mstep=null;renderRundown();renderInspector();updateTools();
 }
 function startPlay(fromStart=false){if(fromStart)goTo(0);playing=true;sceneStart=performance.now()/1000;updateAir()}
 function stopPlay(){playing=false;trans=null;updateAir()}
@@ -1897,7 +1908,8 @@ function renderInspector(){
     <div class="grp"><button data-fl="add">Add current view</button><button data-fl="preview"${ks.length<2?' disabled':''}>Preview flight</button>${ks.length?'<button data-fl="clear">Clear stops</button>':''}</div>
     ${ks.map((v,i)=>{const nb=CITY_KEYS.map(k=>[k,(CITIES[k][1]-v.lat)**2+(CITIES[k][2]-v.lon)**2]).sort((a,b)=>a[1]-b[1])[0][0];return`<div class="trk"><b>${i+1}</b><span>${(REGIONS[sc.region].latSpan/v.latSpan).toFixed(1)}× near ${esc(CITIES[nb][0])}</span><label>Hold <input type="number" data-flhold="${i}" min="0" max="20" step=".5" value="${v.hold??1.5}" style="width:64px"> s</label><button data-flgo="${i}">Go</button><button data-fldel="${i}" aria-label="Remove stop">×</button></div>`}).join('')}
     <label class="chk"><input type="checkbox" id="i-flon" data-k="flightOn"${sc.flightOn?' checked':''}>Fly through the stops when this scene plays</label>
-    ${ks.length>1?`<p class="note">Flight time ${flightTotal(sc).toFixed(1)} seconds. The scene runs at least that long.</p>`:''}</div>
+    ${ks.length>1?`<label class="f">Advance<select id="i-fladv" data-k="flightAdv">${opts([['timed','Automatically, using the hold times'],['take','On Take, Enter or a click on the monitor']],sc.flightAdv||'timed')}</select></label>
+    <p class="note">${sc.flightAdv==='take'?'The camera waits at each stop. Each Take, Enter or click flies to the next one. After the last stop, Take goes to the next scene. Preview works the same way.':`Flight time ${flightTotal(sc).toFixed(1)} seconds. The scene runs at least that long.`}</p>`:''}</div>
     <div class="sec"><h3>Map</h3>
     <div class="grp"><button data-zoom="in" title="Zoom in (+)">Zoom in</button><button data-zoom="out" title="Zoom out (−)">Zoom out</button><button data-zoom="reset" title="Reset view (0)"${sc.view?'':' disabled'}>Reset view</button></div>
     <p class="note">${sc.view?`Zoomed ${(REGIONS[sc.region].latSpan/sc.view.latSpan).toFixed(1)}× from the ${esc(REGIONS[sc.region].name)} map. `:''}Scroll on the monitor to zoom and drag to move. Click any warning or advisory on the map for its details.</p>
@@ -1919,7 +1931,8 @@ function renderInspector(){
     ${(()=>{const v=alertsInView(sc);return v.length?`<div style="display:grid;gap:6px">${v.slice(0,12).map(a=>`<div data-selalert="${esc(a.id||'')}" tabindex="0" role="button" style="display:grid;grid-template-columns:12px 1fr;gap:8px;font-size:12px;align-items:start;cursor:pointer;padding:4px;border-radius:6px;${a.id&&a.id===sc.alertSel?'background:#1d2842;':''}"><i style="width:12px;height:12px;border-radius:3px;margin-top:2px;background:${alertColor(a.event)}"></i><div><b>${esc(a.event)}</b> until ${a.expires.toLocaleString([], {weekday:'short',hour:'numeric',minute:'2-digit'})}<div class="note">${esc(a.area.length>90?a.area.slice(0,90)+'…':a.area)}</div></div></div>`).join('')}</div>`:'<p class="note">No active alerts in this view.</p>'})()}</div>${EUR?'</div>':''}`}
   if(FLY_TYPES.includes(sc.type)){const fo=flyFromOpts(sc.region);h+=`<div class="sec"><h3>Fly-in</h3>${fo.length?`<label class="chk"><input type="checkbox" id="i-flyin" data-k="flyIn"${sc.flyIn?' checked':''}>Fly in when this scene plays</label>
     <div class="row2"><label class="f">Start from<select id="i-flyfrom" data-k="flyFrom">${opts(fo.map(([k,R])=>[k,R.name]),flyFrom(sc))}</select></label><label class="f">&nbsp;<button data-flyprev${sc.flyIn?'':' disabled'}>Preview fly-in</button></label></div>
-    <p class="note">The camera starts on the ${esc(REGIONS[flyFrom(sc)].name)} map, zooms to ${esc(REGIONS[sc.region].name)}, then the graphics build in. Adds ${FLYIN_T.toFixed(1)} seconds to the scene.</p>`:`<p class="note">There is no larger map to fly in from for ${esc(REGIONS[sc.region].name)}.</p>`}</div>`}
+    <label class="f">Start the zoom<select id="i-flyadv" data-k="flyAdv">${opts([['timed','Automatically'],['take','On Take, Enter or a click on the monitor']],sc.flyAdv||'timed')}</select></label>
+    <p class="note">The camera starts on the ${esc(REGIONS[flyFrom(sc)].name)} map, zooms to ${esc(REGIONS[sc.region].name)}, then the graphics build in. ${sc.flyAdv==='take'?'The scene holds on the wide map until you take it, and it stays up until your next Take.':`Adds ${FLYIN_T.toFixed(1)} seconds to the scene.`}</p>`:`<p class="note">There is no larger map to fly in from for ${esc(REGIONS[sc.region].name)}.</p>`}</div>`}
   if(isMapType(sc.type)){const L=sel&&sel.kind==='mlabel'&&(sc.labels||[])[sel.i];h+=`<div class="sec"><h3>Map labels</h3><p class="note">Pick Map label in the toolbar and click the map. Labels stay pinned to their spot when you zoom.</p>
     <div class="row2"><label class="f">Text<input type="text" id="i-lbltext" value="${esc(window._lblText||'Heaviest snow')}"></label><label class="f">Style<select id="i-lblstyle">${opts(LABEL_STYLES,window._lblStyle||'callout')}</select></label></div>
     ${L?`<div class="row2"><label class="f">Selected label<input type="text" id="i-sellbl" value="${esc(L.text)}"></label><label class="f">Style<select id="i-sellsty">${opts(LABEL_STYLES,L.style)}</select></label></div><button data-lbldel>Delete label</button>`:''}
@@ -1973,7 +1986,7 @@ function renderInspector(){
     <button id="bReset">Reset to starter rundown</button><div id="resetConfirm" hidden class="row2"><button id="bResetYes" class="primary">Replace my rundown</button><button id="bResetNo">Keep it</button></div></div>`;
   const el=$('#insp');el.innerHTML=h;
   el.querySelectorAll('[data-k]').forEach(inp=>inp.addEventListener(inp.type==='checkbox'||inp.tagName==='SELECT'?'change':'input',()=>{const k=inp.dataset.k;let v=inp.type==='checkbox'?inp.checked:inp.type==='number'?+inp.value:inp.value;if(['hours','trackMins','step'].includes(k))v=+v;if(k==='cityVals')v=!!v;
-    sc[k]=v;if(k==='trackMins')(sc.tracks||[]).forEach(t=>t.mins=v);if(k==='product'){if(isSite(v)&&!sc.view)centerOnSite(sc);renderInspector()}if(k==='site'&&isSite(sc.product))centerOnSite(sc);if(['v','hours','step','layer'].includes(k))renderInspector();if(k==='region'&&sc.type==='temps'){sc.hidden=[];declutter(sc)}if(k==='region'&&sc.type==='snow'&&REGIONS[v].isolate)sc.clip='state';if(k==='region'&&(sc.type==='rainfall'||sc.type==='snowfall'))sc.clip=REGIONS[v].isolate?'state':'land';if(k==='wpc'||k==='flyIn')renderInspector();if(k==='flyIn'&&v){flyPrev=sc.id;cityFx.id=null;sceneStart=performance.now()/1000}if(['region','src'].includes(k)||k==='city'){renderInspector()}
+    sc[k]=v;if(k==='trackMins')(sc.tracks||[]).forEach(t=>t.mins=v);if(k==='product'){if(isSite(v)&&!sc.view)centerOnSite(sc);renderInspector()}if(k==='site'&&isSite(sc.product))centerOnSite(sc);if(['v','hours','step','layer'].includes(k))renderInspector();if(k==='region'&&sc.type==='temps'){sc.hidden=[];declutter(sc)}if(k==='region'&&sc.type==='snow'&&REGIONS[v].isolate)sc.clip='state';if(k==='region'&&(sc.type==='rainfall'||sc.type==='snowfall'))sc.clip=REGIONS[v].isolate?'state':'land';if(['wpc','flyIn','flyAdv','flightAdv'].includes(k)){mstep=null;renderInspector()}if(k==='flyIn'&&v){flyPrev=sc.id;mstep=null;cityFx.id=null;sceneStart=performance.now()/1000}if(['region','src'].includes(k)||k==='city'){renderInspector()}
     if(k==='region'||k==='city'||k==='v'){sceneStart=performance.now()/1000}if(k==='city'&&show.settings.forecastSource==='nws'&&!nws.fc[v])nwsForecast(v).then(()=>queueThumbs()).catch(()=>{});if(k==='area'&&v==='eu')loadEuWarnings(true);if(k==='area')renderInspector();if(k==='region'&&sc.type==='radar'){loadAlerts();clearTimeout(pvT);pendingView=null;sc.view=null;if(isEU(v)){loadRV();loadEuWarnings(true);sc.flight=[];sc.flightOn=false;if(!isSat(sc.product))sc.product='composite'}renderInspector()}save();renderRundown()}));
   el.querySelectorAll('[data-s]').forEach(inp=>inp.addEventListener(inp.type==='checkbox'||inp.tagName==='SELECT'?'change':'input',()=>{show.settings[inp.dataset.s]=inp.type==='checkbox'?inp.checked:inp.value;if(['currentSource','forecastSource'].includes(inp.dataset.s)){loadNws();renderInspector()}$('#stationSub').textContent=(show.settings.station||'')+' workstation';save();queueThumbs()}));
   el.querySelectorAll('[data-city]').forEach(c=>c.addEventListener('change',()=>{const k=c.dataset.city;sc.hidden=sc.hidden.filter(x=>x!==k);if(!c.checked)sc.hidden.push(k);save();queueThumbs()}));
@@ -1984,9 +1997,9 @@ function renderInspector(){
   q1('[data-trackalert]','click',()=>{const m=parseMotion(findAlert(sc.alertSel));if(m){sc.tracks=sc.tracks||[];sc.tracks.push(Object.assign({id:uid(),mins:sc.trackMins||60},m));save();queueThumbs();renderInspector()}});
   q1('[data-tspeed]','input',x=>{const t=sc.tracks[+x.dataset.tspeed];if(t){t.mph=clamp(+x.value||30,5,120);save();queueThumbs()}});
   q1('[data-tdel]','click',x=>{sc.tracks.splice(+x.dataset.tdel,1);save();queueThumbs();renderInspector()});
-  q1('[data-flyprev]','click',()=>{flyPrev=sc.id;cityFx.id=null;sceneStart=performance.now()/1000});
+  q1('[data-flyprev]','click',()=>{flyPrev=sc.id;mstep=null;cityFx.id=null;sceneStart=performance.now()/1000});
   q1('[data-fl]','click',x=>{const a=x.dataset.fl;if(a==='add'){sc.flight=sc.flight||[];sc.flight.push(Object.assign({hold:1.5},pendingView&&pendingView.id===sc.id?pendingView.view:getView(sc)));if(sc.flight.length>1)sc.flightOn=true;preloadFlight(sc)}
-    else if(a==='preview'){preloadFlight(sc);flightPrev={id:sc.id,start:performance.now()/1000+.3}}else if(a==='clear'){sc.flight=[];sc.flightOn=false}save();queueThumbs();renderInspector()});
+    else if(a==='preview'){preloadFlight(sc);mstep=null;flightPrev={id:sc.id,start:performance.now()/1000+.3}}else if(a==='clear'){sc.flight=[];sc.flightOn=false}save();queueThumbs();renderInspector()});
   q1('[data-flhold]','input',x=>{const v=sc.flight[+x.dataset.flhold];if(v){v.hold=clamp(+x.value||0,0,20);save()}});
   q1('[data-flgo]','click',x=>{const v=sc.flight[+x.dataset.flgo];if(v){clearTimeout(pvT);pendingView=null;sc.view={lon:v.lon,lat:v.lat,latSpan:v.latSpan};save();queueThumbs();renderInspector()}});
   q1('[data-fldel]','click',x=>{sc.flight.splice(+x.dataset.fldel,1);if(sc.flight.length<2)sc.flightOn=false;save();renderInspector()});
@@ -2048,7 +2061,7 @@ $('#bClearTele').addEventListener('click',()=>{scene().tele=[];save();queueThumb
 function toCanvas(e){const r=cv.getBoundingClientRect();return[(e.clientX-r.left)/r.width*W,(e.clientY-r.top)/r.height*H]}
 const inside=(p,r)=>p[0]>=r.x&&p[0]<=r.x+r.w&&p[1]>=r.y&&p[1]<=r.y+r.h;
 cv.addEventListener('pointerdown',e=>{
-  const p=toCanvas(e);const sc=scene();cv.setPointerCapture(e.pointerId);if(trans)return;
+  const p=toCanvas(e);const sc=scene();if(stepPending()&&(playing||tool==='select')){advanceStep();return}cv.setPointerCapture(e.pointerId);if(trans)return;
   if(['pen','arrow','line','circle'].includes(tool)){draft={kind:'tele',s:{tool,color:penColor,w:+$('#penW').value,pts:[p]}};return}
   if(tool==='erase'){const i=sc.tele.findIndex(s=>s.pts.some(q=>Math.hypot(q[0]-p[0],q[1]-p[1])<28)||(s.tool!=='pen'&&s.tool!=='arrow'&&near(s,p)));if(i>=0){sc.tele.splice(i,1);save();queueThumbs()}return}
   if(tool==='track'){if(sc.type==='radar')draft={kind:'track',a:p,b:p};return}
@@ -2147,7 +2160,7 @@ const nextIdx=()=>cued!=null&&cued<show.scenes.length?cued:(cur+1)%show.scenes.l
 const pvC=$('#pv'),pvG=pvC.getContext('2d');
 function drawPreview(){const i=nextIdx(),sc=show.scenes[i];if(!sc)return;pvG.setTransform(pvC.width/W,0,0,pvC.height/H,0,0);try{renderScene(pvG,sc,99,{thumb:true})}catch(e){}
   $('#pvName').textContent=`${String(i+1).padStart(2,'0')} · ${sc.title||DEF_TITLES[sc.type]}${cued!=null?' (cued)':''}`}
-function takeNext(){const i=nextIdx();cued=null;goTo(i,true);drawPreview()}
+function takeNext(){if(advanceStep())return;const i=nextIdx();cued=null;goTo(i,true);drawPreview()}
 setInterval(drawPreview,700);
 $('#bTake').addEventListener('click',takeNext);$('#bCueClear').addEventListener('click',()=>{cued=null;renderRundown();drawPreview()});
 $('#bVert').addEventListener('click',exportVertical);
