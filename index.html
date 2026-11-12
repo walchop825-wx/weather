@@ -188,7 +188,7 @@ label.chk{display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer}
 <div class="status">
   <span><kbd>Space</kbd> play / stop</span><span><kbd>←</kbd><kbd>→</kbd> previous / next</span><span><kbd>V</kbd> select</span><span><kbd>T</kbd> pen</span><span><kbd>B</kbd> contour</span><span><kbd>N</kbd> total</span><span><kbd>Del</kbd> delete selection</span><span><kbd>E</kbd> export PNG</span><span><kbd>K</kbd> storm track</span><span><kbd>L</kbd> map label</span><span><kbd>1</kbd>–<kbd>9</kbd> cue</span><span><kbd>Enter</kbd> take</span>
   <span id="srcNote"></span>
-  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-11 · 9</span>
+  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-11 · 10</span>
 </div>
 <input type="file" id="fileIn" accept=".json,application/json" hidden>
 
@@ -953,9 +953,14 @@ function smoothPath(pts,closed=true){const p=new Path2D();const n=pts.length;if(
 
 /* ---------- Scenes ---------- */
 let hits={labels:[],totals:[],mlabels:[]};
+const US_MAP_CITIES=['nyc','chicago','losangeles','dallas','atlanta','denver','seattle','miami','houston','phoenix','minneapolis','sanfrancisco','stlouis','boston','washington','charlotte'];
+const CITY_TYPES=['temps','snow','futuremap','winter','rainfall','snowfall'];
+function candCities(rk){const P=proj(rk);return CITY_KEYS.filter(k=>{const x=P.x(CITIES[k][2]),y=P.y(CITIES[k][1]);return x>30&&x<W-30&&y>30&&y<H-30})}
+function defCities(sc){const R=REGIONS[sc.region];if(sc.type==='temps')return R.cities.filter(k=>!(sc.hidden||[]).includes(k));if(['futuremap','rainfall','snowfall'].includes(sc.type)&&sc.region==='us')return US_MAP_CITIES;return R.cities}
+function mapCities(sc){return Array.isArray(sc.cityList)?sc.cityList.filter(k=>CITIES[k]):defCities(sc)}
 function declutter(sc){
   const P=proj(sc.region),R=REGIONS[sc.region],s=R.scale,lw=150*s,lh=118*s;
-  const it=R.cities.map(k=>{const[x,y]=cityXY(sc.region,k);return{k,ax:x,ay:y,x,y:y-lh*.6,ins:showInsets(sc.region)&&!!INSETS[cityST(k)]}});
+  const it=mapCities(sc).map(k=>{const[x,y]=cityXY(sc.region,k);return{k,ax:x,ay:y,x,y:y-lh*.6,ins:showInsets(sc.region)&&!!INSETS[cityST(k)]}});
   for(let n=0;n<160;n++){
     for(let i=0;i<it.length;i++)for(let j=i+1;j<it.length;j++){const a=it[i],b=it[j];const dx=b.x-a.x,dy=b.y-a.y;const ox=lw+10-Math.abs(dx),oy=lh+10-Math.abs(dy);
       if(ox>0&&oy>0){if(ox<oy){const m=ox/2*(Math.sign(dx)||1);a.x-=m;b.x+=m}else{const m=oy/2*(Math.sign(dy)||1);a.y-=m;b.y+=m}}}
@@ -977,7 +982,7 @@ function cityLabel(g,k,cx,cy,s,p){
 }
 function renderTemps(g,sc,t,o){
   g.drawImage(mapBase(sc.region),0,0);drawCounties(g,sc);const P=proj(sc.region),R=REGIONS[sc.region],s=R.scale;
-  const ks=R.cities.filter(k=>!sc.hidden.includes(k));if(o.interactive)hits.labels=[];
+  const ks=mapCities(sc);if(o.interactive)hits.labels=[];
   if(showInsets(sc.region))g.drawImage(insetLayer(sc.region),0,0);
   ks.forEach((k,i)=>{const[ax,ay]=cityXY(sc.region,k);const off=sc.offsets[k]||[0,-70];const x=ax+off[0],y=ay+off[1];const p=clamp((t-.35-i*.07)/.5);
     if(p>0&&Math.hypot(off[0],off[1])>70*s){g.save();g.globalAlpha=clamp(p*2)*.8;g.strokeStyle='#ffffff';g.lineWidth=2;g.setLineDash([5,5]);g.beginPath();g.moveTo(ax,ay);g.lineTo(x,y);g.stroke();g.restore()}
@@ -1082,7 +1087,7 @@ function renderSnow(g,sc,t,o){
   g.restore();
   g.drawImage(mapOverlay(sc.region),0,0);drawCounties(g,sc);if(showInsets(sc.region))g.drawImage(insetLayer(sc.region),0,0);
   if(draft&&draft.kind==='band'&&o.interactive){g.save();g.strokeStyle='#ffffff';g.lineWidth=4;g.setLineDash([10,8]);g.fillStyle=SNOW_RANGES[draft.r].c+'99';const pp=draft.pts.map(([lo,la])=>[P.x(lo),P.y(la)]);const path=new Path2D();pp.forEach((q,i)=>i?path.lineTo(q[0],q[1]):path.moveTo(q[0],q[1]));g.fill(path);g.stroke(path);g.restore()}
-  if(sc.cities){REGIONS[sc.region].cities.forEach(k=>{const x=P.x(CITIES[k][2]),y=P.y(CITIES[k][1]);g.fillStyle='#ffffff';g.strokeStyle='#0a1a3a';g.lineWidth=3;g.beginPath();g.arc(x,y,6,0,7);g.fill();g.stroke();g.save();g.shadowColor='rgba(0,0,0,.9)';g.shadowBlur=6;text(g,CITIES[k][0].toUpperCase(),x+12,y-10,`700 24px ${FD}`,'#ffffff','left','alphabetic',1);g.restore()})}
+  if(sc.cities){mapCities(sc).forEach(k=>{const x=P.x(CITIES[k][2]),y=P.y(CITIES[k][1]);g.fillStyle='#ffffff';g.strokeStyle='#0a1a3a';g.lineWidth=3;g.beginPath();g.arc(x,y,6,0,7);g.fill();g.stroke();g.save();g.shadowColor='rgba(0,0,0,.9)';g.shadowBlur=6;text(g,CITIES[k][0].toUpperCase(),x+12,y-10,`700 24px ${FD}`,'#ffffff','left','alphabetic',1);g.restore()})}
   if(o.interactive)hits.totals=[];
   sc.totals.forEach((tt,i)=>{const q=easeBack(clamp((t-1-i*.06)/.45));if(q<=0)return;const x=P.x(tt.lon),y=P.y(tt.lat);const f=`800 42px ${FD}`;const w=measure(g,tt.v,f)+30,h=54;
     g.save();g.translate(x,y);g.scale(q,q);g.shadowColor='rgba(0,0,0,.5)';g.shadowBlur=12;g.shadowOffsetY=4;g.fillStyle='#ffffff';rr(g,-w/2,-h/2,w,h,10);g.fill();g.shadowColor='transparent';
@@ -1465,7 +1470,7 @@ function renderFutureMap(g,sc,t,o){
   const rk=sc.region,P=proj(rk),R=REGIONS[rk];g.drawImage(mapBase(rk),0,0);const N=Math.floor(sc.hours/sc.step)+1;const fi=Math.min(N-1,Math.floor(Math.max(0,t-.5)/.6)%(N+3));const hi=fi*sc.step;
   g.save();g.clip(landPath(rk));g.globalAlpha=.8*ease((t-.2)/.5);g.drawImage(fmField(rk,sc.v,hi),0,0);g.restore();
   g.drawImage(mapOverlay(rk),0,0);drawCounties(g,sc);
-  const cities=(rk==='us'?['seattle','sanfrancisco','losangeles','phoenix','denver','dallas','houston','minneapolis','chicago','stlouis','atlanta','miami','charlotte','washington','nyc','boston']:R.cities).filter(k=>{const x=P.x(CITIES[k][2]),y=P.y(CITIES[k][1]);return x>40&&x<W-40&&y>235&&y<H-120});
+  const cities=mapCities(sc).filter(k=>{const x=P.x(CITIES[k][2]),y=P.y(CITIES[k][1]);return x>40&&x<W-40&&y>235&&y<H-120});
   cities.forEach(k=>{const v=fmVal(k,sc.v,hi);if(v==null)return;const x=P.x(CITIES[k][2]),y=P.y(CITIES[k][1]);outlinedText(g,sc.v==='snow'?fmtSnow(v):sc.v==='rain'?fmtRain(v):v+(sc.v==='gust'?'':'°'),x,y+6,`800 ${rk==='us'?42:48}px ${FD}`,'#ffffff');outlinedText(g,CITIES[k][0].toUpperCase(),x,y+30,`700 18px ${FD}`,'#dfe8f7')});
   drawMapLabels(g,sc,P,o,t);
   const bx=W-430,by=50;glass(g,bx,by,360,140,12);const d=fmTime(hi);text(g,'FUTURECAST',bx+30,by+36,`700 22px ${FD}`,'#ffb21e','left','alphabetic',3);
@@ -1499,7 +1504,7 @@ function renderWinter(g,sc,t,o){
   const rk=sc.region,P=proj(rk),R=REGIONS[rk];const L=WINTER_LAYERS[sc.layer]||WINTER_LAYERS.wssi1;g.drawImage(mapBase(rk),0,0);const S=winterImage(rk,sc.layer);winterLegend(L[0]);
   if(S.ok&&S.img.naturalWidth){g.save();g.globalAlpha=.88*ease((t-.2)/.6);g.drawImage(S.img,0,0,W,H);g.restore()}
   g.drawImage(mapOverlay(rk),0,0);drawCounties(g,sc);
-  R.cities.forEach(k=>{const x=P.x(CITIES[k][2]),y=P.y(CITIES[k][1]);if(x<40||x>W-40||y<200||y>H-120)return;g.fillStyle='#ffffff';g.strokeStyle='#0a1a3a';g.lineWidth=3;g.beginPath();g.arc(x,y,6,0,7);g.fill();g.stroke();g.save();g.shadowColor='rgba(0,0,0,.9)';g.shadowBlur=6;text(g,CITIES[k][0].toUpperCase(),x+12,y-10,`700 24px ${FD}`,'#ffffff','left','alphabetic',1);g.restore()});
+  mapCities(sc).forEach(k=>{const x=P.x(CITIES[k][2]),y=P.y(CITIES[k][1]);if(x<40||x>W-40||y<200||y>H-120)return;g.fillStyle='#ffffff';g.strokeStyle='#0a1a3a';g.lineWidth=3;g.beginPath();g.arc(x,y,6,0,7);g.fill();g.stroke();g.save();g.shadowColor='rgba(0,0,0,.9)';g.shadowBlur=6;text(g,CITIES[k][0].toUpperCase(),x+12,y-10,`700 24px ${FD}`,'#ffffff','left','alphabetic',1);g.restore()});
   drawMapLabels(g,sc,P,o,t);
   const Lg=winterLegends[L[0]];const items=Lg&&Lg.status==='ok'?(Lg.map[L[1]]||[]):[];
   if(items.length){const q=ease((t-.5)/.6);const rh=46,lx=70,ly=290;g.save();g.globalAlpha=q;glass(g,lx,ly,300,70+items.length*rh,12);text(g,L[0]==='wssi'?'IMPACT':'CHANCE',lx+24,ly+44,`800 28px ${FD}`,'#ffb21e','left','alphabetic',3);
@@ -1546,7 +1551,7 @@ function renderRainfall(g,sc,t,o){
   else{const F=rainField(rk,sc.src,sc.hours,VV);g.globalAlpha=.85*fade;g.drawImage(F,0,0);if(!F.pts)msg=sc.src==='gfs_hrrr'&&sc.hours>48?'THE HRRR RUNS 48 HOURS · PICK 24 OR 48':sc.src==='gfs_hrrr'&&isEU(rk)?'THE HRRR COVERS NORTH AMERICA ONLY':'MODEL '+NOUN+' COULD NOT LOAD'}
   g.restore();
   g.drawImage(mapOverlay(rk),0,0);drawCounties(g,sc);
-  const list=(rk==='us'?['nyc','chicago','losangeles','dallas','atlanta','denver','seattle','miami','houston','phoenix','minneapolis','sanfrancisco','stlouis','boston','washington','charlotte']:R.cities).filter(k=>{const x=P.x(CITIES[k][2]),y=P.y(CITIES[k][1]);return x>40&&x<W-40&&y>170&&y<H-150&&!(y>H-260&&x>W-560)&&!(x<300&&y>260&&y<830)});
+  const list=mapCities(sc).filter(k=>{const x=P.x(CITIES[k][2]),y=P.y(CITIES[k][1]);return x>40&&x<W-40&&y>170&&y<H-150&&!(y>H-260&&x>W-560)&&!(x<300&&y>260&&y<830)});
   let noSnow=false;if(SN&&!msg){const vs=list.map(k=>rainTotal(k,sc.src,sc.hours,'snow')).filter(v=>v!=null);noSnow=vs.length>0&&Math.max(...vs)<.1;if(noSnow)msg='NO SNOW EXPECTED IN THE NEXT '+sc.hours+' HOURS'}
   const vals=!wpc&&!noSnow&&sc.cityVals!==false;const placed=[];const hit=(a)=>placed.some(b=>a.x<b.x+b.w&&b.x<a.x+a.w&&a.y<b.y+b.h&&b.y<a.y+a.h);
   list.forEach((k,i)=>{let x=P.x(CITIES[k][2]),y=P.y(CITIES[k][1]);const nm=CITIES[k][0].toUpperCase();
@@ -1880,7 +1885,10 @@ function renderInspector(){
   h+=`<label class="f">Seconds<input type="number" id="i-dur" data-k="duration" min="2" max="60" value="${sc.duration}"></label></div>`;
   if(REGIONS[sc.region]?.counties&&isMapType(sc.type))h+=`<label class="chk"><input type="checkbox" id="i-counties" data-k="counties"${sc.counties!==false?' checked':''}>County lines</label>${geoStatus[focusState(sc.region)]==='fail'?'<p class="note">County lines could not load in this view. They load from public map data when the standalone file opens in a browser, and stay saved after that.</p>':geoStatus[focusState(sc.region)]==='loading'?'<p class="note">Loading county lines.</p>':''}`;
   h+=`</div>`;
-  if(sc.type==='temps'){h+=`<div class="sec"><h3>Cities</h3><p class="note">Drag a label on the monitor to move it. Uncheck a city to hide it.</p><div class="chips">${REGIONS[sc.region].cities.map(k=>`<label><input type="checkbox" data-city="${k}"${sc.hidden.includes(k)?'':' checked'}>${esc(cityFull(k))}</label>`).join('')}</div><button id="bSpace">Re-space labels</button></div>`}
+  if(CITY_TYPES.includes(sc.type)){const on=mapCities(sc),cand=candCities(sc.region);const all=[...on.filter(k=>!cand.includes(k)),...cand].sort((a,b)=>(cityST(a)||'').localeCompare(cityST(b)||'')||CITIES[a][0].localeCompare(CITIES[b][0]));
+    h+=`<div class="sec"><h3>Cities</h3><p class="note">${sc.type==='temps'?'Drag a label on the monitor to move it. Double-click a label to hide it. ':''}${sc.type==='snow'&&!sc.cities?'City names are turned off for this map. ':''}${on.length} shown. Every city with forecast data on this map is listed.</p>
+    <div class="chips">${all.map(k=>`<label><input type="checkbox" data-mcity="${k}"${on.includes(k)?' checked':''}>${esc(cityFull(k))}</label>`).join('')}</div>
+    <div class="grp"><button id="bCityDef"${Array.isArray(sc.cityList)?'':' disabled'}>Default cities</button><button id="bCityNone">Clear all</button>${sc.type==='temps'?'<button id="bSpace">Re-space labels</button>':''}</div></div>`}
   if(sc.type==='models'){h+=`<div class="sec"><h3>Models</h3><div class="row2"><label class="f">Show<select id="i-v" data-k="v">${opts([['temp','Temperature'],['snow','Snowfall'],['precip','Precipitation']],sc.v)}</select></label><label class="f">Hours<select id="i-hours" data-k="hours">${opts([[24,'24'],[48,'48'],[72,'72']],sc.hours)}</select></label></div>
     <div class="chips">${MODELS.map(m=>`<label><input type="checkbox" data-model="${m.id}"${sc.show.includes(m.id)?' checked':''}><span style="color:${m.c};font-weight:700">${m.n}</span></label>`).join('')}</div>
     <div class="models-st">${MODELS.map(m=>`<b style="color:${m.c}">${m.n}</b><span>${data.modelOK[m.id]===false?'Not available':data.source==='live'?'Loaded':'Sample'}</span>`).join('')}</div>
@@ -1992,9 +2000,11 @@ function renderInspector(){
     <button id="bReset">Reset to starter rundown</button><div id="resetConfirm" hidden class="row2"><button id="bResetYes" class="primary">Replace my rundown</button><button id="bResetNo">Keep it</button></div></div>`;
   const el=$('#insp');el.innerHTML=h;
   el.querySelectorAll('[data-k]').forEach(inp=>inp.addEventListener(inp.type==='checkbox'||inp.tagName==='SELECT'?'change':'input',()=>{const k=inp.dataset.k;let v=inp.type==='checkbox'?inp.checked:inp.type==='number'?+inp.value:inp.value;if(['hours','trackMins','step'].includes(k))v=+v;if(k==='cityVals')v=!!v;
-    sc[k]=v;if(k==='trackMins')(sc.tracks||[]).forEach(t=>t.mins=v);if(k==='product'){if(isSite(v)&&!sc.view)centerOnSite(sc);renderInspector()}if(k==='site'&&isSite(sc.product))centerOnSite(sc);if(['v','hours','step','layer'].includes(k))renderInspector();if(k==='region'&&sc.type==='temps'){sc.hidden=[];declutter(sc)}if(k==='region'&&sc.type==='snow'&&REGIONS[v].isolate)sc.clip='state';if(k==='region'&&(sc.type==='rainfall'||sc.type==='snowfall'))sc.clip=REGIONS[v].isolate?'state':'land';if(k==='flightAdv'&&v==='take'&&(sc.flight||[]).length>1)sc.flightOn=true;if(['wpc','flyIn','flyAdv','flightAdv'].includes(k)){mstep=null;renderInspector()}if(inp.tagName==='SELECT')setTimeout(()=>{const a=document.activeElement;if(a&&a.tagName==='SELECT')a.blur()},0);if(k==='flyIn'&&v){flyPrev=sc.id;mstep=null;cityFx.id=null;sceneStart=performance.now()/1000}if(['region','src'].includes(k)||k==='city'){renderInspector()}
+    sc[k]=v;if(k==='trackMins')(sc.tracks||[]).forEach(t=>t.mins=v);if(k==='product'){if(isSite(v)&&!sc.view)centerOnSite(sc);renderInspector()}if(k==='site'&&isSite(sc.product))centerOnSite(sc);if(['v','hours','step','layer'].includes(k))renderInspector();if(k==='region')delete sc.cityList;if(k==='region'&&sc.type==='temps'){sc.hidden=[];declutter(sc)}if(k==='region'&&sc.type==='snow'&&REGIONS[v].isolate)sc.clip='state';if(k==='region'&&(sc.type==='rainfall'||sc.type==='snowfall'))sc.clip=REGIONS[v].isolate?'state':'land';if(k==='flightAdv'&&v==='take'&&(sc.flight||[]).length>1)sc.flightOn=true;if(['wpc','flyIn','flyAdv','flightAdv'].includes(k)){mstep=null;renderInspector()}if(inp.tagName==='SELECT')setTimeout(()=>{const a=document.activeElement;if(a&&a.tagName==='SELECT')a.blur()},0);if(k==='flyIn'&&v){flyPrev=sc.id;mstep=null;cityFx.id=null;sceneStart=performance.now()/1000}if(['region','src'].includes(k)||k==='city'){renderInspector()}
     if(k==='region'||k==='city'||k==='v'){sceneStart=performance.now()/1000}if(k==='city'&&show.settings.forecastSource==='nws'&&!nws.fc[v])nwsForecast(v).then(()=>queueThumbs()).catch(()=>{});if(k==='area'&&v==='eu')loadEuWarnings(true);if(k==='area')renderInspector();if(k==='region'&&sc.type==='radar'){loadAlerts();clearTimeout(pvT);pendingView=null;sc.view=null;if(isEU(v)){loadRV();loadEuWarnings(true);sc.flight=[];sc.flightOn=false;if(!isSat(sc.product))sc.product='composite'}renderInspector()}save();renderRundown()}));
   el.querySelectorAll('[data-s]').forEach(inp=>inp.addEventListener(inp.type==='checkbox'||inp.tagName==='SELECT'?'change':'input',()=>{show.settings[inp.dataset.s]=inp.type==='checkbox'?inp.checked:inp.value;if(['currentSource','forecastSource'].includes(inp.dataset.s)){loadNws();renderInspector()}$('#stationSub').textContent=(show.settings.station||'')+' workstation';save();queueThumbs()}));
+  el.querySelectorAll('[data-mcity]').forEach(c=>c.addEventListener('change',()=>{const k=c.dataset.mcity;let L=mapCities(sc).filter(x=>x!==k);if(c.checked)L.push(k);sc.cityList=L;if(sc.type==='temps'){sc.hidden=[];if(c.checked&&sc.offsets)delete sc.offsets[k]}save();queueThumbs();const n=el.querySelector('#bCityDef');if(n)n.disabled=false}));
+  {const b1=el.querySelector('#bCityDef');if(b1)b1.addEventListener('click',()=>{delete sc.cityList;if(sc.type==='temps'){sc.hidden=[];declutter(sc)}save();queueThumbs();renderInspector()});const b2=el.querySelector('#bCityNone');if(b2)b2.addEventListener('click',()=>{sc.cityList=[];save();queueThumbs();renderInspector()})}
   el.querySelectorAll('[data-city]').forEach(c=>c.addEventListener('change',()=>{const k=c.dataset.city;sc.hidden=sc.hidden.filter(x=>x!==k);if(!c.checked)sc.hidden.push(k);save();queueThumbs()}));
   el.querySelectorAll('[data-natcity]').forEach(c=>c.addEventListener('change',()=>{const k=c.dataset.natcity;sc.cities=sc.cities.filter(x=>x!==k);if(c.checked){if(sc.type==='travel'&&sc.cities.length>=12){c.checked=false;toast('The travel board holds 12 cities. Uncheck one first.');return}sc.cities.push(k);if(sc.type==='travel'&&show.settings.forecastSource==='nws'&&!nws.fc[k])nwsForecast(k).then(()=>queueThumbs()).catch(()=>{})}save();queueThumbs();renderInspector()}));
   const q1=(sel2,ev,fn)=>el.querySelectorAll(sel2).forEach(x=>x.addEventListener(ev,()=>fn(x)));
@@ -2032,7 +2042,7 @@ function renderInspector(){
   el.querySelectorAll('#rangePick button').forEach(b=>b.addEventListener('click',()=>{window._range=+b.dataset.r;setTool('band');renderInspector()}));
   on('#bClrB',()=>{sc.bands=[];sel=null;save();renderInspector();queueThumbs()});on('#bClrT',()=>{sc.totals=[];sel=null;save();renderInspector();queueThumbs()});
   const tot=el.querySelector('#i-tot');if(tot)tot.addEventListener('input',()=>window._totVal=tot.value);
-  on('#bAuto',()=>{const P=proj(sc.region);sc.totals=sc.totals.filter(t=>!t.auto);REGIONS[sc.region].cities.forEach(k=>{const v=snowTotal(k,sc.src);if(v==null||v<.1)return;const lab=v<1?'<1"':(v<10?(Math.round(v*2)/2):Math.round(v))+'"';sc.totals.push({lon:CITIES[k][2],lat:CITIES[k][1]+ (sc.cities?-(40/H)*(P.north-P.south):0),v:lab,auto:true})});save();queueThumbs();sceneStart=performance.now()/1000-1;toast(`Placed ${sc.totals.filter(t=>t.auto).length} totals from ${sc.src==='consensus'?'the model blend':MODELS.find(m=>m.id===sc.src).n}.`)});
+  on('#bAuto',()=>{const P=proj(sc.region);sc.totals=sc.totals.filter(t=>!t.auto);mapCities(sc).forEach(k=>{const v=snowTotal(k,sc.src);if(v==null||v<.1)return;const lab=v<1?'<1"':(v<10?(Math.round(v*2)/2):Math.round(v))+'"';sc.totals.push({lon:CITIES[k][2],lat:CITIES[k][1]+ (sc.cities?-(40/H)*(P.north-P.south):0),v:lab,auto:true})});save();queueThumbs();sceneStart=performance.now()/1000-1;toast(`Placed ${sc.totals.filter(t=>t.auto).length} totals from ${sc.src==='consensus'?'the model blend':MODELS.find(m=>m.id===sc.src).n}.`)});
   const sr=el.querySelector('#i-selr');if(sr)sr.addEventListener('change',()=>{sc.bands[sel.i].r=+sr.value;save();queueThumbs()});
   const sv=el.querySelector('#i-selv');if(sv)sv.addEventListener('input',()=>{sc.totals[sel.i].v=sv.value;sc.totals[sel.i].auto=false;save();queueThumbs()});
   on('#bDelSel',deleteSel);
@@ -2106,7 +2116,7 @@ const endPtr=(e)=>{const sc=scene();
   if(dragging){save();queueThumbs()}draft=null;dragging=null};
 cv.addEventListener('wheel',e=>{const sc=scene();if(!sc||sc.type!=='radar')return;e.preventDefault();const p=toCanvas(e);const v=pendingView&&pendingView.id===sc.id?pendingView.view:getView(sc);setPending(sc,zoomAt(v,p[0],p[1],Math.exp(clamp(e.deltaY,-120,120)*.0025)))},{passive:false});
 cv.addEventListener('pointerup',endPtr);cv.addEventListener('pointercancel',endPtr);
-cv.addEventListener('dblclick',e=>{const sc=scene();if(sc.type!=='temps'||tool!=='select')return;const p=toCanvas(e);const h=hits.labels.find(h=>inside(p,h));if(h){sc.hidden.push(h.k);save();renderInspector();queueThumbs()}});
+cv.addEventListener('dblclick',e=>{const sc=scene();if(sc.type!=='temps'||tool!=='select')return;const p=toCanvas(e);const h=hits.labels.find(h=>inside(p,h));if(h){sc.cityList=mapCities(sc).filter(x=>x!==h.k);save();renderInspector();queueThumbs()}});
 function deleteSel(){const sc=scene();if(!sel)return;if(sel.kind==='mlabel')sc.labels.splice(sel.i,1);if(sel.kind==='band')sc.bands.splice(sel.i,1);if(sel.kind==='total')sc.totals.splice(sel.i,1);sel=null;save();renderInspector();queueThumbs()}
 
 /* ---------- Export ---------- */
