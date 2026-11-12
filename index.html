@@ -109,6 +109,21 @@ label.chk{display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer}
 .chips.cl{max-height:220px;overflow:auto}
 .trk{display:flex;gap:6px;align-items:center;flex-wrap:wrap;font-size:12px}
 .item.cue{box-shadow:inset 0 0 0 2px #3ddc8c}
+.menu{position:relative}.menu>summary{list-style:none;background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:7px 11px;cursor:pointer;user-select:none}.menu>summary::-webkit-details-marker{display:none}.menu>summary::after{content:" ▾";color:var(--muted)}.menu[open]>summary{border-color:var(--accent)}
+.menu .pop{position:absolute;right:0;top:calc(100% + 6px);z-index:30;min-width:220px;display:grid;gap:6px;padding:10px;background:var(--panel);border:1px solid var(--line);border-radius:10px;box-shadow:0 12px 30px rgba(0,0,0,.5)}.menu .pop button{justify-content:flex-start}.menu .pop hr{border:0;border-top:1px solid var(--line);margin:2px 0;width:100%}
+.updbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;background:#10304f;border:1px solid #4fb3ff;border-radius:10px;padding:8px 12px;margin-bottom:12px}
+.statuspop{position:fixed;z-index:40;top:70px;left:max(16px,env(safe-area-inset-left,0px));width:min(560px,calc(100% - 32px));max-height:70vh;overflow:auto;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 14px;box-shadow:0 16px 40px rgba(0,0,0,.6)}
+.sp-h{display:flex;gap:8px;align-items:center;margin-bottom:8px}.sp-h b{flex:1;font-family:var(--display);letter-spacing:.08em;text-transform:uppercase}
+.strow{display:grid;grid-template-columns:12px minmax(0,1fr) auto;gap:8px;align-items:start;padding:6px 0;border-top:1px solid var(--line);font-size:13px}.strow i{width:10px;height:10px;border-radius:50%;margin-top:4px}.strow small{color:var(--muted);display:block}
+.pick{position:fixed;inset:0;z-index:50;background:rgba(3,6,12,.7);display:flex;align-items:center;justify-content:center;padding:16px}.pick[hidden]{display:none}
+.pick-in{width:min(980px,100%);max-height:88vh;overflow:auto;background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px}
+.pick-h{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px}.tabs2{display:flex;gap:6px}
+.pick-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(270px,1fr));gap:14px}.pick-cat h4{margin:0 0 6px;font-family:var(--display);letter-spacing:.1em;text-transform:uppercase;color:var(--accent);font-size:13px}
+.pick-cat{display:grid;gap:6px;align-content:start}.pick-cat button{justify-content:flex-start;white-space:normal;text-align:left;flex-direction:column;align-items:flex-start;gap:2px}.pick-cat button small{color:var(--muted);font-size:11px}
+.seg{list-style:none;padding:6px 4px 2px;font-family:var(--display);font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);font-size:12px;border-bottom:1px solid var(--line)}
+#list.compact .item{grid-template-columns:22px minmax(0,1fr) auto;padding:4px 6px}#list.compact .item canvas{display:none}#list.compact .item .acts{grid-column:auto}#list.compact .item:not(.sel) .acts{display:none}#list.compact .item .t{font-size:13px}
+.item .t{white-space:normal;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;line-height:1.15}
+button.pill{cursor:pointer;background:transparent}
 .toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:#1d2842;border:1px solid var(--accent);border-radius:8px;padding:10px 16px;z-index:20;max-width:calc(100% - 32px);font-size:14px}
 .models-st{display:grid;grid-template-columns:auto 1fr;gap:4px 10px;font-size:12px}
 .models-st b{font-family:var(--display);letter-spacing:.06em}
@@ -117,33 +132,42 @@ label.chk{display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer}
 
 <header class="top">
   <div class="brand"><div class="mark" aria-hidden="true"></div><div><h1>Weather Graphics Studio</h1><small id="stationSub">Weather 8 workstation</small></div></div>
-  <span class="pill sample" id="dataPill"><i></i><span id="dataTxt">Loading</span></span>
+  <button type="button" class="pill sample" id="dataPill" title="Data status and refresh"><i></i><span id="dataTxt">Loading</span></button>
   <span class="pill" id="airPill"><i></i><span>Standby</span></span>
-  <div class="grp">
+  <div class="grp topbar">
     <button id="bClrTest" class="testclr" hidden title="Remove the sample warning and put everything back">Clear test warning</button>
-    <button id="bSaveTop" title="Save your rundown, drawings and settings to a file">Save show</button>
-    <button id="bOpenTop" title="Open a show file saved on another computer">Open show</button>
     <button id="bUndoOpen" hidden title="Go back to the show you had before opening the file">Undo open</button>
-    <button id="bRefresh" title="Refresh data">Refresh data</button>
-    <button id="bPlay" class="primary" title="Play rundown (Space)">Play rundown</button>
-    <button id="bLoop" title="Loop the rundown">Loop</button>
-    <button id="bProg" title="Open a clean output window for a second screen, projector or OBS">Program window</button>
+    <button id="bUndo" title="Undo (Ctrl+Z)" aria-label="Undo">↶ Undo</button>
+    <button id="bRedo" title="Redo (Ctrl+Shift+Z)" aria-label="Redo">↷ Redo</button>
+    <details class="menu" id="mFile"><summary id="sumFile">File</summary><div class="pop">
+      <button id="bSaveTop" title="Save your rundown, drawings and settings to a file">Save show</button>
+      <button id="bOpenTop" title="Open a show file saved on another computer">Open show</button>
+      <hr><button id="bPng" title="Export this frame (E)">Export PNG</button>
+      <button id="bVert" title="Export a 9:16 vertical image for social">Vertical PNG</button>
+      <hr><label class="f" style="font-size:12px">Video format<select id="recFmt" aria-label="Video format"><option value="h">Video 16:9</option><option value="v">Video 9:16</option></select></label>
+      <button id="bRec" title="Record the rundown as video">Record video</button>
+    </div></details>
+    <details class="menu" id="mOut"><summary>Output</summary><div class="pop">
+      <button id="bProg" title="Open a clean output window for a second screen, projector or OBS">Program window</button>
+      <button id="bL3" title="Show or hide the name lower third on air">Lower third</button>
+      <button id="bSafe" title="Show title and action safe guides">Safe guides</button>
+      <button id="bLoop" title="Loop the rundown">Loop</button>
+    </div></details>
     <button id="bClickAdv" title="Run the whole show by hand: each click, Enter, right arrow or presenter clicker press does the next camera move or the next scene">Click to advance</button>
-    <button id="bPng" title="Export this frame (E)">Export PNG</button>
-    <button id="bVert" title="Export a 9:16 vertical image for social">Vertical PNG</button>
-    <select id="recFmt" aria-label="Video format" style="width:auto"><option value="h">Video 16:9</option><option value="v">Video 9:16</option></select>
-    <button id="bRec" title="Record the rundown as video">Record video</button>
-    <button id="bSafe" title="Show title and action safe guides">Safe guides</button>
+    <button id="bPlay" class="primary" title="Play rundown (Space)">Play rundown</button>
   </div>
 </header>
+<div id="updBar" class="updbar" hidden><span>A new version of the studio is ready.</span><button id="bReload" class="primary">Reload now</button><button id="bUpdLater">Later</button></div>
+<div id="statusPop" class="statuspop" hidden><div class="sp-h"><b>Data status</b><button id="bRefresh" class="primary">Refresh data</button><button id="bStatClose" aria-label="Close">×</button></div><div id="statusBody"></div></div>
+<div id="addPick" class="pick" hidden role="dialog" aria-label="Add scenes"><div class="pick-in"><div class="pick-h"><div class="tabs2"><button data-ptab="scenes" class="on">Scenes</button><button data-ptab="templates">Show templates</button></div><button id="bPickClose" aria-label="Close">×</button></div><div id="pickBody"></div></div></div>
 <div id="breaking" class="breaking" hidden role="alert"><div><b class="bt"></b><div class="ba"></div></div><div class="grp"><button id="bTakeAlert" class="primary">Take to air</button><button id="bDismiss">Dismiss</button></div></div>
 
 <main class="app">
   <section class="col rundown" aria-label="Rundown">
-    <h2>Rundown <span id="runTime" style="font-family:var(--mono);letter-spacing:0;font-size:12px"></span></h2>
+    <h2>Rundown <span style="display:flex;gap:8px;align-items:center"><button id="bCompact" style="padding:3px 8px;font-size:11px;letter-spacing:.06em">Compact</button><span id="runTime" style="font-family:var(--mono);letter-spacing:0;font-size:12px"></span></span></h2>
     <ol id="list"></ol>
     <div class="add">
-      <select id="addType" aria-label="Scene type">
+      <select id="addType" aria-label="Scene type" hidden>
         <option value="temps">Current Temps map</option>
         <option value="conditions">Current Conditions</option>
         <option value="forecast7">7-Day Forecast</option>
@@ -165,7 +189,7 @@ label.chk{display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer}
         <option value="impact">Storm Impact Meter</option>
         <option value="closings">Closings and Delays</option>
       </select>
-      <button id="bAdd">Add</button>
+      <button id="bAdd" hidden>Add</button><button id="bAddOpen" class="primary" style="width:100%;justify-content:center">+ Add scenes</button>
     </div>
   </section>
 
@@ -182,10 +206,10 @@ label.chk{display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer}
       <span id="swatches" class="grp"></span>
       <select id="penW" aria-label="Line width" style="width:auto"><option value="6">Thin</option><option value="10" selected>Medium</option><option value="16">Thick</option></select>
       <button id="bClearTele">Clear drawing</button>
-      <span class="sep"></span>
+      <span class="sep" data-snow></span>
       <button data-tool="band" data-snow title="Draw a snowfall contour (B)">Draw contour</button>
       <button data-tool="total" data-snow title="Place a snowfall total (N)">Place total</button>
-      <span class="sep"></span>
+      <span class="sep" data-map></span>
       <button data-tool="track" data-radar title="Drag from a storm in the direction it is moving (K)">Storm track</button>
       <button data-tool="label" data-map title="Click the map to place a label (L)">Map label</button>
       <button data-tool="probe" data-map title="Click the map for a point forecast card (P)">Probe</button>
@@ -202,7 +226,7 @@ label.chk{display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer}
 <div class="status">
   <span><kbd>Space</kbd> play / stop</span><span><kbd>←</kbd><kbd>→</kbd> previous / next</span><span><kbd>V</kbd> select</span><span><kbd>T</kbd> pen</span><span><kbd>B</kbd> contour</span><span><kbd>N</kbd> total</span><span><kbd>Del</kbd> delete selection</span><span><kbd>E</kbd> export PNG</span><span><kbd>K</kbd> storm track</span><span><kbd>L</kbd> map label</span><span><kbd>1</kbd>–<kbd>9</kbd> cue</span><span><kbd>Enter</kbd> take</span>
   <span id="srcNote"></span>
-  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-11 · 15</span>
+  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-11 · 16</span>
 </div>
 <input type="file" id="fileIn" accept=".json,application/json" hidden>
 
@@ -902,7 +926,7 @@ function defaultShow(){
 }
 const STORE='wgs-show-v2';
 function loadShow(){try{const s=JSON.parse(localStorage.getItem(STORE)||'null');if(s&&Array.isArray(s.scenes)&&s.scenes.length){s.scenes=s.scenes.map(x=>newScene(x.type,x));return s}}catch(e){}return null}
-let saveT,appReady=false;function save(){if(appReady&&!fileDirty){fileDirty=true;try{localStorage.setItem('wgs-dirty','1')}catch(e){}updSaveBtn()}clearTimeout(saveT);saveT=setTimeout(()=>{try{localStorage.setItem(STORE,JSON.stringify(show))}catch(e){}},400)}
+let saveT,appReady=false;function save(){if(appReady&&!fileDirty){fileDirty=true;try{localStorage.setItem('wgs-dirty','1')}catch(e){}updSaveBtn()}clearTimeout(saveT);saveT=setTimeout(()=>{try{localStorage.setItem(STORE,JSON.stringify(show))}catch(e){}if(typeof snapShow==='function')snapShow()},400)}
 let show=loadShow()||defaultShow();
 show.settings.breaking=show.settings.breaking||{on:true,auto:false,events:['Tornado Warning','Severe Thunderstorm Warning','Flash Flood Warning','Snow Squall Warning'],areas:{PA:[]}};
 if(!show.settings.paMapsAdded){
@@ -944,11 +968,11 @@ function drawHeader(g,title,sub,t){
   g.save();g.globalAlpha=p;g.translate(-60*(1-p),0);
   const x=70,y=52,h=98,w=Math.max(420,tw+110);
   g.save();g.shadowColor='rgba(0,0,0,.5)';g.shadowBlur=24;g.shadowOffsetY=8;
-  const gr=g.createLinearGradient(x,y,x+w,y);gr.addColorStop(0,'#0f3a86');gr.addColorStop(1,'#0a2258');g.fillStyle=gr;slant(g,x,y,w,h,26);g.fill();g.restore();
-  g.fillStyle='rgba(255,255,255,.12)';slant(g,x,y,w,3,26);g.fill();
-  g.fillStyle='#ffb21e';slant(g,x-6,y,24,h,26);g.fill();
+  const gr=g.createLinearGradient(x,y,x+w,y);gr.addColorStop(0,BP());gr.addColorStop(1,shade(BP(),-.38));g.fillStyle=gr;hdrShape(g,x,y,w,h,26);g.fill();g.restore();
+  g.fillStyle='rgba(255,255,255,.12)';hdrShape(g,x,y,w,3,26);g.fill();
+  g.fillStyle=BA();hdrShape(g,x-6,y,24,h,26);g.fill();
   text(g,title,x+56,y+72,tf,'#ffffff','left','alphabetic',2);
-  if(sub){const sx=x+40,sy=y+h;const p2=ease((t-.2)/.5);g.save();g.beginPath();g.rect(sx-20,sy,(sw+120)*p2,48);g.clip();g.fillStyle='#ffb21e';slant(g,sx-8,sy,sw+56,46,-16);g.fill();text(g,sub,sx+22,sy+34,sf,'#0b1a38','left','alphabetic',3);g.restore()}
+  if(sub){const sx=x+40,sy=y+h;const p2=ease((t-.2)/.5);g.save();g.beginPath();g.rect(sx-20,sy,(sw+120)*p2,48);g.clip();g.fillStyle=BA();hdrShape(g,sx-8,sy,sw+56,46,-16);g.fill();text(g,sub,sx+22,sy+34,sf,lum(hex3(BA()))>.55?'#0b1a38':'#ffffff','left','alphabetic',3);g.restore()}
   g.restore();
 }
 function drawCloud(g,cx,cy,s,fill){g.fillStyle=fill;g.beginPath();g.arc(cx-.26*s,cy+.06*s,.2*s,0,7);g.arc(cx-.02*s,cy-.1*s,.28*s,0,7);g.arc(cx+.26*s,cy+.04*s,.22*s,0,7);g.fill();rr(g,cx-.46*s,cy+.02*s,.94*s,.24*s,.12*s);g.fill()}
@@ -1632,7 +1656,7 @@ function alertHoursSec(sc){const h=data.hourly&&data.hourly[sc.city];if(!h)retur
   return`<div class="sec"><h3>Alert hours</h3><p class="note">Checked hours get the alert look for ${esc(cityFull(sc.city))}. They start out matching its alert days. A change here is saved for the area under Applies to above, and it overrides that day for those cities.</p>
   <div class="chips">${hrs.map((d,i)=>`<label><input type="checkbox" data-ahour="${hourKey(d)}"${isAlertHour(d,sc.city)?' checked':''}>${i===0?'Now':DOW[d.getDay()].slice(0,1)+DOW[d.getDay()].slice(1).toLowerCase()+' '+hrLbl(d)}</label>`).join('')}</div>
   <div class="grp"><button id="bAhAll">All on</button><button id="bAhNone">All off</button><button id="bAhDays">Match alert days</button></div></div>`}
-function alertDaysSec(sc){const scope=curScope(sc),own=(aset(scope).dates||[]),t0=new Date();t0.setHours(12,0,0,0);const today=isoDay(new Date());
+function alertDaysSec(sc){const scope=curScope(sc),own=((alertSets()[scope]||{}).dates||[]),t0=new Date();t0.setHours(12,0,0,0);const today=isoDay(new Date());
   const other=scopesFor(sc.city).filter(x=>x!==scope).map(x=>[x,((alertSets()[x]||{}).dates||[]).filter(d=>d>=today&&!own.includes(d))]).filter(x=>x[1].length);
   return`<div class="sec"><h3>Alert days</h3>${scopePicker(sc)}<p class="note">Check the days under alert for ${esc(scopeName(scope))}. The 7-day and hour-by-hour scenes for each city show the alerts that cover it. Days with only some alert hours show on the 7-day with their time window.</p>
   <div class="chips">${Array.from({length:8},(_,i)=>{const d=new Date(t0.getTime()+i*864e5),k=isoDay(d);return`<label><input type="checkbox" data-aday="${k}"${own.includes(k)?' checked':''}>${i===0?'Today':DAYN[d.getDay()].slice(0,3)+' '+(d.getMonth()+1)+'/'+d.getDate()}</label>`}).join('')}</div>
@@ -2055,13 +2079,14 @@ function drawChrome(g,T){
   if(st.showTicker||brk||clos.length){const y=H-64;g.fillStyle='rgba(6,14,32,.94)';g.fillRect(0,y,W,64);g.fillStyle='rgba(255,255,255,.08)';g.fillRect(0,y,W,2);
     const lbl=brk?'BREAKING':clos.length?'CLOSINGS':(st.tickerLabel||'Latest').toUpperCase();const lw=measure(g,lbl,`800 32px ${FD}`,3)+70;
     g.save();g.beginPath();g.rect(lw,y,W-lw,64);g.clip();const msg=(brk?brk.text:clos.length?clos.map(c=>c[1]?c[0]+': '+c[1]:c[0]).join('   •   '):(st.ticker||'')).toUpperCase()+'   •   ';const f=`600 32px ${FD}`;const mw=Math.max(200,measure(g,msg,f,1.5));const off=(T*110)%mw;for(let x=lw+20-off;x<W;x+=mw)text(g,msg,x,y+44,f,'#ffffff','left','alphabetic',1.5);g.restore();
-    g.fillStyle=brk?'#d7263d':'#ffb21e';slant(g,-20,y,lw,64,-18);g.fill();text(g,lbl,26,y+44,`800 32px ${FD}`,brk?'#ffffff':'#0b1a38','left','alphabetic',3)}
+    g.fillStyle=brk?'#d7263d':BA();slant(g,-20,y,lw,64,-18);g.fill();text(g,lbl,26,y+44,`800 32px ${FD}`,brk||lum(hex3(BA()))<=.55?'#ffffff':'#0b1a38','left','alphabetic',3)}
   if(st.showBug){const by=H-(st.showTicker?64:0)-108,bx=W-70;const name=(st.station||'').toUpperCase();const nf=`800 40px ${FD}`;const nw=measure(g,name,nf,2)+48;const c=getCur(st.bugCity);
     const tw=c?150:0;const timeS=new Date().toLocaleTimeString([], {hour:'numeric',minute:'2-digit'}).toUpperCase();const x=bx-nw-tw;
-    g.save();g.shadowColor='rgba(0,0,0,.5)';g.shadowBlur=16;g.fillStyle='#0d2c6a';rr(g,x,by,nw,84,8);g.fill();g.restore();
-    text(g,name,x+24,by+44,nf,'#ffffff','left','alphabetic',2);text(g,timeS,x+24,by+72,`600 24px ${FD}`,'#ffb21e','left','alphabetic',2);
+    g.save();g.shadowColor='rgba(0,0,0,.5)';g.shadowBlur=16;g.fillStyle=shade(BP(),-.15);rr(g,x,by,nw,84,8);g.fill();g.restore();{const lg=brandLogo();if(lg){const lh=84,lw2=Math.min(220,lg.naturalWidth/lg.naturalHeight*lh);try{g.drawImage(lg,x-lw2-10,by,lw2,lh)}catch(e){}}}
+    text(g,name,x+24,by+44,nf,'#ffffff','left','alphabetic',2);text(g,timeS,x+24,by+72,`600 24px ${FD}`,BA(),'left','alphabetic',2);
     if(c){const col=tempRGB(c.t);g.fillStyle=rgb(col);rr(g,bx-tw+6,by,tw-6,84,8);g.fill();const dk=lum(col)>.62;text(g,c.t+'°',bx-tw/2+5,by+56,`800 54px ${FD}`,dk?'#0b1a38':'#ffffff','center');text(g,CITIES[st.bugCity][0].toUpperCase(),bx-tw/2+3,by+78,`700 15px ${FD}`,dk?'#0b1a38':'#ffffff','center','alphabetic',1)}}
   if(data.source==='sample'&&st.sampleTag){const f=`700 22px ${FD}`;const s='SAMPLE DATA';const w=measure(g,s,f,3)+28;g.fillStyle='rgba(0,0,0,.55)';rr(g,W-70-w,H-(st.showTicker?64:0)-(st.showBug?108:0)-50,w,36,8);g.fill();text(g,s,W-70-w/2,H-(st.showTicker?64:0)-(st.showBug?108:0)-25,f,'#ffb21e','center','alphabetic',3)}
+  drawLowerThird(g,T);
   if(st.alertDay||(st.alertDayAuto!==false&&isAlertDay(new Date(),st.bugCity||'harrisburg'))){const s2=(st.alertDayText||'FIRST ALERT WEATHER DAY').toUpperCase();const f=`800 28px ${FD}`;const gr=g.createLinearGradient(0,0,W,0);gr.addColorStop(0,'#8f0f1f');gr.addColorStop(.5,'#d7263d');gr.addColorStop(1,'#8f0f1f');g.fillStyle=gr;g.fillRect(0,0,W,42);const pulse=.6+.4*Math.abs(Math.sin(T*2));g.fillStyle=`rgba(255,255,255,${pulse})`;g.beginPath();g.arc(W/2-measure(g,s2,f,4)/2-26,21,8,0,7);g.fill();text(g,s2,W/2,32,f,'#ffffff','center','alphabetic',4)}
 }
 /* ---------- Fly-in for map scenes ---------- */
@@ -2121,7 +2146,7 @@ function updateAir(){const a=$('#airPill');a.className='pill'+(playing?' air':''
 let dragFrom=null;
 function renderRundown(){
   const ol=$('#list');ol.innerHTML='';let total=0;
-  show.scenes.forEach((sc,i)=>{total+=+sc.duration||0;const li=document.createElement('li');li.className='item'+(i===cur?' sel':'')+(i===cur&&playing?' live':'')+(i===cued?' cue':'');li.draggable=true;li.tabIndex=0;
+  show.scenes.forEach((sc,i)=>{total+=+sc.duration||0;if(sc.segment&&String(sc.segment).trim()){const sg=document.createElement('li');sg.className='seg';sg.textContent=String(sc.segment).trim();ol.appendChild(sg)}const li=document.createElement('li');li.className='item'+(i===cur?' sel':'')+(i===cur&&playing?' live':'')+(i===cued?' cue':'');li.draggable=true;li.tabIndex=0;
     const sub=['ustemps','travel','extremes'].includes(sc.type)?'United States':isMapType(sc.type)?REGIONS[sc.region].name:cityFull(sc.city);
     li.innerHTML=`<span class="num">${String(i+1).padStart(2,'0')}</span><canvas width="192" height="108" aria-hidden="true"></canvas><div class="meta"><div class="t"></div><div class="s"><span></span><span>· ${sc.duration}s</span></div></div><div class="acts"><button data-a="up" title="Move up" aria-label="Move up">↑</button><button data-a="down" title="Move down" aria-label="Move down">↓</button><button data-a="dup">Copy</button><button data-a="del">Delete</button></div>`;
     li.querySelector('.t').textContent=sc.title||DEF_TITLES[sc.type];li.querySelector('.s span').textContent=TYPE_NAMES[sc.type]+' · '+sub;
@@ -2157,7 +2182,7 @@ function euInspector(sc){const v=euCountriesInView(sc);const types=[...new Set(O
   ${v.length?`<div style="display:grid;gap:6px">${v.sort((a,b)=>euMax(b[1])-euMax(a[1])).map(([iso,l])=>`<div data-eusel="${iso}" tabindex="0" role="button" style="display:grid;grid-template-columns:12px 1fr;gap:8px;font-size:12px;cursor:pointer;padding:4px;border-radius:6px;${sc.euSel===iso?'background:#1d2842;':''}"><i style="width:12px;height:12px;border-radius:3px;margin-top:2px;background:${AW_LV[euMax(l)][1]}"></i><div><b>${esc(MA_NAME[iso]||iso)}</b> · ${esc(AW_LV[euMax(l)][0].toLowerCase())}<div class="note">${esc([...new Set(l.map(w=>AW_TYPES[w.type]||w.event))].join(', '))}</div></div></div>`).join('')}</div>`:'<p class="note">No warnings in this view.</p>'}
   ${sc.euSel?`<label class="chk"><input type="checkbox" id="i-card" data-k="showCard"${sc.showCard!==false?' checked':''}>Show the warning card on air</label><button data-euclear>Clear selection</button>`:''}</div>`}
 const INSP_TABS=[['scene','Scene'],['map','Map'],['alerts','Alerts'],['show','Show']];
-const TAB_OF={'Map':'map','Cities':'map','Map labels':'map','Point forecast':'map','Fly-in':'map','Camera moves':'map','Storm tracks':'map','Watches and warnings':'alerts','European warnings':'alerts','Breaking alerts':'alerts','Show settings':'show','Data sources':'show'};
+const TAB_OF={'Branding':'show','Lower third':'show','Show file':'show','Map':'map','Cities':'map','Map labels':'map','Point forecast':'map','Fly-in':'map','Camera moves':'map','Storm tracks':'map','Watches and warnings':'alerts','European warnings':'alerts','Breaking alerts':'alerts','Show settings':'show','Data sources':'show'};
 let inspTab=(()=>{try{return localStorage.getItem('wgs-tab')||'scene'}catch(e){return'scene'}})();
 function tabify(el){const panels={};INSP_TABS.forEach(([k])=>{const d=document.createElement('div');d.className='tabp';d.dataset.tab=k;panels[k]=d});
   [...el.querySelectorAll('.sec')].filter(x=>!x.parentElement.closest('.sec')&&!x.closest('[hidden]')).forEach(sec=>{const h3=sec.querySelector('h3');const k=TAB_OF[h3?h3.textContent.trim():'']||'scene';panels[k].appendChild(sec)});
@@ -2169,6 +2194,7 @@ function tabify(el){const panels={};INSP_TABS.forEach(([k])=>{const d=document.c
 function renderInspector(){
   const sc=scene();if(!sc)return;let h=`<div class="sec"><h3>${TYPE_NAMES[sc.type]} scene</h3>
   <label class="f">Title<input type="text" id="i-title" data-k="title" value="${esc(sc.title)}" placeholder="${esc(DEF_TITLES[sc.type])}"></label>
+  <label class="f">Rundown segment header above this scene<input type="text" id="i-seg" data-k="segment" value="${esc(sc.segment||'')}" placeholder="Optional, like A Block or Storm Coverage"></label>
   <label class="f">Subtitle<input type="text" id="i-sub" data-k="sub" value="${esc(sc.sub)}" placeholder="${esc(autoSub(sc))}"></label>
   <div class="row2">`;
   if(['ustemps','travel','extremes'].includes(sc.type))h+='';
@@ -2306,6 +2332,16 @@ function renderInspector(){
     <label class="f">Banner text<input type="text" id="s-adt" data-s="alertDayText" value="${esc(st.alertDayText||'')}" placeholder="FIRST ALERT WEATHER DAY"></label>
     <label class="f">Closings and delays, one per line<textarea id="s-clos" data-s="closings" rows="4" placeholder="Hershey Schools: 2-hour delay">${esc(st.closings||'')}</textarea></label>
     <label class="chk"><input type="checkbox" id="s-clt" data-s="closingsTicker"${st.closingsTicker?' checked':''}>Run closings in the ticker</label>
+    </div><div class="sec"><h3>Branding</h3>
+    <div class="row2"><label class="f">Main color<input type="color" id="s-bp" data-s="brandPrimary" value="${esc(st.brandPrimary||'#0f3a86')}"></label><label class="f">Accent color<input type="color" id="s-ba" data-s="brandAccent" value="${esc(st.brandAccent||'#ffb21e')}"></label></div>
+    <label class="f">Header style<select id="s-hs" data-s="hdrStyle">${opts([['slant','Slanted'],['flat','Square'],['round','Rounded']],st.hdrStyle||'slant')}</select></label>
+    <label class="f">Logo (PNG with a clear background works best)<input type="file" id="s-logo" accept="image/png,image/jpeg,image/svg+xml,image/webp"></label>${st.brandLogo?'<button id="bLogoClr">Remove logo</button>':''}
+    <button id="bBrandReset">Back to the original colors</button></div>
+    <div class="sec"><h3>Lower third</h3>
+    <label class="f">Name<input type="text" id="s-l3n" data-s="l3Name" value="${esc(st.l3Name||'')}" placeholder="Wally Choplick"></label>
+    <label class="f">Title<input type="text" id="s-l3t" data-s="l3Title" value="${esc(st.l3Title||'')}" placeholder="Meteorologist"></label>
+    <p class="note">Turn it on and off from Output, Lower third. It slides in each time you turn it on.</p></div>
+    <div class="sec"><h3>Show file</h3>
     <div class="row2"><button id="bSave">Save show file</button><button id="bLoad">Open show file</button></div>
     <button id="bReset">Reset to starter rundown</button><div id="resetConfirm" hidden class="row2"><button id="bResetYes" class="primary">Replace my rundown</button><button id="bResetNo">Keep it</button></div></div>`;
   const el=$('#insp');const keepScroll=el.scrollTop;el.innerHTML=h;tabify(el);el.scrollTop=keepScroll;
@@ -2369,12 +2405,15 @@ function renderInspector(){
   const sv=el.querySelector('#i-selv');if(sv)sv.addEventListener('input',()=>{sc.totals[sel.i].v=sv.value;sc.totals[sel.i].auto=false;save();queueThumbs()});
   on('#bDelSel',deleteSel);
   on('#bSave',exportShow);
+  {const f=el.querySelector('#s-logo');if(f)f.addEventListener('change',()=>{const file=f.files[0];if(!file)return;if(file.size>600000){toast('That logo is too large. Use an image under 600 KB.');return}const r=new FileReader();r.onload=()=>{show.settings.brandLogo=r.result;save();queueThumbs();renderInspector()};r.readAsDataURL(file)})}
+  on('#bLogoClr',()=>{delete show.settings.brandLogo;save();queueThumbs();renderInspector()});
+  on('#bBrandReset',()=>{delete show.settings.brandPrimary;delete show.settings.brandAccent;delete show.settings.hdrStyle;save();queueThumbs();renderInspector()});
   on('#bLoad',()=>$('#fileIn').click());
   on('#bReset',()=>{el.querySelector('#resetConfirm').hidden=false});on('#bResetNo',()=>{el.querySelector('#resetConfirm').hidden=true});
   on('#bResetYes',()=>{show=defaultShow();cur=0;save();goTo(0)});
 }
 let fileDirty=(()=>{try{return localStorage.getItem('wgs-dirty')==='1'}catch(e){return false}})(),undoShow=null,undoT;
-function updSaveBtn(){const b=$('#bSaveTop');if(!b)return;b.textContent=fileDirty?'Save show •':'Save show';b.title=fileDirty?'You have changes that are not in a saved show file yet':'Save your rundown, drawings and settings to a file'}
+function updSaveBtn(){const f=$('#sumFile');if(f)f.textContent=fileDirty?'File •':'File';const b=$('#bSaveTop');if(!b)return;b.textContent=fileDirty?'Save show •':'Save show';b.title=fileDirty?'You have changes that are not in a saved show file yet':'Save your rundown, drawings and settings to a file'}
 function exportShow(){const c=JSON.parse(JSON.stringify(show));delete c.settings.brkTest;if(c.settings.tickerOverride&&c.settings.tickerOverride.until<Date.now())delete c.settings.tickerOverride;
   c.scenes=c.scenes.filter(x=>!(show.settings.brkTest&&show.settings.brkTest.created&&x.id===show.settings.brkTest.sceneId));c.app='Weather Graphics Studio';c.savedAt=new Date().toISOString();
   const d=new Date(),p=n=>String(n).padStart(2,'0');const name=`weather-show-${d.getFullYear()}-${p(d.getMonth()+1)}-${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}.json`;
@@ -2394,7 +2433,7 @@ $('#swatches').innerHTML=SWATCHES.map(c=>`<button class="sw${c===penColor?' on':
 $('#swatches').addEventListener('click',e=>{const b=e.target.closest('[data-c]');if(!b)return;penColor=b.dataset.c;document.querySelectorAll('.sw').forEach(x=>x.classList.toggle('on',x===b));if(!['pen','arrow','line','circle'].includes(tool))setTool('pen')});
 document.querySelectorAll('[data-tool]').forEach(b=>b.addEventListener('click',()=>setTool(b.dataset.tool)));
 function setTool(t){const ty=scene().type;if((t==='band'||t==='total')&&ty!=='snow')t='select';if(t==='track'&&ty!=='radar')t='select';if((t==='label'||t==='probe')&&!isMapType(ty))t='select';tool=t;updateTools()}
-function updateTools(){const ty=scene()?.type;const snow=ty==='snow',rad=ty==='radar',map=isMapType(ty);if((!snow&&(tool==='band'||tool==='total'))||(!rad&&tool==='track')||(!map&&(tool==='label'||tool==='probe')))tool='select';document.querySelectorAll('[data-tool]').forEach(b=>{b.classList.toggle('on',b.dataset.tool===tool);if(b.hasAttribute('data-snow'))b.disabled=!snow;if(b.hasAttribute('data-radar'))b.disabled=!rad;if(b.hasAttribute('data-map'))b.disabled=!map});cv.style.cursor=tool==='select'?'default':'crosshair'}
+function updateTools(){const ty=scene()?.type;const snow=ty==='snow',rad=ty==='radar',map=isMapType(ty);if((!snow&&(tool==='band'||tool==='total'))||(!rad&&tool==='track')||(!map&&(tool==='label'||tool==='probe')))tool='select';document.querySelectorAll('[data-tool]').forEach(b=>{b.classList.toggle('on',b.dataset.tool===tool);if(b.hasAttribute('data-snow'))b.disabled=!snow;if(b.hasAttribute('data-radar'))b.disabled=!rad;if(b.hasAttribute('data-map'))b.disabled=!map});document.querySelectorAll('#tools [data-snow],#tools [data-radar],#tools [data-map]').forEach(x=>{x.hidden=x.hasAttribute('data-snow')?!snow:x.hasAttribute('data-radar')?!rad:!map});cv.style.cursor=tool==='select'?'default':'crosshair'}
 $('#bClearTele').addEventListener('click',()=>{scene().tele=[];save();queueThumbs()});
 function toCanvas(e){const r=cv.getBoundingClientRect();return[(e.clientX-r.left)/r.width*W,(e.clientY-r.top)/r.height*H]}
 const inside=(p,r)=>p[0]>=r.x&&p[0]<=r.x+r.w&&p[1]>=r.y&&p[1]<=r.y+r.h;
@@ -2513,6 +2552,102 @@ $('#bVert').addEventListener('click',exportVertical);
 $('#bTakeAlert').addEventListener('click',()=>{const a=$('#breaking')._alert;if(a)takeAlert(a)});$('#bDismiss').addEventListener('click',()=>{const a=$('#breaking')._alert;if(a&&a.test)clearTest();else $('#breaking').hidden=true});$('#bClrTest').addEventListener('click',clearTest);updTestBtn();
 
 /* ---------- Boot ---------- */
+/* ---------- Studio UX: menus, picker, templates, undo, status, update notice ---------- */
+document.addEventListener('click',e=>{document.querySelectorAll('details.menu[open]').forEach(d=>{if(!d.contains(e.target)||e.target.closest('.pop button'))d.open=false})});
+const PICK_CATS=[['Radar and satellite',[['radar','Radar, satellite and future radar']]],
+  ['Right now',[['temps','Temperatures across a state or region'],['conditions','Temperature, feels like, wind and humidity for one city'],['ustemps','Temperatures across the country'],['extremes','Hottest and coldest cities, biggest alerts']]],
+  ['Forecast',[['forecast7','Model, NWS or your own numbers'],['hourly','12 cards: sky, temp, precip chance, wind'],['futuremap','Future map: temps, wind, rain, snow, precip type'],['rainfall','Model totals or the official NWS forecast'],['timeline','When rain, mix or snow starts and ends by city'],['models','GFS, ECMWF, ICON and HRRR side by side'],['travel','Major US and European cities']]],
+  ['Winter',[['snow','Snowfall map you draw'],['snowfall','Future snowfall from the models'],['winter','NWS winter outlook'],['impact','Levels 1 to 5 with your message']]],
+  ['Severe and tropical',[['nwsmap','NWS outlooks: severe, fire, tropical, fronts, hazards']]],
+  ['Community',[['almanac','Sunrise, sunset, normals and records'],['rivers','NWS gauges with flood stages'],['closings','Your list, paged on a board and in the ticker']]]];
+const CITY_SCENES=['forecast7','hourly','conditions','almanac','models'];
+let pickTab='scenes',pickMulti=false,pickCities=[];
+function addScenes(list,at=cur+1){list.forEach((sc,i)=>show.scenes.splice(at+i,0,sc));save();goTo(at);toast(list.length>1?list.length+' scenes added.':'Scene added.')}
+function baseOpts(){const c=show.settings.bugCity||'harrisburg';return{city:c,region:regionFor(c)==='us'?'pa':regionFor(c)}}
+const TEMPLATES=[['Morning Show','Temps, conditions, radar, hour by hour, 7-day and almanac',()=>{const b=baseOpts();return[newScene('temps',{region:b.region}),newScene('conditions',{city:b.city}),newScene('radar',{region:b.region}),newScene('hourly',{city:b.city}),newScene('forecast7',{city:b.city}),newScene('almanac',{city:b.city})]}],
+  ['Winter Storm','Radar, model snow, your snow map, timeline, NWS severity, impact, closings and 7-day',()=>{const b=baseOpts();return[newScene('radar',{region:b.region}),newScene('snowfall',{region:b.region}),newScene('snow',{region:b.region,sub:'Next 72 Hours'}),newScene('timeline',{region:b.region}),newScene('winter',{region:b.region}),newScene('impact',{region:b.region,level:3}),newScene('closings',{region:b.region}),newScene('forecast7',{city:b.city})]}],
+  ['Severe Day','SPC outlook, radar, timeline, hour by hour and 7-day',()=>{const b=baseOpts();return[newScene('nwsmap',{svc:'spc',region:'us'}),newScene('nwsmap',{svc:'spc',region:b.region,title:'Severe Risk'}),newScene('radar',{region:b.region}),newScene('timeline',{region:b.region}),newScene('hourly',{city:b.city}),newScene('forecast7',{city:b.city})]}],
+  ['Rain Event','Radar, rainfall totals, timeline, river levels and 7-day',()=>{const b=baseOpts();return[newScene('radar',{region:b.region}),newScene('rainfall',{region:b.region}),newScene('timeline',{region:b.region}),newScene('rivers',{region:b.region}),newScene('forecast7',{city:b.city})]}],
+  ['Tropical Update','NHC active storms, tropical outlook, rainfall and 7-day',()=>{const b=baseOpts();return[newScene('nwsmap',{svc:'nhc',region:'us'}),newScene('nwsmap',{svc:'nhc7',region:'us'}),newScene('rainfall',{region:b.region}),newScene('forecast7',{city:b.city})]}]];
+let tplArm=null;
+function renderPick(){const B=$('#pickBody');document.querySelectorAll('[data-ptab]').forEach(b=>b.classList.toggle('on',b.dataset.ptab===pickTab));
+  if(pickTab==='templates'){B.innerHTML=`<p class="note">Each template uses ${esc(cityFull(show.settings.bugCity||'harrisburg'))}, the station bug city, and its area. Change it in Show settings first if you want another market.</p><div class="pick-grid">${TEMPLATES.map((t,i)=>`<div class="pick-cat" style="border:1px solid var(--line);border-radius:10px;padding:12px"><h4>${esc(t[0])}</h4><p class="note" style="margin:0">${esc(t[1])}</p><div class="grp"><button data-tpl="${i}" data-mode="add" class="primary">Add after this scene</button><button data-tpl="${i}" data-mode="replace">${tplArm===i?'Click again to replace':'Replace rundown'}</button></div></div>`).join('')}</div>`;
+    B.querySelectorAll('[data-tpl]').forEach(b=>b.addEventListener('click',()=>{const i=+b.dataset.tpl,T=TEMPLATES[i];if(b.dataset.mode==='add'){addScenes(T[2]());closePick();return}if(tplArm!==i){tplArm=i;renderPick();return}tplArm=null;show.scenes=T[2]();cur=0;save();goTo(0);renderRundown();closePick();toast(T[0]+' rundown loaded. Undo brings back your old one.')}));return}
+  B.innerHTML=`<label class="chk"><input type="checkbox" id="pkMulti"${pickMulti?' checked':''}>Make one for each of several cities (7-day, hour by hour, conditions, almanac, models)</label>
+    ${pickMulti?`<div class="chips" style="max-height:150px;overflow:auto;margin:8px 0">${CITY_KEYS.slice().sort((a,b)=>cityFull(a).localeCompare(cityFull(b))).map(k=>`<label><input type="checkbox" data-pcity="${k}"${pickCities.includes(k)?' checked':''}>${esc(cityFull(k))}</label>`).join('')}</div><p class="note">${pickCities.length} picked. Then click a city scene below.</p>`:''}
+    <div class="pick-grid" style="margin-top:10px">${PICK_CATS.map(([cat,L])=>`<div class="pick-cat"><h4>${esc(cat)}</h4>${L.map(([t,d])=>`<button data-ptype="${t}"${pickMulti&&!CITY_SCENES.includes(t)?' disabled':''}><b>${esc(DEF_TITLES[t])}</b><small>${esc(d)}</small></button>`).join('')}</div>`).join('')}</div>`;
+  const m=B.querySelector('#pkMulti');m.addEventListener('change',()=>{pickMulti=m.checked;if(pickMulti&&!pickCities.length)pickCities=[show.settings.bugCity||'harrisburg'];renderPick()});
+  B.querySelectorAll('[data-pcity]').forEach(c=>c.addEventListener('change',()=>{pickCities=pickCities.filter(x=>x!==c.dataset.pcity);if(c.checked)pickCities.push(c.dataset.pcity);renderPick()}));
+  B.querySelectorAll('[data-ptype]').forEach(b=>b.addEventListener('click',()=>{const t=b.dataset.ptype,o=baseOpts();
+    if(pickMulti&&CITY_SCENES.includes(t)){if(!pickCities.length){toast('Pick at least one city.');return}addScenes(pickCities.map(c=>newScene(t,{city:c,region:o.region})))}
+    else addScenes([newScene(t,{region:o.region,city:o.city})]);closePick()}))}
+function openPick(){tplArm=null;$('#addPick').hidden=false;renderPick()}
+function closePick(){$('#addPick').hidden=true}
+$('#bAddOpen').addEventListener('click',openPick);$('#bPickClose').addEventListener('click',closePick);$('#addPick').addEventListener('click',e=>{if(e.target.id==='addPick')closePick()});
+document.querySelectorAll('[data-ptab]').forEach(b=>b.addEventListener('click',()=>{pickTab=b.dataset.ptab;tplArm=null;renderPick()}));
+
+/* rundown compact */
+let compact=(()=>{try{return localStorage.getItem('wgs-compact')==='1'}catch(e){return false}})();
+function updCompact(){$('#list').classList.toggle('compact',compact);$('#bCompact').classList.toggle('on',compact)}
+$('#bCompact').addEventListener('click',()=>{compact=!compact;try{localStorage.setItem('wgs-compact',compact?'1':'0')}catch(e){}updCompact()});updCompact();
+
+/* undo and redo */
+const undoStack=[],redoStack=[];let lastSnap=null;
+function normShow(){try{alertSets()}catch(e){}}
+function snapShow(){normShow();const now=JSON.stringify(show);if(lastSnap==null){lastSnap=now;return}if(now!==lastSnap){undoStack.push(lastSnap);if(undoStack.length>80)undoStack.shift();redoStack.length=0;lastSnap=now}updUndo()}
+function applySnap(str){const s=JSON.parse(str);const id=scene()&&scene().id;s.scenes=s.scenes.map(x=>newScene(x.type,x));show=s;normShow();lastSnap=JSON.stringify(show);try{localStorage.setItem(STORE,lastSnap)}catch(e){}
+  const i=show.scenes.findIndex(x=>x.id===id);cur=i>=0?i:Math.min(cur,show.scenes.length-1);sel=null;draft=null;mstep=null;renderRundown();renderInspector();queueThumbs();updClickAdv();updUndo()}
+function undo(){clearTimeout(saveT);snapShow();const curS=JSON.stringify(show);while(undoStack.length&&undoStack[undoStack.length-1]===curS)undoStack.pop();if(!undoStack.length){toast('Nothing to undo.');updUndo();return}redoStack.push(curS);applySnap(undoStack.pop());toast('Undone.')}
+function redo(){if(!redoStack.length){toast('Nothing to redo.');return}undoStack.push(JSON.stringify(show));applySnap(redoStack.pop());toast('Redone.')}
+function updUndo(){$('#bUndo').disabled=!undoStack.length;$('#bRedo').disabled=!redoStack.length}
+$('#bUndo').addEventListener('click',undo);$('#bRedo').addEventListener('click',redo);
+setTimeout(()=>{normShow();lastSnap=JSON.stringify(show);updUndo()},1600);
+document.addEventListener('keydown',e=>{if(e.target.closest&&e.target.closest('input,textarea,select'))return;const mod=e.ctrlKey||e.metaKey;if(!mod)return;const k=e.key.toLowerCase();
+  if(k==='z'&&!e.shiftKey){e.preventDefault();e.stopImmediatePropagation();undo()}else if((k==='z'&&e.shiftKey)||k==='y'){e.preventDefault();e.stopImmediatePropagation();redo()}},true);
+
+/* data status */
+function stRow(ok,name,detail,when){const col=ok==='ok'?'var(--ok)':ok==='warn'?'var(--warn)':ok==='bad'?'var(--onair)':'var(--muted)';return`<div class="strow"><i style="background:${col}"></i><div><b>${esc(name)}</b><small>${esc(detail)}</small></div><small>${when?esc(when):''}</small></div>`}
+const tm=d=>d?new Date(d).toLocaleTimeString([], {hour:'numeric',minute:'2-digit'}):'';
+function renderStatus(){const R=[];const live=data.source==='live';
+  R.push(stRow(live?'ok':'warn','Forecasts and current conditions',live?'Open-Meteo, live':'Sample data. Live data loads on the GitHub site and in the standalone file.',tm(data.updated)));
+  MODELS.forEach(m=>R.push(stRow(data.modelOK[m.id]===false?'bad':live?'ok':'warn',m.n+' model',data.modelOK[m.id]===false?'Could not load':live?'Live':'Sample','')));
+  R.push(stRow(nws.obsStatus==='ok'?'ok':nws.obsStatus==='fail'?'bad':'idle','NWS station observations',nws.obsStatus==='off'?'Not in use. Turn on under Show, Data sources.':nws.obsStatus,tm(nws.obsAt)));
+  R.push(stRow(nws.fcStatus==='ok'?'ok':nws.fcStatus==='fail'?'bad':'idle','NWS official forecast',nws.fcStatus==='off'?'Not in use. Turn on under Show, Data sources.':nws.fcStatus,''));
+  R.push(stRow(alerts.sample?'warn':alerts.status==='ok'?'ok':alerts.status==='loading'?'idle':'bad','NWS watches and warnings',alerts.sample?'Sample alerts':alerts.status==='ok'?alerts.list.length+' active alerts':alerts.status,tm(alerts.at)));
+  const rs=Object.values(radarImgs);R.push(stRow(rs.some(x=>x.ok===true)?'ok':rs.some(x=>x.ok===false)?'warn':'idle','Radar (IEM NEXRAD)',rs.some(x=>x.ok===true)?'Live':rs.length?'Simulated loop':'Not loaded yet',''));
+  R.push(stRow(rv.status==='ok'?'ok':rv.status==='fail'?'warn':'idle','Europe radar (RainViewer)',rv.status==='fail'?'Simulated':rv.status,''));
+  R.push(stRow(euWarn.status==='ok'?'ok':euWarn.status==='fail'?'warn':'idle','Europe warnings (MeteoAlarm)',euWarn.status,euWarn.at?tm(euWarn.at):''));
+  Object.entries(arcInfo).forEach(([k,A])=>R.push(stRow(A.status==='ok'?'ok':A.status==='fail'?'bad':'idle','NOAA: '+NWS_SVCS[k][1],A.status==='ok'?A.leaf.length+' layers':A.status,'')));
+  Object.entries(winterImgs).slice(-4).forEach(([k,S])=>R.push(stRow(S.ok?'ok':S.ok===false?'bad':'idle','NOAA map image · '+k.split('|')[1],S.ok?(S.empty?'Loaded, nothing in view':'Loaded'):S.ok===false?'Could not load':'Loading','')));
+  Object.entries(rivers).forEach(([k,r])=>R.push(stRow(r.status==='ok'?'ok':r.status==='sample'?'warn':'idle','River gauge '+k,r.status==='ok'?r.name:r.status==='sample'?'Sample values':'Loading',tm(r.at))));
+  Object.entries(almCache).forEach(([k,a])=>R.push(stRow(a.status==='ok'?'ok':a.status==='sample'?'warn':'idle','Almanac · '+CITIES[k.split('|')[0]][0],a.src||a.status,'')));
+  $('#statusBody').innerHTML=R.join('')+'<p class="note">Green is live. Yellow is sample or simulated. Red could not load. Gray is not loaded yet or not in use.</p>'}
+$('#dataPill').addEventListener('click',e=>{e.stopPropagation();const P=$('#statusPop');P.hidden=!P.hidden;if(!P.hidden)renderStatus()});
+$('#bStatClose').addEventListener('click',()=>$('#statusPop').hidden=true);
+document.addEventListener('click',e=>{const P=$('#statusPop');if(!P.hidden&&!P.contains(e.target)&&e.target.id!=='dataPill')P.hidden=true});
+setInterval(()=>{if(!$('#statusPop').hidden)renderStatus()},3000);
+
+/* update notice */
+function curBuild(){const b=$('#buildTag');return b?b.textContent.trim():''}
+async function checkUpdate(){if(!/^https?:/.test(location.protocol)||/claude\.ai|claudeusercontent/.test(location.host))return;try{const r=await fetch(location.pathname+'?v='+Date.now(),{cache:'no-store'});if(!r.ok)return;const t=await r.text();const m=t.match(/id="buildTag"[^>]*>([^<]+)</);if(m&&m[1].trim()!==curBuild()&&!sessionStorage.getItem('wgs-later-'+m[1].trim())){$('#updBar').hidden=false;$('#updBar').dataset.b=m[1].trim()}}catch(e){}}
+$('#bReload').addEventListener('click',()=>location.reload());$('#bUpdLater').addEventListener('click',()=>{try{sessionStorage.setItem('wgs-later-'+$('#updBar').dataset.b,'1')}catch(e){}$('#updBar').hidden=true});
+setInterval(checkUpdate,180000);setTimeout(checkUpdate,20000);
+
+/* lower third button */
+function updL3(){const b=$('#bL3');if(b){b.classList.toggle('on',!!show.settings.l3On);b.textContent=show.settings.l3On?'Lower third: on':'Lower third'}}
+$('#bL3').addEventListener('click',()=>{show.settings.l3On=!show.settings.l3On;show.settings.l3At=Date.now();save();updL3();if(!show.settings.l3Name)toast('Set the name and title under Show settings.')});setInterval(updL3,1000);
+
+/* branding helpers */
+const brandImg={src:null,img:null};
+function brandLogo(){const s=show.settings.brandLogo;if(!s)return null;if(brandImg.src!==s){brandImg.src=s;brandImg.img=new Image();brandImg.img.src=s}return brandImg.img.complete&&brandImg.img.naturalWidth?brandImg.img:null}
+function shade(hex,f){const c=hex3(hex||'#0f3a86');return'#'+c.map(v=>Math.round(clamp(v*(1+f),0,255)).toString(16).padStart(2,'0')).join('')}
+const BP=()=>show.settings.brandPrimary||'#0f3a86',BA=()=>show.settings.brandAccent||'#ffb21e';
+function hdrShape(g,x,y,w,h,k){const st=show.settings.hdrStyle||'slant';if(st==='flat'){g.beginPath();g.rect(x,y,w,h)}else if(st==='round')rr(g,x,y,w,h,Math.min(18,h/2));else slant(g,x,y,w,h,k)}
+function drawLowerThird(g,T){const st=show.settings;if(!st.l3On||!st.l3Name)return;const age=(Date.now()-(st.l3At||0))/1000;const p=ease(age/.5);if(p<=0)return;
+  const nm=String(st.l3Name).toUpperCase(),ti=String(st.l3Title||'').toUpperCase();const nf=`800 50px ${FD}`,tf=`700 26px ${FD}`;const w=Math.max(measure(g,nm,nf,2),measure(g,ti,tf,3))+90;const x=70,y=H-(st.showTicker?64:0)-(st.showBug?130:30)-128;
+  g.save();g.globalAlpha=p;g.translate(-80*(1-p),0);g.shadowColor='rgba(0,0,0,.5)';g.shadowBlur=20;g.fillStyle=BP();hdrShape(g,x,y,w,74,18);g.fill();g.shadowColor='transparent';g.fillStyle=BA();hdrShape(g,x-6,y,18,74,18);g.fill();
+  text(g,nm,x+40,y+55,nf,'#ffffff','left','alphabetic',2);if(ti){g.fillStyle='rgba(6,14,32,.92)';hdrShape(g,x+20,y+74,measure(g,ti,tf,3)+50,42,-14);g.fill();text(g,ti,x+44,y+104,tf,BA(),'left','alphabetic',3)}g.restore()}
+
 genSample();updateStatus();$('#bLoop').classList.toggle('on',!!show.settings.loop);updClickAdv();$('#stationSub').textContent=(show.settings.station||'')+' workstation';
 renderRundown();renderInspector();updateTools();
 (document.fonts&&document.fonts.load?Promise.all([document.fonts.load(`800 40px ${FD}`),document.fonts.load(`700 40px ${FD}`),document.fonts.load(`600 40px ${FD}`)]).catch(()=>{}):Promise.resolve()).then(()=>{sceneStart=performance.now()/1000;requestAnimationFrame(frame);queueThumbs(true)});
