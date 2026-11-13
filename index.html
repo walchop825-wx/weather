@@ -235,7 +235,7 @@ button.pill{cursor:pointer;background:transparent}
 <div class="status">
   <span><kbd>Space</kbd> play / stop</span><span><kbd>←</kbd><kbd>→</kbd> previous / next</span><span><kbd>V</kbd> select</span><span><kbd>T</kbd> pen</span><span><kbd>B</kbd> contour</span><span><kbd>N</kbd> total</span><span><kbd>Del</kbd> delete selection</span><span><kbd>E</kbd> export PNG</span><span><kbd>K</kbd> storm track</span><span><kbd>L</kbd> map label</span><span><kbd>1</kbd>–<kbd>9</kbd> cue</span><span><kbd>Enter</kbd> take</span>
   <span id="srcNote"></span>
-  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-13 · 12</span>
+  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-13 · 13</span>
 </div>
 <input type="file" id="fileIn" accept=".json,application/json" hidden>
 
@@ -2151,7 +2151,7 @@ function renderSurvey(g,sc,t,o){const rk=sc.region,P=proj(rk),T=sc.trk;if(T&&!T.
   drawZoomTowns(g,sc,P,t);drawFronts(g,sc,P,o,t);g._fr=1;
   const drawPath=(lines,rev,col)=>{g.save();g.lineCap='round';g.lineJoin='round';lines.forEach(l=>{const raw=l.map(([lo,la])=>[P.x(lo),P.y(la)]);if(raw.length<2)return;const p=chaikin(raw,2),c=polyLen(p),L=c[c.length-1]*clamp(rev);if(L<2)return;const vis=polySlice(p,c,0,L);
       g.shadowColor='rgba(0,0,0,.6)';g.shadowBlur=10;strokePoly(g,vis,'rgba(10,16,30,.85)',17);g.shadowBlur=0;strokePoly(g,vis,col,10)});g.restore()};
-  const col=sc.trkCol==='ef'&&T&&EF_COL[T.ef]?EF_COL[T.ef]:'#fff200';
+  const efm=String(sc.sv_ef||'').toUpperCase().match(/EF\s*-?\s*([0-5U])/),efK=efm?'EF'+efm[1]:T&&T.ef;const col=sc.trkCol==='ef'&&EF_COL[efK]?EF_COL[efK]:'#fff200';
   if(T&&T.lines&&T.lines.length)drawPath(T.lines,(t-.9)/1.6,col);
   if(o.interactive&&draft&&draft.kind==='svpath'&&draft.id===sc.id)drawPath([draft.pts],1,'#fff200');
   drawMapLabels(g,sc,P,o,t);
@@ -2160,6 +2160,9 @@ function renderSurvey(g,sc,t,o){const rk=sc.region,P=proj(rk),T=sc.trk;if(T&&!T.
     g.fillStyle='rgba(255,255,255,.6)';g.fillRect(x,y+hh,w,3);text(g,(sc.sv_head||'Damage Survey').toUpperCase(),x+24,y+66,`800 52px ${FD}`,shade(BP(),-.35),'left','alphabetic',1);
     rows.forEach(([k,v],i)=>{const a=ease((t-.6-i*.12)/.4);if(a<=0)return;const ry=y+hh+48+i*rh;g.globalAlpha=a;g.fillStyle=BA();g.beginPath();g.moveTo(x+26,ry-26);g.lineTo(x+44,ry-14);g.lineTo(x+26,ry-2);g.closePath();g.fill();
       const s2=(k?k+': ':'')+v;let fz=36;while(measure(g,s2,`700 ${fz}px ${FB}`)>w-80&&fz>22)fz--;text(g,s2,x+56,ry,`700 ${fz}px ${FB}`,'#ffffff','left');g.globalAlpha=1});g.restore()}
+  if(sc.trkCol==='ef'){const kq=ease((t-.5)/.5);if(kq>0){const ks=['EFU','EF0','EF1','EF2','EF3','EF4','EF5'],cw=74,bw=ks.length*cw+48,bx=W-70-bw,by=50;const cur=efK;g.save();g.globalAlpha=kq;glass(g,bx,by,bw,118,12);
+    text(g,'EF RATING',bx+24,by+36,`700 20px ${FD}`,BA(),'left','alphabetic',2.5);ks.forEach((k,i)=>{const x=bx+24+i*cw,y=by+52;const on=k===cur;g.fillStyle=EF_COL[k];rr(g,x,y,cw-10,22,5);g.fill();if(on){g.strokeStyle='#ffffff';g.lineWidth=3;g.stroke()}
+      text(g,k==='EFU'?'EF-U':k.replace('EF','EF-'),x+(cw-10)/2,y+50,`${on?800:600} 19px ${FD}`,on?'#ffffff':'#c9d6ec','center','alphabetic',1)});g.restore()}}
   if(!T||!T.lines||!T.lines.length)centerMsg(g,sc.track==='manual'?'PICK DRAW PATH AND DRAG ALONG THE TORNADO PATH':'PICK A SURVEYED TORNADO IN THE INSPECTOR');
   if(sat){const yb=H-(show.settings.showTicker?78:22);outlinedText(g,'Imagery: Esri, Maxar, Earthstar Geographics · Survey: NWS',W-40,yb,`600 15px ${FB}`,'#e9eef8','right')}
   drawHeader(g,svTitle(sc),sc.sub||svSub(sc),t)}
