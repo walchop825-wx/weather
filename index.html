@@ -235,7 +235,7 @@ button.pill{cursor:pointer;background:transparent}
 <div class="status">
   <span><kbd>Space</kbd> play / stop</span><span><kbd>←</kbd><kbd>→</kbd> previous / next</span><span><kbd>V</kbd> select</span><span><kbd>T</kbd> pen</span><span><kbd>B</kbd> contour</span><span><kbd>N</kbd> total</span><span><kbd>Del</kbd> delete selection</span><span><kbd>E</kbd> export PNG</span><span><kbd>K</kbd> storm track</span><span><kbd>L</kbd> map label</span><span><kbd>1</kbd>–<kbd>9</kbd> cue</span><span><kbd>Enter</kbd> take</span>
   <span id="srcNote"></span>
-  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-13 · 14</span>
+  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-13 · 15</span>
 </div>
 <input type="file" id="fileIn" accept=".json,application/json" hidden>
 
@@ -785,6 +785,34 @@ function alertLayer(sc){
     g.fillStyle=hexA(col,.16);g.fill(p);g.strokeStyle='rgba(0,0,0,.75)';g.lineWidth=sc.region==='us'?5:8;g.stroke(p);g.strokeStyle=col;g.lineWidth=sc.region==='us'?2.8:4.5;g.stroke(p)});
   alertLayerCache[sc.id]={key,c};return c;
 }
+/* ---------- SPC watches (IEM) and mesoscale discussions (NOAA polygons + IEM details) on radar ---------- */
+const spcWatch={status:null,t:0,list:[]},spcMD={status:null,t:0,list:[]};let spcSelStart=0;
+const ringsOf=g=>!g?[]:g.type==='Polygon'?g.coordinates:g.type==='MultiPolygon'?g.coordinates.flat():[];
+function loadWatches(){if(spcWatch.status==='loading'||(spcWatch.status&&Date.now()-spcWatch.t<300000))return spcWatch;spcWatch.status='loading';spcWatch.t=Date.now();
+  fetchJSON(`${IEMB}/json/spcwatch.py`,15000).then(j=>{spcWatch.list=(j.features||[]).map(f=>{const p=f.properties||{};const ty=String(p.type||p.typ||'').toUpperCase();
+      return{id:'w:'+(p.number||p.num||p.sel||Math.random()),num:p.number||p.num||'',tor:/TOR/.test(ty),pds:!!(p.is_pds||p.pds),issue:srTime(p.issue||p.utc_issue),expire:srTime(p.expire||p.utc_expire),rings:ringsOf(f.geometry)}}).filter(w=>w.rings.length&&(!w.expire||w.expire>new Date()));
+    spcWatch.status='ok';spcWatch.t=Date.now();queueThumbs()}).catch(()=>{spcWatch.status='fail';spcWatch.t=Date.now()-240000;queueThumbs()});return spcWatch}
+function loadMDs(){if(spcMD.status==='loading'||(spcMD.status&&Date.now()-spcMD.t<300000))return spcMD;spcMD.status='loading';spcMD.t=Date.now();
+  fetchJSON('https://mapservices.weather.noaa.gov/vector/rest/services/outlooks/spc_mesoscale_discussion/MapServer/0/query?where=1%3D1&outFields=name,popupinfo&returnGeometry=true&outSR=4326&f=geojson',15000).then(async j=>{
+      const L=(j.features||[]).map(f=>{const p=f.properties||{};const num=parseInt(String(p.name||'').replace(/\D+/g,''),10)||null;return{id:'md:'+num,num,rings:ringsOf(f.geometry),url:p.popupinfo||''}}).filter(m=>m.rings.length);
+      if(L.length){try{const d=await fetchJSON(`${IEMB}/json/spcmcd.py`,20000);const rows=(d.data||d.mcds||d.features||d||[]);const arr=Array.isArray(rows)?rows:[];const yr=new Date().getUTCFullYear();
+        L.forEach(m=>{const r=arr.map(x=>x.properties||x).filter(x=>+x.product_num===m.num&&(!x.year||+x.year===yr)).sort((a,b)=>String(b.utc_issue).localeCompare(String(a.utc_issue)))[0];if(r){m.concern=String(r.concerning||'').trim();m.conf=r.watch_confidence;m.hail=r.most_prob_hail;m.gust=r.most_prob_gust;m.torp=r.most_prob_tornado;m.expire=srTime(r.utc_expire);m.issue=srTime(r.utc_issue)}})}catch(e){}}
+      spcMD.list=L;spcMD.status='ok';spcMD.t=Date.now();queueThumbs()}).catch(()=>{spcMD.status='fail';spcMD.t=Date.now()-240000;queueThumbs()});return spcMD}
+const tcase=x=>String(x||'').toLowerCase().replace(/(^|[\s.(])\w/g,c=>c.toUpperCase());
+function spcInfo(o){const tm=d=>d?fmtTime(d):'';if(o.id.startsWith('w:'))return{band:o.tor?'#ffe600':'#ff7ab8',dark:true,title:(o.pds?'PDS ':'')+(o.tor?'TORNADO WATCH ':'SEVERE T-STORM WATCH ')+o.num,l1:o.expire?'Until '+tm(o.expire):'In effect',l2:(o.issue?'Issued '+tm(o.issue)+' · ':'')+'Storm Prediction Center',remark:o.pds?'Particularly dangerous situation.':''};
+  const bits=[o.torp&&!/null/i.test(o.torp)?'Tornadoes '+o.torp:'',o.hail?'Hail '+String(o.hail).toLowerCase():'',o.gust?'Gusts '+String(o.gust).toLowerCase():''].filter(Boolean).join(' · ');
+  return{band:'#3b8cff',dark:false,title:'MESOSCALE DISCUSSION '+(o.num||''),l1:o.concern?tcase(o.concern):'Storm Prediction Center',l2:[o.conf!=null?'Watch chance '+Math.round(o.conf)+'%':'',o.expire?'until '+tm(o.expire):''].filter(Boolean).join(' · ')||'Storm Prediction Center',remark:bits}}
+function ringBox(P,rings){let x0=1e9,x1=-1e9,y0=1e9,y1=-1e9;rings.forEach(r=>r.forEach(([lo,la])=>{const x=P.x(lo),y=P.y(la);x0=Math.min(x0,x);x1=Math.max(x1,x);y0=Math.min(y0,y);y1=Math.max(y1,y)}));return{x0,x1,y0,y1,cx:(x0+x1)/2,cy:(y0+y1)/2}}
+function inRings(rings,lon,lat){let c=false;rings.forEach(r=>{for(let i=0,j=r.length-1;i<r.length;j=i++){const[xi,yi]=r[i],[xj,yj]=r[j];if(((yi>lat)!==(yj>lat))&&(lon<(xj-xi)*(lat-yi)/((yj-yi)||1e-9)+xi))c=!c}});return c}
+function drawSpc(g,sc,P,t){if(isEU(sc.region))return;const items=[];if(sc.watches!==false)items.push(...loadWatches().list);if(sc.mds!==false)items.push(...loadMDs().list);if(!items.length)return;const q=ease((t-.4)/.5);if(q<=0)return;
+  g.save();g.globalAlpha=q;g.lineJoin='round';items.forEach(o=>{const isW=o.id.startsWith('w:');const col=isW?(o.tor?'#ffe600':'#ff7ab8'):'#3b8cff';const p=new Path2D();o.rings.forEach(r=>polyPath(P,r,p));
+    g.strokeStyle='rgba(0,0,0,.75)';g.lineWidth=isW?9:8;g.setLineDash(isW?[]:[18,10]);g.stroke(p);g.strokeStyle=col;g.lineWidth=isW?(o.pds?6:4.5):4;g.stroke(p);g.setLineDash([]);
+    const b=ringBox(P,o.rings);if(b.x1<0||b.x0>W||b.y1<0||b.y0>H)return;const lab=isW?(o.pds?'PDS ':'')+(o.tor?'TORNADO WATCH ':'SVR T-STORM WATCH ')+o.num+(o.expire?' · UNTIL '+fmtTime(o.expire).replace(':00',''):''):'MD '+(o.num||'')+(o.conf!=null?' · WATCH '+Math.round(o.conf)+'%':'');
+    const f=`800 ${sc.region==='us'?16:20}px ${FD}`,w=measure(g,lab,f,1)+22,h=sc.region==='us'?26:32;const cx=clamp(Math.max(b.x0,0)+w/2+12,w/2+20,W-w/2-20),cy=clamp(Math.max(b.y0,215)+h/2+12,215,H-130);
+    g.fillStyle=col;rr(g,cx-w/2,cy-h/2,w,h,7);g.fill();g.strokeStyle='rgba(0,0,0,.6)';g.lineWidth=2;g.stroke();text(g,lab,cx,cy+1,f,isW?'#0b1a38':'#ffffff','center','middle',1)});g.restore();
+}
+function drawSpcCard(g,sc,P){if(!sc.spcSel||isEU(sc.region))return;const sel=[...spcMD.list,...spcWatch.list].find(o=>o.id===sc.spcSel);if(!sel)return;const b=ringBox(P,sel.rings);srCard(g,null,P,clamp(performance.now()/1000-spcSelStart),[clamp(b.cx,40,W-40),clamp(b.cy,230,H-140)],spcInfo(sel))}
+function spcAt(sc,lon,lat){const L=[...(sc.mds!==false?spcMD.list:[]),...(sc.watches!==false?spcWatch.list:[])];return L.find(o=>inRings(o.rings,lon,lat))||null}
 function torTag(a){if(!a||a.event!=='Tornado Warning')return null;const P=a.params||{};const v=k=>[].concat(P[k]||[]).join(' ').toUpperCase();const obs=v('tornadoDetection').includes('OBSERVED');
   if(v('tornadoDamageThreat').includes('CATASTROPHIC'))return'emergency';if(v('tornadoDamageThreat').includes('CONSIDERABLE'))return obs?'pdsobs':'pds';return obs?'observed':null}
 const TOR_TAG={emergency:['TORNADO EMERGENCY','#ff2bd6','Tornado Emergency'],pdsobs:['PDS · CONFIRMED TORNADO','#ff2b2b','Confirmed tornado, particularly dangerous situation'],pds:['PDS TORNADO WARNING','#ff2b2b','Particularly dangerous situation'],observed:['CONFIRMED TORNADO','#ff2b2b','Confirmed tornado']};
@@ -1593,7 +1621,7 @@ function renderRadarMap(g,sc,t,o){
     if(im&&im.complete&&im.naturalWidth){g.globalAlpha*=.95;g.drawImage(im,0,0,W,H)}else if(S.ok===false){g.globalCompositeOperation='source-over';g.imageSmoothingEnabled=true;g.drawImage(satSim(rk),0,0,W,H);hud.sim=true}
     hud.tag=hud.sim?'SATELLITE · SIMULATED':'GOES-EAST '+SAT_NAME[prod];hud.time=hud.sim?fmtTime(Date.now()):'LATEST';hud.live=!hud.sim}
   g.restore();
-  g.drawImage(mapOverlay(rk),0,0);drawCounties(g,sc);if(sc.bold!==false)g.drawImage(radarBorders(rk),0,0);if(EUR)drawEuWarnings(g,sc,t);else{drawAlerts(g,sc,t);drawAlertHighlight(g,sc,t)}if(!o.noLabels){drawFronts(g,sc,P,o,t);g._fr=1;}drawTracks(g,sc,P,t);
+  g.drawImage(mapOverlay(rk),0,0);drawCounties(g,sc);if(sc.bold!==false)g.drawImage(radarBorders(rk),0,0);if(EUR)drawEuWarnings(g,sc,t);else{drawSpc(g,sc,P,t);drawAlerts(g,sc,t);drawAlertHighlight(g,sc,t)}if(!o.noLabels){drawFronts(g,sc,P,o,t);g._fr=1;}drawTracks(g,sc,P,t);
   if(!o.noCities)radarCities(rk).forEach(c=>drawCityLabel(g,c));
   if(isSite(prod)&&RADAR_SITES[sc.site||'CCX']){const s=RADAR_SITES[sc.site||'CCX'];const x=P.x(s[2]),y=P.y(s[1]);g.save();g.strokeStyle='#ffffff';g.lineWidth=3;g.beginPath();g.moveTo(x-9,y);g.lineTo(x+9,y);g.moveTo(x,y-9);g.lineTo(x,y+9);g.stroke();g.restore()}
   if(!o.noLabels)drawMapLabels(g,sc,P,o,t);
@@ -1607,7 +1635,7 @@ function renderRadarHud(g,sc,t,o,hud,sc0){
   if(hud.nF>1){const n=hud.nF,wd=Math.min(28,300/n);for(let i=0;i<n;i++){g.fillStyle=i<=hud.fi?'#ffb21e':'rgba(255,255,255,.2)';rr(g,bx+30+i*wd,by+114,wd-6,8,4);g.fill()}}
   const nat=!!(RG.national&&!RG.zoomOf);const lx=nat?590:70,ly=nat?H-(show.settings.showTicker?64:0)-96:H-(show.settings.showTicker?220:160);
   const EUR=!!RG.eu;const card=EUR?drawEuCard(g,sc,t):drawAlertCard(g,sc,t);if(!card){if(EUR)drawEuLegend(g,sc,bx-120,by+156);else if(nat)drawAlertLegend(g,sc,W-540,560);else drawAlertLegend(g,sc,bx-120,by+156)}
-  drawEtaBox(g,sc,t);
+  drawEtaBox(g,sc,t);drawSpcCard(g,sc,proj(sc.region));
   const prod=hud.prod;
   if(prod==='sitevel'||prod==='sitesrv'){glass(g,lx,ly,560,70,10);const greens=['#00ff6a','#00c853','#008f3a','#1e5631'],reds=['#5a1414','#8f1b1b','#d32f2f','#ff5252'];let x=lx+20;
     text(g,'TOWARD RADAR',x,ly+45,`700 22px ${FD}`,'#9cf0b8','left','alphabetic',1.5);x+=measure(g,'TOWARD RADAR',`700 22px ${FD}`,1.5)+12;greens.concat(reds).forEach(c=>{g.fillStyle=c;g.fillRect(x,ly+20,26,30);x+=26});x+=12;text(g,'AWAY',x,ly+45,`700 22px ${FD}`,'#ff9a9a','left','alphabetic',1.5)}
@@ -2613,6 +2641,7 @@ function renderInspector(){syncClrTrack();
       <div class="grp"><button data-azoom>Zoom to alert</button><button data-aclear>Clear selection</button></div>
       ${a.desc?`<details><summary style="cursor:pointer;font-size:13px">Full NWS text</summary><div class="note" style="white-space:pre-wrap;margin-top:8px;max-height:260px;overflow:auto">${esc(a.desc)}</div></details>`:''}</div>`})()}
     ${EUR?euInspector(sc)+'<div hidden>':''}<div class="sec"><h3>Watches and warnings</h3>
+    <label class="chk"><input type="checkbox" data-k="watches"${sc.watches!==false?' checked':''}>SPC watch boxes${spcWatch.status==='ok'?` (${spcWatch.list.length} active)`:''}</label><label class="chk"><input type="checkbox" data-k="mds"${sc.mds!==false?' checked':''}>SPC mesoscale discussions${spcMD.status==='ok'?` (${spcMD.list.length} active)`:''}</label><p class="note">Click inside a watch box or discussion on the monitor for its details.</p>
     <div class="grp"><button data-apreset="all">All on</button><button data-apreset="warn">Warnings only</button><button data-apreset="def">Default</button><button data-apreset="none">All off</button></div>
     ${(()=>{const cnt={};alertsInView(sc,true).forEach(a=>cnt[a.event]=(cnt[a.event]||0)+1);const evs=[...new Set([...Object.keys(ALERT_COLORS),...alerts.list.map(a=>a.event)])];
       return ALERT_CATS.map(cat=>{const l=evs.filter(e=>alertCat(e)===cat).sort((a,b)=>(cnt[b]||0)-(cnt[a]||0)||alertRank(a)-alertRank(b)||a.localeCompare(b));if(!l.length)return'';
@@ -2880,7 +2909,7 @@ cv.addEventListener('pointermove',e=>{
   if(tool==='select'){const over=(sc.type==='temps'&&hits.labels.some(h=>inside(p,h)))||(sc.type==='snow'&&hits.totals.some(h=>inside(p,h)));cv.style.cursor=over?'grab':'default'}
 });
 const endPtr=(e)=>{const sc=scene();
-  if(dragging&&dragging.kind==='pan'){const d=dragging;dragging=null;cv.style.cursor='grab';if(d.moved){clearTimeout(pvT);commitView()}else if(sc.type==='stormreports'){if(sc.repSel){sc.repSel=null;save();renderInspector();queueThumbs()}}else if(sc.type==='radar'){const P2=proj(regionForView(sc.region,sc.view));if(isEU(sc.region)){const iso=euCountryAt(sc,P2.lon(d.sx),P2.lat(d.sy));sc.euSel=iso||null;alertSelStart=performance.now()/1000;save();renderInspector();queueThumbs()}else{const a=alertAt(sc,P2.lon(d.sx),P2.lat(d.sy));if(a)selectAlert(sc,a);else if(sc.alertSel)selectAlert(sc,null)}}return}
+  if(dragging&&dragging.kind==='pan'){const d=dragging;dragging=null;cv.style.cursor='grab';if(d.moved){clearTimeout(pvT);commitView()}else if(sc.type==='stormreports'){if(sc.repSel){sc.repSel=null;save();renderInspector();queueThumbs()}}else if(sc.type==='radar'){const P2=proj(regionForView(sc.region,sc.view));if(isEU(sc.region)){const iso=euCountryAt(sc,P2.lon(d.sx),P2.lat(d.sy));sc.euSel=iso||null;alertSelStart=performance.now()/1000;save();renderInspector();queueThumbs()}else{const lo=P2.lon(d.sx),la=P2.lat(d.sy);const a=alertAt(sc,lo,la);if(a){sc.spcSel=null;selectAlert(sc,a)}else{const o=spcAt(sc,lo,la);if(o&&o.id!==sc.spcSel){sc.spcSel=o.id;spcSelStart=performance.now()/1000;if(sc.alertSel)selectAlert(sc,null);else{save();renderInspector();queueThumbs()}}else if(sc.alertSel||sc.spcSel){sc.spcSel=null;selectAlert(sc,null)}}}}return}
   if(draft&&draft.kind==='tele'){const s=draft.s;if(s.pts.length>1||s.tool==='pen'){if(s.pts.length===1)s.pts.push([s.pts[0][0]+1,s.pts[0][1]+1]);sc.tele.push(s);save();queueThumbs()}}
   if(draft&&draft.kind==='band'){if(draft.pts.length>=6){let pts=draft.pts;if(pts.length>80){const k=Math.ceil(pts.length/80);pts=pts.filter((_,i)=>i%k===0)}sc.bands.push({r:draft.r,pts});sel={kind:'band',i:sc.bands.length-1};save();renderInspector();queueThumbs()}else toast('Trace a larger closed shape to make a contour.')}
   if(draft&&draft.kind==='svpath'){const d=draft;draft=null;if(d.len<40||d.pts.length<3){toast('Drag along the map to draw the path.');return}let pts=d.pts;if(pts.length>150){const k=Math.ceil(pts.length/150);pts=pts.filter((_,i)=>i%k===0||i===d.pts.length-1)}pts=pts.map(([a,b])=>[+a.toFixed(4),+b.toFixed(4)]);
