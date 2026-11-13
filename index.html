@@ -235,7 +235,7 @@ button.pill{cursor:pointer;background:transparent}
 <div class="status">
   <span><kbd>Space</kbd> play / stop</span><span><kbd>←</kbd><kbd>→</kbd> previous / next</span><span><kbd>V</kbd> select</span><span><kbd>T</kbd> pen</span><span><kbd>B</kbd> contour</span><span><kbd>N</kbd> total</span><span><kbd>Del</kbd> delete selection</span><span><kbd>E</kbd> export PNG</span><span><kbd>K</kbd> storm track</span><span><kbd>L</kbd> map label</span><span><kbd>1</kbd>–<kbd>9</kbd> cue</span><span><kbd>Enter</kbd> take</span>
   <span id="srcNote"></span>
-  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-13 · 10</span>
+  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-13 · 11</span>
 </div>
 <input type="file" id="fileIn" accept=".json,application/json" hidden>
 
@@ -1588,7 +1588,7 @@ function renderRadarMap(g,sc,t,o){
   else if(prod==='future'){loadHrrrInit();const nF=19;const fi=radFi(sc,nF,Math.min(nF-1,Math.floor(Math.max(0,t-.4)*1000/600%(nF+3))));hud.nF=nF;hud.fi=fi;const F=futureFrames(rk);
     let drawn=false;if(F.ok!==false){const pick=a=>{for(let i=fi;i>=0;i--){const im=a[i];if(im&&im.complete&&im.naturalWidth)return im}return null};const im=pick(F.imgs)||(F.old&&pick(F.old.imgs));if(im){g.drawImage(im,0,0,W,H);drawn=true}}
     if(!drawn&&F.ok===false&&covered){g.imageSmoothingEnabled=true;g.drawImage(radarSim(rk,true)[fi%11],0,0,W,H);hud.sim=true}
-    const base=hrrrInit?hrrrInit.getTime():null;hud.time=base?(DOW[new Date(base+fi*3600e3).getDay()]+' '+fmtTime(base+fi*3600e3).replace(':00','')):'+'+fi+' HR';hud.tag=hud.sim?'FUTURE RADAR · SIMULATED':'HRRR FUTURE RADAR';hud.live=!hud.sim}
+    const base=hrrrInit?hrrrInit.getTime():null;hud.time=base?(DOW[new Date(base+fi*3600e3).getDay()]+' '+fmtTime(base+fi*3600e3).replace(':00','')):'+'+fi+' HR';hud.tag=hud.sim?'SIMULATED':'HRRR MODEL';hud.live=!hud.sim}
   else if(isSat(prod)){const S=satImage(rk,prod);g.globalCompositeOperation='screen';const im=S.ok?S.img:S.prev;
     if(im&&im.complete&&im.naturalWidth){g.globalAlpha*=.95;g.drawImage(im,0,0,W,H)}else if(S.ok===false){g.globalCompositeOperation='source-over';g.imageSmoothingEnabled=true;g.drawImage(satSim(rk),0,0,W,H);hud.sim=true}
     hud.tag=hud.sim?'SATELLITE · SIMULATED':'GOES-EAST '+SAT_NAME[prod];hud.time=hud.sim?fmtTime(Date.now()):'LATEST';hud.live=!hud.sim}
@@ -1651,7 +1651,7 @@ function renderFutureMap(g,sc,t,o){
   const cities=mapCities(sc).filter(k=>{const x=P.x(CITIES[k][2]),y=P.y(CITIES[k][1]);return x>40&&x<W-40&&y>235&&y<H-120});
   cities.forEach(k=>{const v=fmVal(k,sc.v,hi);if(v==null)return;const x=P.x(CITIES[k][2]),y=P.y(CITIES[k][1]);outlinedText(g,sc.v==='snow'?fmtSnow(v):sc.v==='rain'?fmtRain(v):v+(sc.v==='gust'||sc.v==='wind'?'':'°'),x,y+6,`800 ${rk==='us'?42:48}px ${FD}`,'#ffffff');outlinedText(g,CITIES[k][0].toUpperCase(),x,y+30,`700 18px ${FD}`,'#dfe8f7')});
   drawMapLabels(g,sc,P,o,t);
-  const bx=W-430,by=50;glass(g,bx,by,360,140,12);const d=fmTime(hi);text(g,'FUTURECAST',bx+30,by+36,`700 22px ${FD}`,'#ffb21e','left','alphabetic',3);
+  const bx=W-430,by=50;glass(g,bx,by,360,140,12);const d=fmTime(hi);text(g,data.source==='nws'?'NWS FORECAST':'MODEL FORECAST',bx+30,by+36,`700 22px ${FD}`,'#ffb21e','left','alphabetic',3);
   text(g,DOW[d.getDay()]+' '+fmtTime(d).replace(':00',''),bx+30,by+96,`800 56px ${FD}`,'#ffffff');
   const wd=Math.min(28,300/N);for(let i=0;i<N;i++){g.fillStyle=i<=fi?'#ffb21e':'rgba(255,255,255,.2)';rr(g,bx+30+i*wd,by+114,wd-5,8,4);g.fill()}
   const nat=!!R.national;const lx=nat?596:70,ly=H-(show.settings.showTicker?64:0)-104,lw=640;glass(g,lx,ly,lw+60,84,12);
@@ -1835,9 +1835,9 @@ function renderRainfall(g,sc,t,o){
   g.drawImage(mapOverlay(rk),0,0);drawCounties(g,sc);drawZoomTowns(g,sc,P,t);drawFronts(g,sc,P,o,t);g._fr=1;
   const list=mapCities(sc).filter(k=>{const x=P.x(CITIES[k][2]),y=P.y(CITIES[k][1]);return x>40&&x<W-40&&y>170&&y<H-150&&!(y>H-260&&x>W-560)&&!(x<380&&y>240&&y<850)});
   let noSnow=false;if(mr&&!msg&&!isEU(rk))mrmsLoadPts(MH,list);if(SN&&!mr&&!msg){const vs=list.map(k=>rainTotal(k,sc.src,sc.hours,'snow')).filter(v=>v!=null);noSnow=vs.length>0&&Math.max(...vs)<.1;if(noSnow)msg='NO SNOW EXPECTED IN THE NEXT '+sc.hours+' HOURS'}
-  const vals=!wpc&&!noSnow&&sc.cityVals!==false&&!(mr&&(isEU(rk)||msg));const placed=[];const hit=(a)=>placed.some(b=>a.x<b.x+b.w&&b.x<a.x+a.w&&a.y<b.y+b.h&&b.y<a.y+a.h);
+  const vals=!wpc&&!noSnow&&sc.cityVals!==false&&!(mr&&(isEU(rk)||msg));const placed=[];let mx=null;const hit=(a)=>placed.some(b=>a.x<b.x+b.w&&b.x<a.x+a.w&&a.y<b.y+b.h&&b.y<a.y+a.h);
   list.forEach((k,i)=>{let x=P.x(CITIES[k][2]),y=P.y(CITIES[k][1]);const nm=CITIES[k][0].toUpperCase();
-    if(vals){let v=mr?mrmsVal(rk,MH,k):rainTotal(k,sc.src,sc.hours,VV);if(v==null)return;if(mr&&SN){if(sc.repOnly)return;const pl=placeOf(k);v*=SM(pl.lon,pl.lat)}const f=`800 ${rk==='us'?34:38}px ${FD}`,s=fmt(v,sc.units);const w=measure(g,s,f)+26,h=rk==='us'?44:50;const nw=Math.max(w,measure(g,nm,`700 18px ${FD}`)+10);
+    if(vals){let v=mr?mrmsVal(rk,MH,k):rainTotal(k,sc.src,sc.hours,VV);if(v==null)return;if(mr&&SN){if(sc.repOnly)return;const pl=placeOf(k);v*=SM(pl.lon,pl.lat)}if(mx==null||v>mx.v)mx={v,k};const f=`800 ${rk==='us'?34:38}px ${FD}`,s=fmt(v,sc.units);const w=measure(g,s,f)+26,h=rk==='us'?44:50;const nw=Math.max(w,measure(g,nm,`700 18px ${FD}`)+10);
       const base=y<260?[0,40]:[0,0];const spot=[[0,0],[0,-56],[80,-36],[-80,-36],[80,36],[-80,36],[0,56]].map(([dx,dy])=>[x+base[0]+dx,y+base[1]+dy]).find(([cx,cy])=>cy-h/2>205&&cy+h/2+32<H-10&&cx-nw/2>10&&cx+nw/2<W-10&&!hit({x:cx-nw/2,y:cy-h/2,w:nw,h:h+32}));if(!spot)return;
       placed.push({x:spot[0]-nw/2,y:spot[1]-h/2,w:nw,h:h+32});const q=easeBack(clamp((t-.9-i*.04)/.45));if(q<=0)return;if(spot[0]!==x||spot[1]!==y){g.save();g.strokeStyle='rgba(255,255,255,.85)';g.lineWidth=2;g.beginPath();g.moveTo(x,y);g.lineTo(spot[0],spot[1]);g.stroke();g.fillStyle='#ffffff';g.beginPath();g.arc(x,y,5,0,7);g.fill();g.restore()}x=spot[0];y=spot[1];
       g.save();g.translate(x,y);g.scale(q,q);g.shadowColor='rgba(0,0,0,.5)';g.shadowBlur=12;g.shadowOffsetY=4;g.fillStyle='#ffffff';rr(g,-w/2,-h/2,w,h,10);g.fill();g.shadowColor='transparent';text(g,s,0,2,f,'#0b1a38','center','middle');g.restore();
@@ -1856,7 +1856,7 @@ function renderRainfall(g,sc,t,o){
   g.restore();
   if(msg){const f=`800 34px ${FD}`;const w=measure(g,msg,f,2)+60;glass(g,(W-w)/2,H/2-40,w,80,12);text(g,msg,W/2,H/2+12,f,'#ffffff','center','alphabetic',2)}
   const L1=mr?(SN?(sc.repOnly?'MEASURED REPORTS':(SPL&&useSplit&&!splOk&&SPL.status!=='loading'?'RADAR · RAIN NOT REMOVED':calOk?'RADAR + '+CAL.n+' REPORTS':'RADAR ESTIMATE')+' · '+(AUTO?(splOk?'AUTO RATIO':'10:1'):RAT+':1')):'RADAR ESTIMATE'):null;const bw=Math.max(360,L1?measure(g,L1,`700 20px ${FD}`,2.5)+60:0);const bx=W-70-bw,by=50;glass(g,bx,by,bw,110,12);text(g,L1?L1:wpc?'NWS WEATHER PREDICTION':data.source==='nws'&&sc.src==='consensus'?'NWS FORECAST':(sc.src==='consensus'?'MODEL BLEND':RAIN_SRC_NAMES[sc.src]+' MODEL'),bx+30,by+40,`700 20px ${FD}`,mr?'#ffb21e':wpc?'#3ddc8c':'#4fb3ff','left','alphabetic',2.5);
-  text(g,mr?(MH===1?'PAST HOUR':'PAST '+MH+' HOURS'):wpc?(WPC_QPF[sc.wpc]||WPC_QPF.d13)[3].toUpperCase():'NEXT '+sc.hours+' HOURS',bx+30,by+88,`800 44px ${FD}`,'#ffffff');
+  {let L2=wpc?(WPC_QPF[sc.wpc]||WPC_QPF.d13)[3].toUpperCase():mx&&mx.v>=(SN?.1:.01)?'TOP '+fmt(mx.v,sc.units)+' · '+CITIES[mx.k][0].toUpperCase():mx?(SN?'NO SNOW':'NO RAIN')+' AT THESE CITIES':vals?'LOADING TOTALS':'UPDATED '+fmtTime(Date.now());if(wpc&&String(sc.sub||autoSub(sc)).toUpperCase().includes(L2))L2='OFFICIAL FORECAST';let f2=44;while(measure(g,L2,`800 ${f2}px ${FD}`)>(typeof bw!=='undefined'?bw:360)-60&&f2>24)f2--;text(g,L2,bx+30,by+88,`800 ${f2}px ${FD}`,'#ffffff')}
   drawHeader(g,rainSnowTitle(sc),sc.sub||autoSub(sc),t);
 }
 
@@ -2129,7 +2129,7 @@ function trackMid(T){const l=(T&&T.lines||[])[0]||[];return l[Math.floor(l.lengt
 function trackMiles(pts){let m=0;for(let i=1;i<pts.length;i++){const[a,b]=pts[i-1],[c,d]=pts[i];const dx=(c-a)*Math.cos((b+d)/2*Math.PI/180)*69.17,dy=(d-b)*69.17;m+=Math.hypot(dx,dy)}return m}
 function svTitle(sc){if(sc.title)return sc.title;const m=trackMid(sc.trk);const pl=sc.sv_place||(m&&placeNear(m[0],m[1])||{}).n;return pl?pl+' Tornado':DEF_TITLES.survey}
 const svFmtT=d=>new Date(d).toLocaleTimeString([], {hour:'numeric',minute:'2-digit'}).toUpperCase();
-function svSub(sc){const T=sc.trk||{};const d=T.start?new Date(T.start):null;return d?d.toLocaleDateString([], {weekday:'long',month:'long',day:'numeric'}):'NWS Damage Survey'}
+function svSub(sc){const T=sc.trk||{};const d=T.start?new Date(T.start):null;return d?d.toLocaleDateString([], {weekday:'long',month:'long',day:'numeric'}):''}
 function surveyRows(sc){const T=sc.trk||{};const v=(k,def)=>{const x=sc['sv_'+k];return x!=null&&String(x).trim()!==''?String(x).trim():def};const rows=[];
   const wind=v('wind',T.wind?T.wind+' mph':'');if(wind)rows.push(['Peak Winds',wind]);const len=v('len',T.len?(+T.len).toFixed(2)+' miles':'');if(len)rows.push(['Path Length',len]);
   const wid=v('wid',T.wid?Math.round(T.wid)+' yards':'');if(wid&&sc.sv_showWid!==false)rows.push(['Path Width',wid]);const ef=v('ef',T.ef?T.ef.replace(/^EF/,'EF-'):'');if(ef)rows.push(['Rating',ef]);
@@ -2171,7 +2171,7 @@ function renderNwsMap(g,sc,t,o){const rk=sc.region,P=proj(rk),R=REGIONS[rk],S=NW
   const Lg=winterLegends[sc.svc];let items=[];if(ids&&Lg&&Lg.status==='ok'){const seen=new Set();ids.forEach(id=>(Lg.map[id]||[]).forEach(it=>{const k=it.label.toUpperCase();if(!k||seen.has(k))return;seen.add(k);items.push(it)}))}items=items.slice(0,9);
   if(items.length){const q=ease((t-.5)/.6),rh=44,lh=30+items.length*rh,bot=H-(show.settings.showTicker?64:0)-30-lh;const I2=ids&&winterImgs[rk+'|'+sc.svc+':'+ids.join(',')];const[lx,ly]=quietSpot(I2&&I2.alpha,330,lh,[[70,290],[70,bot],[W-400,200],[W-400,Math.min(bot,560)],[660,bot]]);g.save();g.globalAlpha=q;glass(g,lx,ly,330,30+items.length*rh,12);items.forEach((it,i)=>{const y=ly+16+i*rh;try{g.drawImage(it.im,lx+20,y+6,40,28)}catch(e){}let lab=it.label.toUpperCase();while(measure(g,lab,`700 22px ${FD}`,1)>230&&lab.length>4)lab=lab.slice(0,-2)+'…';text(g,lab,lx+74,y+28,`700 22px ${FD}`,'#ffffff','left','alphabetic',1)});g.restore()}
   if(msg)centerMsg(g,msg);
-  let ln=nm.toUpperCase().replace(/ OUTLOOK$/,'');let fs=34;while(measure(g,ln,`800 ${fs}px ${FD}`)>500&&fs>22)fs--;while(measure(g,ln,`800 ${fs}px ${FD}`)>500&&ln.length>4)ln=ln.slice(0,-2)+'…';const bw=Math.max(400,Math.min(560,measure(g,ln,`800 ${fs}px ${FD}`)+60,measure(g,S[2],`700 18px ${FD}`,2)+60));const bx=W-70-bw,by=50;glass(g,bx,by,bw,110,12);text(g,S[2],bx+30,by+40,`700 18px ${FD}`,'#3ddc8c','left','alphabetic',2);text(g,ln,bx+30,by+86,`800 ${fs}px ${FD}`,'#ffffff');
+  let ln=nm.toUpperCase().replace(/ OUTLOOK$/,'');{const tt=String(sc.title||S[1]).toUpperCase();if(tt.includes(ln)||ln.includes(tt.replace(/ OUTLOOK$/,'')))ln='LATEST'}let fs=34;while(measure(g,ln,`800 ${fs}px ${FD}`)>500&&fs>22)fs--;while(measure(g,ln,`800 ${fs}px ${FD}`)>500&&ln.length>4)ln=ln.slice(0,-2)+'…';const bw=Math.max(400,Math.min(560,measure(g,ln,`800 ${fs}px ${FD}`)+60,measure(g,S[2],`700 18px ${FD}`,2)+60));const bx=W-70-bw,by=50;glass(g,bx,by,bw,110,12);text(g,S[2],bx+30,by+40,`700 18px ${FD}`,'#3ddc8c','left','alphabetic',2);text(g,ln,bx+30,by+86,`800 ${fs}px ${FD}`,'#ffffff');
   drawHeader(g,sc.title||S[1],sc.sub||autoSub(sc),t)}
 
 /* ---------- Point probe ---------- */
