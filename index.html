@@ -235,7 +235,7 @@ button.pill{cursor:pointer;background:transparent}
 <div class="status">
   <span><kbd>Space</kbd> play / stop</span><span><kbd>←</kbd><kbd>→</kbd> previous / next</span><span><kbd>V</kbd> select</span><span><kbd>T</kbd> pen</span><span><kbd>B</kbd> contour</span><span><kbd>N</kbd> total</span><span><kbd>Del</kbd> delete selection</span><span><kbd>E</kbd> export PNG</span><span><kbd>K</kbd> storm track</span><span><kbd>L</kbd> map label</span><span><kbd>1</kbd>–<kbd>9</kbd> cue</span><span><kbd>Enter</kbd> take</span>
   <span id="srcNote"></span>
-  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-13 · 15</span>
+  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-13 · 16</span>
 </div>
 <input type="file" id="fileIn" accept=".json,application/json" hidden>
 
@@ -1883,8 +1883,9 @@ function renderRainfall(g,sc,t,o){
     RAIN_RANGES.slice().reverse().forEach((r,i)=>{const y=ly+58+i*rh;g.fillStyle=r.c;rr(g,lx+24,y+9,48,34,6);g.fill();text(g,rainLegendLabel(r,RAIN_RANGES.length-1-i,sc.units),lx+88,y+37,`700 28px ${FD}`,'#ffffff')})}
   g.restore();
   if(msg){const f=`800 34px ${FD}`;const w=measure(g,msg,f,2)+60;glass(g,(W-w)/2,H/2-40,w,80,12);text(g,msg,W/2,H/2+12,f,'#ffffff','center','alphabetic',2)}
-  const L1=mr?(SN?(sc.repOnly?'MEASURED REPORTS':(SPL&&useSplit&&!splOk&&SPL.status!=='loading'?'RADAR · RAIN NOT REMOVED':calOk?'RADAR + '+CAL.n+' REPORTS':'RADAR ESTIMATE')+' · '+(AUTO?(splOk?'AUTO RATIO':'10:1'):RAT+':1')):'RADAR ESTIMATE'):null;const bw=Math.max(360,L1?measure(g,L1,`700 20px ${FD}`,2.5)+60:0);const bx=W-70-bw,by=50;glass(g,bx,by,bw,110,12);text(g,L1?L1:wpc?'NWS WEATHER PREDICTION':data.source==='nws'&&sc.src==='consensus'?'NWS FORECAST':(sc.src==='consensus'?'MODEL BLEND':RAIN_SRC_NAMES[sc.src]+' MODEL'),bx+30,by+40,`700 20px ${FD}`,mr?'#ffb21e':wpc?'#3ddc8c':'#4fb3ff','left','alphabetic',2.5);
-  {let L2=wpc?(WPC_QPF[sc.wpc]||WPC_QPF.d13)[3].toUpperCase():mx&&mx.v>=(SN?.1:.01)?'TOP '+fmt(mx.v,sc.units)+' · '+CITIES[mx.k][0].toUpperCase():mx?(SN?'NO SNOW':'NO RAIN')+' AT THESE CITIES':vals?'LOADING TOTALS':'UPDATED '+fmtTime(Date.now());if(wpc&&String(sc.sub||autoSub(sc)).toUpperCase().includes(L2))L2='OFFICIAL FORECAST';let f2=44;while(measure(g,L2,`800 ${f2}px ${FD}`)>(typeof bw!=='undefined'?bw:360)-60&&f2>24)f2--;text(g,L2,bx+30,by+88,`800 ${f2}px ${FD}`,'#ffffff')}
+  const repIn=SN&&mr&&repOk?REP.pts.filter(r=>{const x=P.x(r.lon),y=P.y(r.lat);return x>0&&x<W&&y>0&&y<H}):[];const repTop=repIn.reduce((a,r)=>!a||r.v>a.v?r:a,null);
+  const L1=mr?(SN?(SPL&&useSplit&&!splOk&&SPL.status!=='loading'?'RADAR · RAIN NOT REMOVED':repIn.length?repIn.length+(repIn.length===1?' REPORT':' REPORTS'):sc.repOnly?'NO REPORTS YET':'RADAR ESTIMATE'):'RADAR ESTIMATE'):null;const bw=Math.max(360,L1?measure(g,L1,`700 20px ${FD}`,2.5)+60:0);const bx=W-70-bw,by=50;glass(g,bx,by,bw,110,12);text(g,L1?L1:wpc?'NWS WEATHER PREDICTION':data.source==='nws'&&sc.src==='consensus'?'NWS FORECAST':(sc.src==='consensus'?'MODEL BLEND':RAIN_SRC_NAMES[sc.src]+' MODEL'),bx+30,by+40,`700 20px ${FD}`,mr?'#ffb21e':wpc?'#3ddc8c':'#4fb3ff','left','alphabetic',2.5);
+  {let L2=wpc?(WPC_QPF[sc.wpc]||WPC_QPF.d13)[3].toUpperCase():repTop&&repTop.v>=.1?'HIGHEST: '+fmt(repTop.v,sc.units)+' '+String(repTop.name||'').toUpperCase():mx&&mx.v>=(SN?.1:.01)?'HIGHEST: '+fmt(mx.v,sc.units)+' '+CITIES[mx.k][0].toUpperCase():mx?(SN?'NO SNOW':'NO RAIN')+' AT THESE CITIES':vals?'LOADING TOTALS':'UPDATED '+fmtTime(Date.now());if(wpc&&String(sc.sub||autoSub(sc)).toUpperCase().includes(L2))L2='OFFICIAL FORECAST';let f2=44;while(measure(g,L2,`800 ${f2}px ${FD}`)>(typeof bw!=='undefined'?bw:360)-60&&f2>24)f2--;text(g,L2,bx+30,by+88,`800 ${f2}px ${FD}`,'#ffffff')}
   drawHeader(g,rainSnowTitle(sc),sc.sub||autoSub(sc),t);
 }
 
