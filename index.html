@@ -129,6 +129,8 @@ button.pill{cursor:pointer;background:transparent}
 .models-st b{font-family:var(--display);letter-spacing:.06em}
 @media (prefers-reduced-motion:reduce){.pill.air i{animation:none}}
 #bClrTrack,#bClrProbe{color:#ffb4b4}
+.obsdlg{position:fixed;inset:0;background:rgba(0,0,0,.55);display:flex;align-items:center;justify-content:center;z-index:99}.obsbox{background:#0e1b36;color:#fff;border-radius:14px;padding:22px 26px;max-width:560px;line-height:1.5;box-shadow:0 20px 60px rgba(0,0,0,.5)}.obsbox ol{padding-left:20px}.obsbox li{margin:6px 0}.obsbox button{margin-top:8px}
+.rlink{display:flex;gap:6px}.rlink input{flex:1;min-width:0;font-size:12px}
 .srsel{display:flex;flex-direction:column;gap:4px;margin-top:8px;padding:10px;border-radius:10px;background:rgba(255,255,255,.06)}.srsel span{font-size:13px;color:#c9d6ec}.srsel button{align-self:flex-start;margin-top:6px}
 .frow{display:flex;gap:8px;align-items:center;margin:6px 0}.frow span{flex:1;min-width:0}.frow input{width:120px}.frow.on span{color:#ffb21e;font-weight:700}
 #radCtl{display:inline-flex;align-items:center;gap:6px}#radCtl[hidden]{display:none}#radSlider{width:170px;accent-color:#ffb21e}#radTime{font-size:13px;color:#ffb21e;min-width:64px;font-variant-numeric:tabular-nums}
@@ -153,6 +155,7 @@ button.pill{cursor:pointer;background:transparent}
     </div></details>
     <details class="menu" id="mOut"><summary>Output</summary><div class="pop">
       <button id="bProg" title="Open a clean output window for a second screen, projector or OBS">Program window</button>
+      <button id="bObs" title="Step-by-step setup for OBS">OBS setup</button>
       <button id="bL3" title="Show or hide the name lower third on air">Lower third</button>
       <button id="bSafe" title="Show title and action safe guides">Safe guides</button>
       <button id="bLoop" title="Loop the rundown">Loop</button>
@@ -235,7 +238,7 @@ button.pill{cursor:pointer;background:transparent}
 <div class="status">
   <span><kbd>Space</kbd> play / stop</span><span><kbd>←</kbd><kbd>→</kbd> previous / next</span><span><kbd>V</kbd> select</span><span><kbd>T</kbd> pen</span><span><kbd>B</kbd> contour</span><span><kbd>N</kbd> total</span><span><kbd>Del</kbd> delete selection</span><span><kbd>E</kbd> export PNG</span><span><kbd>K</kbd> storm track</span><span><kbd>L</kbd> map label</span><span><kbd>1</kbd>–<kbd>9</kbd> cue</span><span><kbd>Enter</kbd> take</span>
   <span id="srcNote"></span>
-  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-13 · 18</span>
+  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-13 · 19</span>
 </div>
 <input type="file" id="fileIn" accept=".json,application/json" hidden>
 
@@ -2673,7 +2676,7 @@ function euInspector(sc){const v=euCountriesInView(sc);const types=[...new Set(O
   ${v.length?`<div style="display:grid;gap:6px">${v.sort((a,b)=>euMax(b[1])-euMax(a[1])).map(([iso,l])=>`<div data-eusel="${iso}" tabindex="0" role="button" style="display:grid;grid-template-columns:12px 1fr;gap:8px;font-size:12px;cursor:pointer;padding:4px;border-radius:6px;${sc.euSel===iso?'background:#1d2842;':''}"><i style="width:12px;height:12px;border-radius:3px;margin-top:2px;background:${AW_LV[euMax(l)][1]}"></i><div><b>${esc(MA_NAME[iso]||iso)}</b> · ${esc(AW_LV[euMax(l)][0].toLowerCase())}<div class="note">${esc([...new Set(l.map(w=>AW_TYPES[w.type]||w.event))].join(', '))}</div></div></div>`).join('')}</div>`:'<p class="note">No warnings in this view.</p>'}
   ${sc.euSel?`<label class="chk"><input type="checkbox" id="i-card" data-k="showCard"${sc.showCard!==false?' checked':''}>Show the warning card on air</label><button data-euclear>Clear selection</button>`:''}</div>`}
 const INSP_TABS=[['scene','Scene'],['map','Map'],['alerts','Alerts'],['show','Show']];
-const TAB_OF={'Branding':'show','Lower third':'show','Show file':'show','Map':'map','Cities':'map','Map labels':'map','Storm reports':'scene','Damage survey':'scene','Weather map':'scene','Event forecast':'scene','Drought monitor':'scene','Fronts and pressure':'map','Point forecast':'map','Fly-in':'map','Camera moves':'map','Storm tracks':'map','Watches and warnings':'alerts','European warnings':'alerts','Breaking alerts':'alerts','Show settings':'show','Data sources':'show'};
+const TAB_OF={'Branding':'show','Phone remote':'show','Auto refresh':'show','Lower third':'show','Show file':'show','Map':'map','Cities':'map','Map labels':'map','Storm reports':'scene','Damage survey':'scene','Weather map':'scene','Event forecast':'scene','Drought monitor':'scene','Fronts and pressure':'map','Point forecast':'map','Fly-in':'map','Camera moves':'map','Storm tracks':'map','Watches and warnings':'alerts','European warnings':'alerts','Breaking alerts':'alerts','Show settings':'show','Data sources':'show'};
 let inspTab=(()=>{try{return localStorage.getItem('wgs-tab')||'scene'}catch(e){return'scene'}})();
 function tabify(el){const panels={};INSP_TABS.forEach(([k])=>{const d=document.createElement('div');d.className='tabp';d.dataset.tab=k;panels[k]=d});
   [...el.querySelectorAll('.sec')].filter(x=>!x.parentElement.closest('.sec')&&!x.closest('[hidden]')).forEach(sec=>{const h3=sec.querySelector('h3');const k=TAB_OF[h3?h3.textContent.trim():'']||'scene';panels[k].appendChild(sec)});
@@ -2847,6 +2850,10 @@ function renderInspector(){syncClrTrack();
     <label class="chk"><input type="checkbox" data-b="auto"${B.auto?' checked':''}>Take to air automatically</label>
     <p class="note">When a new warning matches, a banner and a beep let you know. Taking it to air builds a Breaking Weather radar scene zoomed to the warning, with the alert card, a storm track and a red breaking ticker.</p>
     <div class="grp"><button id="bTestBrk">Test with a sample warning</button><button id="bTestTor">Test a confirmed tornado</button>${testActive()?'<button id="bClrTest2" class="testclr">Clear test warning</button>':brkOn?'<button id="bClrBrk">Clear breaking ticker</button>':''}</div></div>`;
+  {const R=st.remote||{};h+=`<div class="sec"><h3>Phone remote</h3><label class="chk"><input type="checkbox" id="s-remote"${R.on?' checked':''}>Control the show from my phone</label>
+    ${R.on&&R.code?`<div class="rlink"><input type="text" readonly id="s-rlink" value="${esc(remoteLink(R.code))}"><button id="s-rcopy">Copy</button></div><div class="grp"><button id="s-rnew">New link</button></div>`:''}
+    <p class="note">Open the link on your phone for Next, Back, Play and a tap-to-jump scene list. Keep this studio open. Commands go through ntfy.sh, a free public relay, so anyone with the link can control the show. Make a new link to shut the old one off.</p></div>`;
+  h+=`<div class="sec"><h3>Auto refresh</h3><div class="row2"><label class="f">Refresh data every<select id="s-auto">${opts([['0','Off'],['5','5 minutes'],['10','10 minutes'],['15','15 minutes'],['30','30 minutes']],String(st.autoMin||0))}</select></label><label class="f">Full refresh daily at<input type="time" id="s-daily" value="${esc(st.dailyAt||'')}"></label></div><p class="note">The daily refresh reloads every data source, including radar estimates, reports and surveys, so the show is fresh when you sit down. Both only run while the studio is open, so leave this tab open with the computer awake. Without a setting, data still refreshes every 15 minutes when the show isn't playing.</p></div>`}
   h+=`<div class="sec"><h3>Show settings</h3>
     <label class="f">Station name<input type="text" id="s-station" data-s="station" value="${esc(st.station)}"></label>
     <div class="row2"><label class="f">Bug city<select id="s-bug" data-s="bugCity">${cityOpts(st.bugCity)}</select></label><label class="f">Transition<select id="s-trans" data-s="transition">${opts([['wipe','Branded wipe'],['fade','Dissolve'],['cut','Cut']],st.transition)}</select></label></div>
@@ -2919,7 +2926,11 @@ function renderInspector(){syncClrTrack();
   q1('[data-b]','change',x=>{const B=show.settings.breaking;B[x.dataset.b]=x.type==='checkbox'?x.checked:x.value;save()});
   wireBreakingUI(el);
   q1('[data-bev]','change',x=>{const B=show.settings.breaking;B.events=(B.events||[]).filter(e=>e!==x.dataset.bev);if(x.checked)B.events.push(x.dataset.bev);save()});
-  q1('#bTestBrk','click',()=>{testBreaking();renderInspector()});q1('#bTestTor','click',()=>{testBreaking('tor');renderInspector()});q1('#bClrTest2','click',clearTest);q1('#bClrBrk','click',()=>{show.settings.tickerOverride=null;save();renderInspector()});
+  q1('#bTestBrk','click',()=>{testBreaking();renderInspector()});
+  q1('#s-remote','change',x=>{const R=show.settings.remote=show.settings.remote||{};R.on=x.checked;if(R.on&&!R.code)R.code=newRemoteCode();save();remoteStart();renderInspector()});
+  q1('#s-rnew','click',()=>{const R=show.settings.remote;R.code=newRemoteCode();save();remoteStart();renderInspector();toast('New phone link made. The old one no longer works.')});
+  q1('#s-rcopy','click',()=>{const i=$('#s-rlink');try{navigator.clipboard.writeText(i.value).then(()=>toast('Link copied. Send it to your phone.'),()=>{i.select()})}catch(e){i.select()}});
+  q1('#s-auto','change',x=>{show.settings.autoMin=+x.value;autoLast=Date.now();save()});q1('#s-daily','change',x=>{show.settings.dailyAt=x.value;save()});q1('#bTestTor','click',()=>{testBreaking('tor');renderInspector()});q1('#bClrTest2','click',clearTest);q1('#bClrBrk','click',()=>{show.settings.tickerOverride=null;save();renderInspector()});
   el.querySelectorAll('[data-eutype]').forEach(c=>c.addEventListener('change',()=>{const tp=+c.dataset.eutype;sc.euTypesOff=(sc.euTypesOff||[]).filter(x=>x!==tp);if(!c.checked)sc.euTypesOff.push(tp);save();queueThumbs()}));
   el.querySelectorAll('[data-eusel]').forEach(d=>{const go=()=>{sc.euSel=d.dataset.eusel;alertSelStart=performance.now()/1000;save();queueThumbs();renderInspector()};d.addEventListener('click',go);d.addEventListener('keydown',e=>{if(e.key==='Enter')go()})});
   el.querySelectorAll('[data-euclear]').forEach(b=>b.addEventListener('click',()=>{sc.euSel=null;save();queueThumbs();renderInspector()}));
@@ -3104,7 +3115,7 @@ function drawPreview(){const i=nextIdx(),sc=show.scenes[i];if(!sc)return;pvG.set
   $('#pvName').textContent=`${String(i+1).padStart(2,'0')} · ${sceneTitle(sc)}${cued!=null?' (cued)':''}`}
 function takeNext(){if(advanceStep())return;const i=nextIdx();cued=null;goTo(i,true);drawPreview()}
 setInterval(drawPreview,700);
-$('#bTake').addEventListener('click',takeNext);$('#bClrTrack').addEventListener('click',()=>{const sc=scene();if(!sc||!(sc.tracks||[]).length)return;const n=sc.tracks.length;sc.tracks=[];draft=null;save();queueThumbs();renderInspector();toast(n>1?'Storm tracks cleared.':'Storm track cleared.')});$('#bRadPlay').addEventListener('click',radToggle);$('#bRadBack').addEventListener('click',()=>radSet(radarCtl.fi-1));$('#bRadFwd').addEventListener('click',()=>radSet(radarCtl.fi+1));{const r=$('#radSlider');r.addEventListener('input',()=>{radarCtl.drag=true;radSet(+r.value)});r.addEventListener('change',()=>{radarCtl.drag=false;r.blur()})}
+$('#bTake').addEventListener('click',takeNext);$('#bObs').addEventListener('click',()=>{$('#mOut').open=false;obsSetup()});$('#bClrTrack').addEventListener('click',()=>{const sc=scene();if(!sc||!(sc.tracks||[]).length)return;const n=sc.tracks.length;sc.tracks=[];draft=null;save();queueThumbs();renderInspector();toast(n>1?'Storm tracks cleared.':'Storm track cleared.')});$('#bRadPlay').addEventListener('click',radToggle);$('#bRadBack').addEventListener('click',()=>radSet(radarCtl.fi-1));$('#bRadFwd').addEventListener('click',()=>radSet(radarCtl.fi+1));{const r=$('#radSlider');r.addEventListener('input',()=>{radarCtl.drag=true;radSet(+r.value)});r.addEventListener('change',()=>{radarCtl.drag=false;r.blur()})}
 $('#bClrProbe').addEventListener('click',()=>{const sc=scene();if(!sc||!sc.probe)return;delete sc.probe;save();queueThumbs();renderInspector();toast('Probe cleared.')});$('#bCueClear').addEventListener('click',()=>{cued=null;renderRundown();drawPreview()});
 $('#bVert').addEventListener('click',exportVertical);
 $('#bTakeAlert').addEventListener('click',()=>{const a=$('#breaking')._alert;if(a)takeAlert(a)});$('#bDismiss').addEventListener('click',()=>{const a=$('#breaking')._alert;if(a&&a.test)clearTest();else $('#breaking').hidden=true});$('#bClrTest').addEventListener('click',clearTest);updTestBtn();
@@ -3202,6 +3213,40 @@ function brandLogo(){const s=show.settings.brandLogo;if(!s)return null;if(brandI
 function shade(hex,f){const c=hex3(hex||'#0f3a86');return'#'+c.map(v=>Math.round(clamp(v*(1+f),0,255)).toString(16).padStart(2,'0')).join('')}
 const BP=()=>show.settings.brandPrimary||'#0f3a86',BA=()=>show.settings.brandAccent||'#ffb21e';
 function hdrShape(g,x,y,w,h,k){const st=show.settings.hdrStyle||'slant';if(st==='flat'){g.beginPath();g.rect(x,y,w,h)}else if(st==='round')rr(g,x,y,w,h,Math.min(18,h/2));else slant(g,x,y,w,h,k)}
+/* ---------- Phone remote (ntfy.sh relay), OBS setup, scheduled refresh ---------- */
+const REMOTE_ID=(()=>{try{return new URLSearchParams(location.search).get('remote')}catch(e){return null}})();
+const NTFY='https://ntfy.sh/';let remoteES=null,remoteLast='',remoteTopic=null;
+const newRemoteCode=()=>{const a='abcdefghjkmnpqrstuvwxyz23456789';let c='';const r=crypto.getRandomValues(new Uint8Array(14));r.forEach(x=>c+=a[x%a.length]);return c};
+const remoteLink=c=>location.origin+location.pathname+'?remote='+c;
+function remoteSend(obj){if(!remoteTopic)return;fetch(NTFY+remoteTopic,{method:'POST',body:JSON.stringify(obj)}).catch(()=>{})}
+function remoteState(){const sc=scene();return{t:'state',cur,n:show.scenes.length,titles:show.scenes.slice(0,40).map(x=>String(sceneTitle(x)).slice(0,30)),playing:!!playing,radar:sc&&sc.type==='radar'&&radarCtl.nF>1?{paused:radarCtl.paused&&radarCtl.id===sc.id}:null}}
+function remoteStart(){const R=show.settings.remote||{};const want=R.on&&R.code?'wgs-'+R.code:null;if(want===remoteTopic)return;if(remoteES){try{remoteES.close()}catch(e){}remoteES=null}remoteTopic=want;remoteLast='';if(!want)return;
+  try{remoteES=new EventSource(NTFY+want+'/sse');const seen=new Set();remoteES.onmessage=e=>{let m,mid;try{const o=JSON.parse(e.data);mid=o.id||e.lastEventId;m=JSON.parse(o.message)}catch(x){return}if(!m||m.from!=='remote')return;if(m.n){if(seen.has(m.n))return;seen.add(m.n)}else if(mid){if(seen.has(mid))return;seen.add(mid)}if(m.ts&&Math.abs(Date.now()-m.ts)>90000)return;
+    if(m.t==='hello'){remoteLast='';return}if(m.t!=='cmd')return;const c=m.c;if(c==='next')takeNext();else if(c==='prev')goTo(Math.max(0,cur-1),true);else if(c==='go'&&+m.i>=0&&+m.i<show.scenes.length)goTo(+m.i,true);else if(c==='play')startPlay();else if(c==='stop')stopPlay();else if(c==='radar')radToggle();drawPreview&&drawPreview()};
+    remoteES.onerror=()=>{}}catch(e){}}
+setInterval(()=>{if(!remoteTopic)return;const st=JSON.stringify(remoteState());if(st!==remoteLast){remoteLast=st;remoteSend(Object.assign(JSON.parse(st),{from:'studio'}))}},1000);
+function runRemote(code){const topic='wgs-'+code;document.title='Weather Remote';[...document.body.children].forEach(x=>x.style.display='none');const wrap=document.createElement('div');wrap.id='remoteUI';document.body.appendChild(wrap);wrap.innerHTML=`<style>
+  body{margin:0;background:#081226;color:#fff;font:600 16px system-ui,-apple-system,Segoe UI,Roboto,sans-serif}.rw{max-width:520px;margin:0 auto;padding:16px max(16px,env(safe-area-inset-left)) 32px}
+  h1{font-size:18px;letter-spacing:.12em;text-transform:uppercase;color:#ffb21e;margin:4px 0 12px;display:flex;align-items:center;gap:8px}.dot{width:10px;height:10px;border-radius:50%;background:#7a8aa8}.dot.on{background:#3ddc8c}
+  .now{background:#12234a;border-radius:14px;padding:14px 16px;margin-bottom:12px}.now small{display:block;color:#9fb3d6;font-size:12px;letter-spacing:.1em;text-transform:uppercase}.now b{display:block;font-size:22px;margin-top:4px}
+  .row{display:grid;grid-template-columns:1fr 2fr;gap:10px;margin-bottom:10px}button{font:inherit;border:0;border-radius:14px;padding:18px 10px;background:#1d3566;color:#fff;touch-action:manipulation}button:active{transform:scale(.98)}
+  .big{background:#ffb21e;color:#0b1a38;font-size:22px;font-weight:800}.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}.list{display:flex;flex-direction:column;gap:8px}.list button{text-align:left;padding:14px 16px}.list button.cur{outline:3px solid #ffb21e}
+  .msg{color:#9fb3d6;font-size:13px;margin-top:16px;line-height:1.5}</style>
+  <div class="rw"><h1><span class="dot" id="rDot"></span>Weather Remote</h1><div class="now"><small>On air</small><b id="rNow">Waiting for the studio…</b><small id="rNext" style="margin-top:8px"></small></div>
+  <div class="row"><button id="rPrev">Back</button><button id="rNextB" class="big">Next</button></div><div class="row2"><button id="rPlay">Play show</button><button id="rRadar" hidden>Pause radar</button></div>
+  <div class="list" id="rList"></div><p class="msg">Keep the studio open on your computer with Phone remote turned on. Commands travel through ntfy.sh, a free public relay.</p></div>`;
+  const send=o=>fetch(NTFY+topic,{method:'POST',body:JSON.stringify(Object.assign({from:'remote',ts:Date.now(),n:Math.random().toString(36).slice(2)},o))}).catch(()=>{});let S=null;const $r=id=>document.getElementById(id);
+  const draw=()=>{if(!S)return;$r('rDot').classList.add('on');$r('rNow').textContent=(S.cur+1)+'. '+(S.titles[S.cur]||'');$r('rNext').textContent=S.cur+1<S.n?'Next: '+(S.titles[S.cur+1]||''):'Last scene';$r('rPlay').textContent=S.playing?'Stop show':'Play show';
+    $r('rRadar').hidden=!S.radar;if(S.radar)$r('rRadar').textContent=S.radar.paused?'Play radar':'Pause radar';$r('rList').innerHTML=S.titles.map((t,i)=>`<button data-i="${i}" class="${i===S.cur?'cur':''}">${i+1}. ${t.replace(/[<&>]/g,'')}</button>`).join('');
+    $r('rList').querySelectorAll('button').forEach(b=>b.onclick=()=>send({t:'cmd',c:'go',i:+b.dataset.i}))};
+  $r('rNextB').onclick=()=>send({t:'cmd',c:'next'});$r('rPrev').onclick=()=>send({t:'cmd',c:'prev'});$r('rPlay').onclick=()=>send({t:'cmd',c:S&&S.playing?'stop':'play'});$r('rRadar').onclick=()=>send({t:'cmd',c:'radar'});
+  try{const es=new EventSource(NTFY+topic+'/sse');es.onopen=()=>send({t:'hello'});es.onmessage=e=>{let m;try{m=JSON.parse(JSON.parse(e.data).message)}catch(x){return}if(m&&m.from==='studio'&&m.t==='state'){S=m;draw()}};es.onerror=()=>$r('rDot').classList.remove('on')}catch(e){$r('rNow').textContent='This browser cannot connect.'}}
+function obsSetup(){openProgram();try{if(progWin&&!progWin.closed){const dw=progWin.outerWidth-progWin.innerWidth,dh=progWin.outerHeight-progWin.innerHeight;progWin.resizeTo(1920+dw,1080+dh)}}catch(e){}
+  let d=document.getElementById('obsDlg');if(d)d.remove();d=document.createElement('div');d.id='obsDlg';d.className='obsdlg';d.innerHTML=`<div class="obsbox"><b>Send the show to OBS</b><ol><li>The Program window just opened. Leave it open, on any screen. It sizes itself to 1920×1080 when the screen allows.</li><li>In OBS, add a source: <b>Window Capture</b>.</li><li>Pick the window named <b>Program Out</b>. On Windows, set Capture Method to <b>Windows 10 (1903 and up)</b>. On a Mac, use <b>macOS Screen Capture</b> and pick the same window.</li><li>Right-click the source, then <b>Transform → Fit to screen</b>.</li></ol><p>Everything you take in the studio appears there, with no buttons or cursor.</p><button id="obsClose">Got it</button></div>`;document.body.appendChild(d);d.querySelector('#obsClose').onclick=()=>d.remove()}
+let autoLast=Date.now(),dailyDone='';
+function fullRefresh(){for(const k in radarImgs)delete radarImgs[k];[wxCache,evCache,mrmsImgs,snowReps,stormRepCache,datCache,usdmCache,snowSplits].forEach(c=>{for(const k in c)delete c[k]});mrmsCat=null;for(const k in mrmsPts)delete mrmsPts[k];spcWatch.status=null;spcMD.status=null;refresh.force=true;refresh();queueThumbs(true)}
+setInterval(()=>{if(REMOTE_ID)return;const st=show.settings;const m=+st.autoMin||0;if(m>0&&Date.now()-autoLast>m*60000){autoLast=Date.now();refresh.force=true;refresh()}
+  if(st.dailyAt){const n=new Date(),hm=String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0'),day=n.toDateString();if(hm===st.dailyAt&&dailyDone!==day){dailyDone=day;autoLast=Date.now();fullRefresh();toast('Morning refresh: all data reloaded.')}}},20000);
 function drawLowerThird(g,T){const st=show.settings;if(!st.l3On||!st.l3Name)return;const age=(Date.now()-(st.l3At||0))/1000;const p=ease(age/.5);if(p<=0)return;
   const nm=String(st.l3Name).toUpperCase(),ti=String(st.l3Title||'').toUpperCase();const nf=`800 50px ${FD}`,tf=`700 26px ${FD}`;const w=Math.max(measure(g,nm,nf,2),measure(g,ti,tf,3))+90;const x=70,y=H-(st.showTicker?64:0)-(st.showBug?130:30)-128;
   g.save();g.globalAlpha=p;g.translate(-80*(1-p),0);g.shadowColor='rgba(0,0,0,.5)';g.shadowBlur=20;g.fillStyle=BP();hdrShape(g,x,y,w,74,18);g.fill();g.shadowColor='transparent';g.fillStyle=BA();hdrShape(g,x-6,y,18,74,18);g.fill();
@@ -3209,6 +3254,6 @@ function drawLowerThird(g,T){const st=show.settings;if(!st.l3On||!st.l3Name)retu
 
 genSample();updateStatus();$('#bLoop').classList.toggle('on',!!show.settings.loop);updClickAdv();$('#stationSub').textContent=(show.settings.station||'')+' workstation';
 renderRundown();renderInspector();updateTools();
-(document.fonts&&document.fonts.load?Promise.all([document.fonts.load(`800 40px ${FD}`),document.fonts.load(`700 40px ${FD}`),document.fonts.load(`600 40px ${FD}`)]).catch(()=>{}):Promise.resolve()).then(()=>{sceneStart=performance.now()/1000;requestAnimationFrame(frame);queueThumbs(true)});
-loadUSStates();loadWorld();loadGeo('PA');loadGeo('CT');refresh();setInterval(()=>{if(!playing)refresh()},15*60e3);setInterval(loadAlerts,120e3);setInterval(()=>loadEuWarnings(),10*60e3);
+if(REMOTE_ID){runRemote(REMOTE_ID)}else{(document.fonts&&document.fonts.load?Promise.all([document.fonts.load(`800 40px ${FD}`),document.fonts.load(`700 40px ${FD}`),document.fonts.load(`600 40px ${FD}`)]).catch(()=>{}):Promise.resolve()).then(()=>{sceneStart=performance.now()/1000;requestAnimationFrame(frame);queueThumbs(true)});
+loadUSStates();loadWorld();loadGeo('PA');loadGeo('CT');refresh();setInterval(()=>{if(!playing)refresh()},15*60e3);setInterval(loadAlerts,120e3);setInterval(()=>loadEuWarnings(),10*60e3);remoteStart()}
 </script>
