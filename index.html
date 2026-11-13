@@ -233,7 +233,7 @@ button.pill{cursor:pointer;background:transparent}
 <div class="status">
   <span><kbd>Space</kbd> play / stop</span><span><kbd>←</kbd><kbd>→</kbd> previous / next</span><span><kbd>V</kbd> select</span><span><kbd>T</kbd> pen</span><span><kbd>B</kbd> contour</span><span><kbd>N</kbd> total</span><span><kbd>Del</kbd> delete selection</span><span><kbd>E</kbd> export PNG</span><span><kbd>K</kbd> storm track</span><span><kbd>L</kbd> map label</span><span><kbd>1</kbd>–<kbd>9</kbd> cue</span><span><kbd>Enter</kbd> take</span>
   <span id="srcNote"></span>
-  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-13 · 4</span>
+  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-13 · 5</span>
 </div>
 <input type="file" id="fileIn" accept=".json,application/json" hidden>
 
@@ -1761,17 +1761,17 @@ function snowSplit(base,h,endMs){const key=base+'|'+h;let S=snowSplits[key];if(S
     pts.forEach((p,i)=>{const hr=(arr[i]||{}).hourly;if(!hr){p.f=null;return}let pr=0,fz=0,cold=0,n=0,rs=0,rw=0,ct=0;hr.time.forEach((tm,k)=>{if(tm<=start||tm>end)return;n++;const a=hr.precipitation[k]||0,r=(hr.rain[k]||0)+(hr.showers[k]||0),tc=hr.temperature_2m[k]??9,fzk=Math.max(0,a-r);pr+=a;fz+=fzk;if(fzk>0){rs+=fzk*ratioF(tc*9/5+32);rw+=fzk}if(tc<=.5){cold++;ct+=tc}});
       p.f=pr>=.5?clamp(fz/pr):n?cold/n:null;p.r=rw>0?rs/rw:cold?ratioF((ct/cold)*9/5+32):10});S.pts=pts.filter(p=>p.f!=null);S.status=S.pts.length?'ok':'fail';S.v++;S.t=Date.now();queueThumbs()})
    .catch(()=>{S.status=S.pts?'ok':'fail';S.t=Date.now()-1500000;queueThumbs()});return S}
-function splitAt(S,lon,lat){let ws=0,vs=0;for(const p of S.pts){const d2=(p.lon-lon)**2*.55+(p.lat-lat)**2+.01;const w=1/(d2*d2*d2);ws+=w;vs+=w*p.f}const f=ws?vs/ws:1;return f<.12?0:f>.9?1:f}
+function splitAt(S,lon,lat){let ws=0,vs=0;for(const p of S.pts){const d2=(p.lon-lon)**2*.55+(p.lat-lat)**2+.03;const w=1/(d2*d2);ws+=w;vs+=w*p.f}const f=ws?vs/ws:1;return clamp((f-.1)/.75)}
 /* Snow ratio from surface temperature (F): wet snow near 32, fluffy in the teens. */
 function ratioF(tf){const T=[[34,8],[32,9],[30,10],[27,12],[23,14],[18,17],[10,20]];if(tf>=34)return 8;for(let i=1;i<T.length;i++)if(tf>=T[i][0]){const[a,ra]=T[i-1],[b,rb]=T[i];return rb+(ra-rb)*(tf-b)/(a-b)}return 20}
-function ratioAt(S,lon,lat){let ws=0,vs=0;for(const p of S.pts){if(p.r==null)continue;const d2=(p.lon-lon)**2*.55+(p.lat-lat)**2+.01;const w=1/(d2*d2*d2);ws+=w;vs+=w*p.r}return ws?vs/ws:10}
+function ratioAt(S,lon,lat){let ws=0,vs=0;for(const p of S.pts){if(p.r==null)continue;const d2=(p.lon-lon)**2*.55+(p.lat-lat)**2+.03;const w=1/(d2*d2);ws+=w;vs+=w*p.r}return ws?vs/ws:10}
 /* Measured snowfall: NWS local storm reports, plus co-op and CoCoRaHS 7 AM obs for periods of a day or more (Iowa Environmental Mesonet). */
 const IEMB='https://mesonet.agron.iastate.edu',snowReps={};
 function snowReports(base,h,endMs){const key=base+'|'+h;let R=snowReps[key];if(R&&(R.status==='loading'||Date.now()-R.t<900000))return R;const old=R;R=snowReps[key]={status:'loading',t:Date.now(),pts:old?old.pts:[],v:(old?old.v:0)+1,cal:{}};
   const P=proj(base),pad=.3,inB=(lo,la)=>isFinite(lo)&&isFinite(la)&&lo>P.west-pad&&lo<P.east+pad&&la>P.south-pad&&la<P.north+pad;
   const end=new Date(endMs||Date.now()),start=new Date(end-h*3600000),iso=d=>d.toISOString().slice(0,16)+'Z';
   const num=x=>{if(x==null||x==='')return null;if(String(x).trim().toUpperCase()==='T')return .01;const v=parseFloat(x);return isFinite(v)&&v>=0&&v<120?v:null};
-  const tc=x=>String(x||'').toLowerCase().replace(/\b\w/g,c=>c.toUpperCase());
+  const tc=x=>String(x||'').replace(/^\s*\d+(\.\d+)?\s*[NSEW]{1,3}\s+/i,'').replace(/\s+\d+(\.\d+)?\s*[NSEW]{1,3}\s*$/i,'').replace(/\s+(TWP|TOWNSHIP)$/i,'').trim().toLowerCase().replace(/\b\w/g,c=>c.toUpperCase());
   const jobs=[fetchJSON(`${IEMB}/geojson/lsr.py?sts=${iso(start)}&ets=${iso(end)}`,25000).then(j=>(j.features||[]).map(f=>{const p=f.properties||{},c=(f.geometry||{}).coordinates||[p.lon,p.lat];const tt=String(p.typetext||'').toUpperCase().trim();
       if(!(tt==='SNOW'||tt==='HEAVY SNOW'||(!tt&&p.type==='S')))return null;const v=num(p.magnitude);if(v==null||v<=0)return null;return{lon:+c[0],lat:+c[1],v,name:tc(p.city),src:'NWS'}}).filter(Boolean)).catch(()=>[])];
   if(h>=12){const loc=new Date(end.toLocaleString('en-US',{timeZone:'America/New_York'}));if(loc.getHours()<8)loc.setDate(loc.getDate()-1);const days=Math.max(1,Math.round(h/24));
@@ -1781,7 +1781,7 @@ function snowReports(base,h,endMs){const key=base+'|'+h;let R=snowReps[key];if(R
   Promise.all(jobs).then(lists=>{const out=[];lists.flat().forEach(r=>{if(!inB(r.lon,r.lat))return;const d=out.find(o=>(o.lon-r.lon)**2*.55+(o.lat-r.lat)**2<.0002);if(d){if(r.v>d.v)Object.assign(d,r)}else out.push(r)});
     R.pts=out;R.status='ok';R.t=Date.now();R.v++;queueThumbs();if(out.length)mrmsSampleLL(h,out).then(()=>{R.v++;R.cal={};queueThumbs()})}).catch(()=>{R.status='fail';R.t=Date.now()-600000;queueThumbs()});return R}
 async function mrmsSampleLL(h,pts){try{await mrmsCatalog();const it=mrmsItem(h);if(!it||it.objectid==null)return;const mos=encodeURIComponent(JSON.stringify({mosaicMethod:'esriMosaicLockRaster',lockRasterIds:[it.objectid]}));
-  for(let i=0;i<pts.length;i+=120){const ch=pts.slice(i,i+120);const geom=encodeURIComponent(JSON.stringify({points:ch.map(r=>[+r.lon.toFixed(4),+r.lat.toFixed(4)]),spatialReference:{wkid:4326}}));
+  for(let i=0;i<pts.length;i+=40){const ch=pts.slice(i,i+40);const geom=encodeURIComponent(JSON.stringify({points:ch.map(r=>[+r.lon.toFixed(4),+r.lat.toFixed(4)]),spatialReference:{wkid:4326}}));
     const j=await fetchJSON(`${MRMS}/getSamples?geometry=${geom}&geometryType=esriGeometryMultipoint&mosaicRule=${mos}&returnFirstValueOnly=true&outFields=&f=json`,15000);(j.samples||[]).forEach(sm=>{const v=parseFloat(String(sm.value).split(/[ ,]/)[0]);const r=ch[sm.locationId];if(r&&isFinite(v))r.liq=Math.max(0,v)})}
   const vs=pts.map(r=>r.liq).filter(v=>v!=null);if(vs.length&&Math.max(...vs)>25)pts.forEach(r=>{if(r.liq!=null)r.liq/=25.4})}catch(e){}}
 function mrmsPixLL(rk,h,lon,lat){const S=mrmsImgs[rk+'|'+h],L=mrmsLegs[h];if(!S||!S.px||!L||L.status!=='ok')return null;const P=proj(rk);const x=Math.round(P.x(lon)/W*S.px.width),y=Math.round(P.y(lat)/H*S.px.height);if(x<0||y<0||x>=S.px.width||y>=S.px.height)return null;
@@ -1789,13 +1789,13 @@ function mrmsPixLL(rk,h,lon,lat){const S=mrmsImgs[rk+'|'+h],L=mrmsLegs[h];if(!S|
 /* Snow multiplier at a point: share that fell as snow x snow ratio x correction from nearby measured reports. */
 function snowMulFn(SPL,useSplit,AUTO,RAT,C){return(lon,lat)=>(SPL&&useSplit?splitAt(SPL,lon,lat):1)*(AUTO&&SPL?ratioAt(SPL,lon,lat):RAT)*(C?factorAt(C,lon,lat):1)}
 function calibFor(R,rk,h,pre){const key=rk+'|'+(pre.key);if(R.cal[key])return R.cal[key];const pts=[];let n=0;
-  R.pts.forEach(r=>{const liq=r.liq!=null?r.liq:mrmsPixLL(rk,h,r.lon,r.lat);if(liq==null)return;const est=liq*pre.mul(r.lon,r.lat);if(est>=.5&&r.v>=.3||est>=1){pts.push({lon:r.lon,lat:r.lat,l:Math.log(clamp(Math.max(r.v,.1)/est,.25,4))});n++}});
-  return R.cal[key]={pts,n,v:R.v}}
+  let un=0;R.pts.forEach(r=>{const liq=r.liq!=null?r.liq:mrmsPixLL(rk,h,r.lon,r.lat);if(liq==null){un++;return}const est=liq*pre.mul(r.lon,r.lat);if(est>=.3&&r.v>=.2||est>=.8){pts.push({lon:r.lon,lat:r.lat,l:Math.log(clamp(Math.max(r.v,.1)/est,.25,4))});n++}});
+  const C={pts,n,v:R.v+'.'+un};if(!un)R.cal[key]=C;return C}
 function factorAt(C,lon,lat){if(!C.pts.length)return 1;let ws=16,vs=0;for(const p of C.pts){const d2=(p.lon-lon)**2*.55+(p.lat-lat)**2+.004;const w=1/(d2*d2);ws+=w;vs+=w*p.l}return Math.exp(vs/ws)}
 const mulGrids={};function mulGrid(key,P,fn){if(mulGrids[key])return mulGrids[key];if(Object.keys(mulGrids).length>24)for(const k in mulGrids)delete mulGrids[k];const gw=96,gh=54,G=new Float32Array(gw*gh);
   for(let j=0;j<gh;j++)for(let i=0;i<gw;i++)G[j*gw+i]=fn(P.lon((i+.5)/gw*W),P.lat((j+.5)/gh*H));return mulGrids[key]={G,gw,gh,sx:gw/960,sy:gh/540}}
 function drawSnowReports(g,sc,P,t,pts,placed,hit){const lim=sc.showReports==='all'?60:15;const rs=pts.filter(r=>{const x=P.x(r.lon),y=P.y(r.lat);return x>20&&x<W-20&&y>205&&y<H-40}).sort((a,b)=>b.v-a.v);
-  g.save();g.globalAlpha=ease((t-1)/.5);rs.forEach(r=>{g.fillStyle='#ffe9a8';g.strokeStyle='#0a1a3a';g.lineWidth=2;g.beginPath();g.arc(P.x(r.lon),P.y(r.lat),4.5,0,7);g.fill();g.stroke()});g.restore();let n=0;
+  g.save();g.globalAlpha=ease((t-1)/.5);rs.forEach(r=>{const x=P.x(r.lon),y=P.y(r.lat);if(placed.some(b=>x>b.x-4&&x<b.x+b.w+4&&y>b.y-4&&y<b.y+b.h+4))return;g.fillStyle='#ffe9a8';g.strokeStyle='#0a1a3a';g.lineWidth=2;g.beginPath();g.arc(x,y,4.5,0,7);g.fill();g.stroke()});g.restore();let n=0;
   rs.forEach(r=>{if(n>=lim)return;const x=P.x(r.lon),y=P.y(r.lat);const s=r.v<.05?'T':fmtSnow(r.v,sc.units),f=`800 28px ${FD}`,w=measure(g,s,f)+20,h=38,nm=(r.name||'').toUpperCase().slice(0,20),nw=Math.max(w,measure(g,nm,`700 14px ${FD}`)+8);
     const spot=[[0,-30],[0,32],[62,0],[-62,0],[52,-34],[-52,-34]].map(([dx,dy])=>[x+dx,y+dy]).find(([cx,cy])=>cy-h/2>205&&cy+h/2+20<H-10&&cx-nw/2>10&&cx+nw/2<W-10&&!(cx<340&&cy>250&&cy<840)&&!hit({x:cx-nw/2,y:cy-h/2,w:nw,h:h+20}));if(!spot)return;
     placed.push({x:spot[0]-nw/2,y:spot[1]-h/2,w:nw,h:h+20});n++;const q=easeBack(clamp((t-1.1-n*.03)/.4));if(q<=0)return;
@@ -1823,7 +1823,7 @@ function renderRainfall(g,sc,t,o){
   else{const F=rainField(rk,sc.src,sc.hours,VV);g.globalAlpha=.85*fade;g.drawImage(F,0,0);if(!F.pts)msg=sc.src==='gfs_hrrr'&&sc.hours>48?'THE HRRR RUNS 48 HOURS · PICK 24 OR 48':sc.src==='gfs_hrrr'&&isEU(rk)?'THE HRRR COVERS NORTH AMERICA ONLY':'MODEL '+NOUN+' COULD NOT LOAD'}
   g.restore();
   g.drawImage(mapOverlay(rk),0,0);drawCounties(g,sc);drawZoomTowns(g,sc,P,t);drawFronts(g,sc,P,o,t);g._fr=1;
-  const list=mapCities(sc).filter(k=>{const x=P.x(CITIES[k][2]),y=P.y(CITIES[k][1]);return x>40&&x<W-40&&y>170&&y<H-150&&!(y>H-260&&x>W-560)&&!(x<300&&y>260&&y<830)});
+  const list=mapCities(sc).filter(k=>{const x=P.x(CITIES[k][2]),y=P.y(CITIES[k][1]);return x>40&&x<W-40&&y>170&&y<H-150&&!(y>H-260&&x>W-560)&&!(x<380&&y>240&&y<850)});
   let noSnow=false;if(mr&&!msg&&!isEU(rk))mrmsLoadPts(MH,list);if(SN&&!mr&&!msg){const vs=list.map(k=>rainTotal(k,sc.src,sc.hours,'snow')).filter(v=>v!=null);noSnow=vs.length>0&&Math.max(...vs)<.1;if(noSnow)msg='NO SNOW EXPECTED IN THE NEXT '+sc.hours+' HOURS'}
   const vals=!wpc&&!noSnow&&sc.cityVals!==false&&!(mr&&(isEU(rk)||msg));const placed=[];const hit=(a)=>placed.some(b=>a.x<b.x+b.w&&b.x<a.x+a.w&&a.y<b.y+b.h&&b.y<a.y+a.h);
   list.forEach((k,i)=>{let x=P.x(CITIES[k][2]),y=P.y(CITIES[k][1]);const nm=CITIES[k][0].toUpperCase();
