@@ -234,7 +234,7 @@ button.pill{cursor:pointer;background:transparent}
 <div class="status">
   <span><kbd>Space</kbd> play / stop</span><span><kbd>←</kbd><kbd>→</kbd> previous / next</span><span><kbd>V</kbd> select</span><span><kbd>T</kbd> pen</span><span><kbd>B</kbd> contour</span><span><kbd>N</kbd> total</span><span><kbd>Del</kbd> delete selection</span><span><kbd>E</kbd> export PNG</span><span><kbd>K</kbd> storm track</span><span><kbd>L</kbd> map label</span><span><kbd>1</kbd>–<kbd>9</kbd> cue</span><span><kbd>Enter</kbd> take</span>
   <span id="srcNote"></span>
-  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-13 · 7</span>
+  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-13 · 8</span>
 </div>
 <input type="file" id="fileIn" accept=".json,application/json" hidden>
 
@@ -2114,7 +2114,7 @@ function renderStormReports(g,sc,t,o){const rk=sc.region,P=proj(rk);g.drawImage(
   const tsel=sc.repSel&&String(sc.repSel).startsWith('t:')&&tracks.find(T=>T.id===sc.repSel);if(tsel){const sg=tsel.lines[0].map(([lo,la])=>[P.x(lo),P.y(la)]),m=sg[Math.floor(sg.length/2)];g.save();g.strokeStyle='#ffffff';g.lineWidth=4;g.beginPath();g.arc(m[0],m[1],22,0,7);g.stroke();g.restore();srCard(g,null,P,Math.max(0,t-1),m,datInfo(tsel))}
   const sel=sc.repSel&&vis.find(r=>r.key===sc.repSel);if(sel){const x=P.x(sel.lon),y=P.y(sel.lat);g.save();g.strokeStyle='#ffffff';g.lineWidth=4;g.beginPath();g.arc(x,y,22,0,7);g.stroke();g.restore();srCard(g,sel,P,Math.max(0,t-1))}
   if(msg)centerMsg(g,msg);
-  const L1=R.sample?'SAMPLE DATA · LIVE REPORTS DID NOT LOAD':'NWS STORM REPORTS',L2=(SR_PERIODS.find(p=>p[0]===per)||SR_PERIODS[0])[1].replace(/ \(.*\)/,'').toUpperCase();const bw=Math.max(380,measure(g,L1,`700 18px ${FD}`,2.5)+60,measure(g,L2,`800 40px ${FD}`)+60);const bx=W-70-bw,by=50;
+  const L1=R.sample?'SAMPLE DATA · LIVE REPORTS DID NOT LOAD':'NWS STORM REPORTS',L2=R.status==='loading'&&!R.list.length?'LOADING':vis.length===1?'1 REPORT':vis.length+' REPORTS';const bw=Math.max(380,measure(g,L1,`700 18px ${FD}`,2.5)+60,measure(g,L2,`800 40px ${FD}`)+60);const bx=W-70-bw,by=50;
   glass(g,bx,by,bw,110,12);text(g,L1,bx+30,by+40,`700 18px ${FD}`,R.sample?'#ffb21e':'#ff6b6b','left','alphabetic',2.5);text(g,L2,bx+30,by+88,`800 40px ${FD}`,'#ffffff');
   drawHeader(g,sc.title||DEF_TITLES.stormreports,sc.sub||autoSub(sc),t)}
 async function loadArc(svc){if(arcInfo[svc])return;arcInfo[svc]={status:'loading'};try{const j=await fetchJSON(NWS_SVCS[svc][0]+'?f=json',12000);const L=(j.layers||[]).filter(l=>!l.subLayerIds||!l.subLayerIds.length).map(l=>({id:l.id,name:String(l.name||'Layer '+l.id)}));if(!L.length)throw 0;arcInfo[svc]={status:'ok',leaf:L}}catch(e){arcInfo[svc]={status:'fail'}}queueThumbs();softInspect('nwsmap')}
