@@ -235,7 +235,7 @@ button.pill{cursor:pointer;background:transparent}
 <div class="status">
   <span><kbd>Space</kbd> play / stop</span><span><kbd>←</kbd><kbd>→</kbd> previous / next</span><span><kbd>V</kbd> select</span><span><kbd>T</kbd> pen</span><span><kbd>B</kbd> contour</span><span><kbd>N</kbd> total</span><span><kbd>Del</kbd> delete selection</span><span><kbd>E</kbd> export PNG</span><span><kbd>K</kbd> storm track</span><span><kbd>L</kbd> map label</span><span><kbd>1</kbd>–<kbd>9</kbd> cue</span><span><kbd>Enter</kbd> take</span>
   <span id="srcNote"></span>
-  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-13 · 11</span>
+  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-13 · 12</span>
 </div>
 <input type="file" id="fileIn" accept=".json,application/json" hidden>
 
@@ -2127,18 +2127,24 @@ function esriImg(svc,P,fmt){const key=svc+'|'+[P.west,P.south,P.east,P.north].ma
 function placeNear(lon,lat){let best=null,bd=1e9;const chk=p=>{const d=(p.lon-lon)**2*.55+(p.lat-lat)**2;if(d<bd){bd=d;best=p}};for(const k of [...CITY_KEYS,...TOWN_KEYS,...Object.keys(xpl())]){const p=placeOf(k);if(p)chk(p)}return best&&bd<.03?best:null}
 function trackMid(T){const l=(T&&T.lines||[])[0]||[];return l[Math.floor(l.length/2)]||null}
 function trackMiles(pts){let m=0;for(let i=1;i<pts.length;i++){const[a,b]=pts[i-1],[c,d]=pts[i];const dx=(c-a)*Math.cos((b+d)/2*Math.PI/180)*69.17,dy=(d-b)*69.17;m+=Math.hypot(dx,dy)}return m}
-function svTitle(sc){if(sc.title)return sc.title;const m=trackMid(sc.trk);const pl=sc.sv_place||(m&&placeNear(m[0],m[1])||{}).n;return pl?pl+' Tornado':DEF_TITLES.survey}
+/* Start and end towns for a track: NWS points lookup (nationwide), falling back to the built-in town list. */
+const svLocBusy={};
+function svLocate(sc){const T=sc.trk;if(!T||!T.lines||!T.lines.length||T.loc||svLocBusy[sc.id])return;const l=T.lines[0],a=l[0],b=l[l.length-1];svLocBusy[sc.id]=1;
+  const one=pt=>fetchJSON(`https://api.weather.gov/points/${pt[1].toFixed(4)},${pt[0].toFixed(4)}`,12000).then(j=>{const r=((j.properties||{}).relativeLocation||{}).properties||{};return r.city?{c:r.city,st:r.state||''}:null}).catch(()=>{const q=placeNear(pt[0],pt[1]);return q?{c:q.n,st:q.st}:null});
+  Promise.all([one(a),one(b)]).then(([A,B])=>{delete svLocBusy[sc.id];if(sc.trk!==T)return;T.loc={a:A,b:B};save();queueThumbs();if(scene()===sc)renderInspector()})}
+function svLocText(T){const L=T&&T.loc;if(!L)return'';const A=L.a,B=L.b;if(!A&&!B)return'';if(!A||!B)return'Near '+((A||B).c+', '+(A||B).st);if(A.c===B.c)return'Near '+A.c+', '+A.st;return A.st===B.st?`${A.c} to ${B.c}, ${B.st}`:`${A.c}, ${A.st} to ${B.c}, ${B.st}`}
+function svTitle(sc){if(sc.title)return sc.title;const m=trackMid(sc.trk);const L=sc.trk&&sc.trk.loc;const pl=sc.sv_place||(m&&placeNear(m[0],m[1])||{}).n||(L&&(L.a||L.b)||{}).c;return pl?pl+' Tornado':DEF_TITLES.survey}
 const svFmtT=d=>new Date(d).toLocaleTimeString([], {hour:'numeric',minute:'2-digit'}).toUpperCase();
 function svSub(sc){const T=sc.trk||{};const d=T.start?new Date(T.start):null;return d?d.toLocaleDateString([], {weekday:'long',month:'long',day:'numeric'}):''}
-function surveyRows(sc){const T=sc.trk||{};const v=(k,def)=>{const x=sc['sv_'+k];return x!=null&&String(x).trim()!==''?String(x).trim():def};const rows=[];
+function surveyRows(sc){const T=sc.trk||{};const v=(k,def)=>{const x=sc['sv_'+k];return x!=null&&String(x).trim()!==''?String(x).trim():def};const rows=[];const loc=v('loc',svLocText(T));if(loc)rows.push(['Location',loc]);
   const wind=v('wind',T.wind?T.wind+' mph':'');if(wind)rows.push(['Peak Winds',wind]);const len=v('len',T.len?(+T.len).toFixed(2)+' miles':'');if(len)rows.push(['Path Length',len]);
   const wid=v('wid',T.wid?Math.round(T.wid)+' yards':'');if(wid&&sc.sv_showWid!==false)rows.push(['Path Width',wid]);const ef=v('ef',T.ef?T.ef.replace(/^EF/,'EF-'):'');if(ef)rows.push(['Rating',ef]);
   const tm=v('time',T.start?svFmtT(T.start)+(T.end?' - '+svFmtT(T.end):''):'');if(tm)rows.push([null,tm]);const cas=v('cas',(T.inj||T.dead)?`Injuries: ${T.inj||0} · Deaths: ${T.dead||0}`:'');if(cas)rows.push([null,cas]);
   const ex=v('extra','');if(ex)rows.push([null,ex]);return rows}
 function fitTrack(sc){const L=(sc.trk&&sc.trk.lines||[]).flat();if(!L.length)return;let x0=1e9,x1=-1e9,y0=1e9,y1=-1e9;L.forEach(([lo,la])=>{x0=Math.min(x0,lo);x1=Math.max(x1,lo);y0=Math.min(y0,la);y1=Math.max(y1,la)});
-  const lat=(y0+y1)/2;let ls=Math.max((y1-y0)*2.2,.12);while(lonSpanOf({lat,latSpan:ls})<(x1-x0)*1.85)ls*=1.06;const lsp=lonSpanOf({lat,latSpan:ls});sc.view={lon:(x0+x1)/2-lsp*.18,lat:lat-ls*.06,latSpan:ls}}
+  const lat=(y0+y1)/2;let ls=Math.max((y1-y0)*2.2,.12);while(lonSpanOf({lat,latSpan:ls})<(x1-x0)*1.96)ls*=1.06;const lsp=lonSpanOf({lat,latSpan:ls});sc.view={lon:(x0+x1)/2-lsp*.2,lat:lat-ls*.06,latSpan:ls}}
 function svSnapshot(T){return{lines:T.lines.map(l=>l.map(([a,b])=>[+(+a).toFixed(4),+(+b).toFixed(4)])),ef:T.ef,start:T.start?+T.start:null,end:T.end?+T.end:null,len:T.len,wid:T.wid,wind:T.wind,inj:T.inj,dead:T.dead,wfo:T.wfo,remark:T.remark,id:T.id}}
-function renderSurvey(g,sc,t,o){const rk=sc.region,P=proj(rk),T=sc.trk;g.drawImage(mapBase(rk),0,0);let sat=false;
+function renderSurvey(g,sc,t,o){const rk=sc.region,P=proj(rk),T=sc.trk;if(T&&!T.loc&&o.interactive)svLocate(scene()&&scene().id===sc.id?scene():sc);g.drawImage(mapBase(rk),0,0);let sat=false;
   if(sc.sat!==false&&!isEU(rk)){const I=esriImg('World_Imagery',P,'jpg');if(I.ok){g.save();g.globalAlpha=ease((t)/.4);g.drawImage(I.img,0,0,W,H);g.fillStyle='rgba(0,12,30,.16)';g.fillRect(0,0,W,H);g.restore();sat=true}}
   if(!sat)g.drawImage(mapOverlay(rk),0,0);drawCounties(g,sc);
   if(sc.roads!==false&&sat){const R=esriImg('Reference/World_Transportation',P,'png32');if(R.ok)g.drawImage(R.img,0,0,W,H)}
@@ -2149,11 +2155,11 @@ function renderSurvey(g,sc,t,o){const rk=sc.region,P=proj(rk),T=sc.trk;g.drawIma
   if(T&&T.lines&&T.lines.length)drawPath(T.lines,(t-.9)/1.6,col);
   if(o.interactive&&draft&&draft.kind==='svpath'&&draft.id===sc.id)drawPath([draft.pts],1,'#fff200');
   drawMapLabels(g,sc,P,o,t);
-  const rows=surveyRows(sc);const q=ease((t-.3)/.6);if(q>0&&(rows.length||T)){const f=`700 36px ${FB}`,fl=`600 36px ${FB}`;let w=480;rows.forEach(([k,v])=>{w=Math.max(w,measure(g,(k?k+': ':'')+v,f)+110)});w=Math.min(w,760);const x=155-(1-q)*700,y=295,hh=96,rh=72,bh=rows.length*rh+26;
+  const rows=surveyRows(sc);const q=ease((t-.3)/.6);if(q>0&&(rows.length||T)){const f=`700 36px ${FB}`,fl=`600 36px ${FB}`;let w=480;rows.forEach(([k,v])=>{w=Math.max(w,measure(g,(k?k+': ':'')+v,f)+110)});w=Math.min(w,640);const x=155-(1-q)*700,y=295,hh=96,rh=72,bh=rows.length*rh+26;
     g.save();g.shadowColor='rgba(0,0,0,.5)';g.shadowBlur=24;g.shadowOffsetY=8;g.fillStyle='#ffffff';g.fillRect(x,y,w,hh);g.shadowColor='transparent';const gr=g.createLinearGradient(0,y+hh,0,y+hh+bh);gr.addColorStop(0,BP());gr.addColorStop(1,shade(BP(),-.45));g.fillStyle=gr;g.fillRect(x,y+hh,w,bh);
     g.fillStyle='rgba(255,255,255,.6)';g.fillRect(x,y+hh,w,3);text(g,(sc.sv_head||'Damage Survey').toUpperCase(),x+24,y+66,`800 52px ${FD}`,shade(BP(),-.35),'left','alphabetic',1);
     rows.forEach(([k,v],i)=>{const a=ease((t-.6-i*.12)/.4);if(a<=0)return;const ry=y+hh+48+i*rh;g.globalAlpha=a;g.fillStyle=BA();g.beginPath();g.moveTo(x+26,ry-26);g.lineTo(x+44,ry-14);g.lineTo(x+26,ry-2);g.closePath();g.fill();
-      text(g,(k?k+': ':'')+v,x+56,ry,f,'#ffffff','left');g.globalAlpha=1});g.restore()}
+      const s2=(k?k+': ':'')+v;let fz=36;while(measure(g,s2,`700 ${fz}px ${FB}`)>w-80&&fz>22)fz--;text(g,s2,x+56,ry,`700 ${fz}px ${FB}`,'#ffffff','left');g.globalAlpha=1});g.restore()}
   if(!T||!T.lines||!T.lines.length)centerMsg(g,sc.track==='manual'?'PICK DRAW PATH AND DRAG ALONG THE TORNADO PATH':'PICK A SURVEYED TORNADO IN THE INSPECTOR');
   if(sat){const yb=H-(show.settings.showTicker?78:22);outlinedText(g,'Imagery: Esri, Maxar, Earthstar Geographics · Survey: NWS',W-40,yb,`600 15px ${FB}`,'#e9eef8','right')}
   drawHeader(g,svTitle(sc),sc.sub||svSub(sc),t)}
@@ -2651,13 +2657,14 @@ function renderInspector(){syncClrTrack();
   if(sc.type==='impact')h+=`<div class="sec"><h3>Impact meter</h3><label class="f">Level<select id="i-lv" data-k="level">${opts([[1,'1 · Low'],[2,'2 · Minor'],[3,'3 · Moderate'],[4,'4 · High'],[5,'5 · Extreme']],+sc.level)}</select></label><label class="f">Message<input type="text" id="i-idesc" data-k="desc" value="${esc(sc.desc||'')}" placeholder="${esc(IMPACT_DESC[clamp(+sc.level||3,1,5)-1])}"></label></div>`;
   if(sc.type==='closings')h+=`<div class="sec"><h3>Closings and delays</h3><label class="f">One per line, like "Hershey Schools: 2-hour delay"<textarea id="i-clos" data-s="closings" rows="8">${esc(show.settings.closings||'')}</textarea></label><label class="f">Seconds per page<input type="number" min="2" max="20" id="i-pgs" data-k="pageSecs" value="${sc.pageSecs||5}"></label><label class="chk"><input type="checkbox" id="i-clt" data-s="closingsTicker"${show.settings.closingsTicker?' checked':''}>Also run them in the ticker</label><p class="note">The list is shared by the whole show. Shows 8 per page.</p></div>`;
   if(sc.type==='survey'){const base=sc.svArea==='map'?sc.region:'us';const D=datTracks(String((+sc.days||14)*24),base);const list=[...D.list].sort((a,b)=>(b.start||0)-(a.start||0));const T=sc.trk||{};const ph=(k,v)=>`placeholder="${esc(v||'')}"`;
-    const auto={wind:T.wind?T.wind+' mph':'',len:T.len?(+T.len).toFixed(2)+' miles':'',wid:T.wid?Math.round(T.wid)+' yards':'',ef:T.ef?T.ef.replace(/^EF/,'EF-'):'',time:T.start?svFmtT(T.start)+(T.end?' - '+svFmtT(T.end):''):'',cas:(T.inj||T.dead)?`Injuries: ${T.inj||0} · Deaths: ${T.dead||0}`:''};
+    svLocate(sc);const auto={loc:svLocText(T),wind:T.wind?T.wind+' mph':'',len:T.len?(+T.len).toFixed(2)+' miles':'',wid:T.wid?Math.round(T.wid)+' yards':'',ef:T.ef?T.ef.replace(/^EF/,'EF-'):'',time:T.start?svFmtT(T.start)+(T.end?' - '+svFmtT(T.end):''):'',cas:(T.inj||T.dead)?`Injuries: ${T.inj||0} · Deaths: ${T.dead||0}`:''};
     const lab=x=>`${x.ef.replace(/^EF/,'EF-')} · ${x.start?x.start.toLocaleDateString([], {month:'short',day:'numeric'}):''} · ${x.len?x.len.toFixed(1)+' mi':''} · ${(()=>{const m=trackMid(x);const pl=m&&placeNear(m[0],m[1]);return pl?'near '+pl.n+', '+pl.st:'NWS '+x.wfo})()}`;
     h+=`<div class="sec"><h3>Damage survey</h3><div class="row2"><label class="f">Search<select data-k="svArea">${opts([['us','Entire US'],['map','This map area']],sc.svArea||'us')}</select></label><label class="f">Surveys from<select data-k="days">${opts([[7,'Past 7 days'],[14,'Past 14 days'],[30,'Past 30 days'],[90,'Past 90 days']],+sc.days||14)}</select></label></div>
     <label class="f">Tornado<select id="i-svtrk"><option value="">${D.status==='loading'?'Loading NWS surveys…':D.status==='fail'?'NWS surveys could not load':list.length?'Pick a surveyed tornado':'No surveyed tornadoes in this period'}</option>${list.map(x=>`<option value="${esc(x.id)}"${sc.track===x.id?' selected':''}>${esc(lab(x))}</option>`).join('')}<option value="manual"${sc.track==='manual'?' selected':''}>Draw my own path</option></select></label>
     ${sc.track==='manual'?'<p class="note">Pick Draw path in the toolbar, then drag along the tornado path. Fill in the numbers below.</p>':''}
     ${sc.trk?`<button data-svfit>Fit map to the track</button>`:''}
     <label class="f">Place name<input type="text" data-k="sv_place" value="${esc(sc.sv_place||'')}" ${ph('','Auto, from the nearest town')}></label>
+    <label class="f">Location<input type="text" data-k="sv_loc" value="${esc(sc.sv_loc||'')}" ${ph(0,auto.loc||(T.lines?'Finding towns…':'Enola to Grantville, PA'))}></label>
     <label class="f">Panel heading<input type="text" data-k="sv_head" value="${esc(sc.sv_head||'')}" placeholder="Damage Survey"></label>
     <div class="row2"><label class="f">Peak winds<input type="text" data-k="sv_wind" value="${esc(sc.sv_wind||'')}" ${ph(0,auto.wind||'125 mph')}></label><label class="f">Rating<input type="text" data-k="sv_ef" value="${esc(sc.sv_ef||'')}" ${ph(0,auto.ef||'EF-2')}></label></div>
     <div class="row2"><label class="f">Path length<input type="text" data-k="sv_len" value="${esc(sc.sv_len||'')}" ${ph(0,auto.len||'13.15 miles')}></label><label class="f">Path width<input type="text" data-k="sv_wid" value="${esc(sc.sv_wid||'')}" ${ph(0,auto.wid||'350 yards')}></label></div>
@@ -2758,7 +2765,7 @@ function renderInspector(){syncClrTrack();
   const sl=el.querySelector('#i-sellbl');if(sl)sl.addEventListener('input',()=>{const L=sc.labels[sel.i];if(L){L.text=sl.value;save();queueThumbs()}});
   const ss=el.querySelector('#i-sellsty');if(ss)ss.addEventListener('change',()=>{const L=sc.labels[sel.i];if(L){L.style=ss.value;save();queueThumbs()}});
   q1('[data-lbldel]','click',()=>deleteSel());{const st=el.querySelector('#i-svtrk');if(st)st.addEventListener('change',()=>{const v=st.value;st.blur();if(!v)return;if(v==='manual'){sc.track='manual';sc.trk=sc.path?{lines:[sc.path]}:null;save();renderInspector();queueThumbs();setTool('svpath');return}
-    const D=datTracks(String((+sc.days||14)*24),sc.svArea==='map'?sc.region:'us');const T=D.list.find(x=>x.id===v);if(!T)return;sc.track=v;sc.trk=svSnapshot(T);['wind','len','wid','ef','time','cas','place'].forEach(k=>delete sc['sv_'+k]);fitTrack(sc);mstep=null;save();renderInspector();queueThumbs()})}
+    const D=datTracks(String((+sc.days||14)*24),sc.svArea==='map'?sc.region:'us');const T=D.list.find(x=>x.id===v);if(!T)return;sc.track=v;sc.trk=svSnapshot(T);['wind','len','wid','ef','time','cas','place','loc'].forEach(k=>delete sc['sv_'+k]);fitTrack(sc);mstep=null;save();renderInspector();queueThumbs()})}
   q1('[data-svfit]','click',()=>{fitTrack(sc);save();renderInspector();queueThumbs()});q1('[data-srclear]','click',()=>{sc.repSel=null;save();queueThumbs();renderInspector()});
   el.querySelectorAll('[data-fflip]').forEach(b=>b.addEventListener('click',()=>{const F=(sc.fronts||[])[+b.dataset.fflip];if(F){F.flip=!F.flip;save();queueThumbs()}}));
   el.querySelectorAll('[data-fdel]').forEach(b=>b.addEventListener('click',()=>{sc.fronts.splice(+b.dataset.fdel,1);sel=null;save();queueThumbs();renderInspector()}));
@@ -2874,7 +2881,7 @@ const endPtr=(e)=>{const sc=scene();
   if(draft&&draft.kind==='tele'){const s=draft.s;if(s.pts.length>1||s.tool==='pen'){if(s.pts.length===1)s.pts.push([s.pts[0][0]+1,s.pts[0][1]+1]);sc.tele.push(s);save();queueThumbs()}}
   if(draft&&draft.kind==='band'){if(draft.pts.length>=6){let pts=draft.pts;if(pts.length>80){const k=Math.ceil(pts.length/80);pts=pts.filter((_,i)=>i%k===0)}sc.bands.push({r:draft.r,pts});sel={kind:'band',i:sc.bands.length-1};save();renderInspector();queueThumbs()}else toast('Trace a larger closed shape to make a contour.')}
   if(draft&&draft.kind==='svpath'){const d=draft;draft=null;if(d.len<40||d.pts.length<3){toast('Drag along the map to draw the path.');return}let pts=d.pts;if(pts.length>150){const k=Math.ceil(pts.length/150);pts=pts.filter((_,i)=>i%k===0||i===d.pts.length-1)}pts=pts.map(([a,b])=>[+a.toFixed(4),+b.toFixed(4)]);
-    sc.track='manual';sc.trk=Object.assign({},sc.track==='manual'&&sc.trk?sc.trk:{},{lines:[pts],len:+trackMiles(pts).toFixed(2)});save();renderInspector();queueThumbs();return}
+    sc.track='manual';sc.trk=Object.assign({},sc.track==='manual'&&sc.trk?sc.trk:{},{lines:[pts],len:+trackMiles(pts).toFixed(2),loc:null});save();renderInspector();queueThumbs();return}
   if(draft&&draft.kind==='front'){const d=draft;draft=null;if(d.len<60||d.pts.length<3){toast('Drag across the map to draw the front.');return}let pts=d.pts;if(pts.length>120){const k=Math.ceil(pts.length/120);pts=pts.filter((_,i)=>i%k===0||i===d.pts.length-1)}
     sc.fronts=sc.fronts||[];sc.fronts.push({kind:d.k,pts:pts.map(([a,b])=>[+a.toFixed(4),+b.toFixed(4)]),flip:false});sel={kind:'front',i:sc.fronts.length-1};save();renderInspector();queueThumbs();return}
   if(draft&&draft.kind==='track'){const d=draft;draft=null;if(Math.hypot(d.b[0]-d.a[0],d.b[1]-d.a[1])<20){toast('Drag from the storm in the direction it is moving.');return}
