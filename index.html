@@ -239,7 +239,7 @@ button.pill{cursor:pointer;background:transparent}
 <div class="status">
   <span><kbd>Space</kbd> play / stop</span><span><kbd>←</kbd><kbd>→</kbd> previous / next</span><span><kbd>V</kbd> select</span><span><kbd>T</kbd> pen</span><span><kbd>B</kbd> contour</span><span><kbd>N</kbd> total</span><span><kbd>Del</kbd> delete selection</span><span><kbd>E</kbd> export PNG</span><span><kbd>K</kbd> storm track</span><span><kbd>L</kbd> map label</span><span><kbd>1</kbd>–<kbd>9</kbd> cue</span><span><kbd>Enter</kbd> take</span>
   <span id="srcNote"></span>
-  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-13 · 23</span>
+  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-13 · 24</span>
 </div>
 <input type="file" id="fileIn" accept=".json,application/json" hidden>
 
@@ -389,7 +389,7 @@ function mapBase(rk){
   else if(R.eu){g.fillStyle=wg;g.fillRect(0,0,W,H);const E=euPaths(rk);g.fillStyle=landColor(g,R,false);g.fill(E.all);g.save();g.globalAlpha=.07;g.globalCompositeOperation='overlay';g.fillStyle=g.createPattern(grain,'repeat');g.fillRect(0,0,W,H);g.restore();g.strokeStyle='rgba(235,245,255,.38)';g.lineWidth=1.8;g.stroke(E.all)}
   else if(usStates){
     g.fillStyle=wg;g.fillRect(0,0,W,H);
-    g.fillStyle=landColor(g,R,false);g.fill(polyPath(P,CANADA));g.fill(polyPath(P,MEXICO));g.fill(polyPath(P,RUSSIA));
+    g.fillStyle=landColor(g,R,false);{const O=oceanPaths(rk);if(O.ok)g.fill(O.all);else{g.fill(polyPath(P,CANADA));g.fill(polyPath(P,MEXICO));g.fill(polyPath(P,RUSSIA))}}
     g.fillStyle=wg;WATER.slice(0,3).forEach(w=>g.fill(polyPath(P,w)));
     for(const st of mainStates()){g.fillStyle=landColor(g,R,R.focus.includes(st));g.fill(statePath(rk,st))}
     g.save();g.globalAlpha=.07;g.globalCompositeOperation='overlay';g.fillStyle=g.createPattern(grain,'repeat');g.fillRect(0,0,W,H);g.restore();
@@ -398,7 +398,7 @@ function mapBase(rk){
   }else{
     g.fillStyle=iso?'#11161b':'#1d2722';g.fillRect(0,0,W,H);
     g.fillStyle=wg;g.fill(polyPath(P,OCEAN));
-    if(R.national||R.remote){g.fillStyle=wg;g.fillRect(0,0,W,H);g.fillStyle=landColor(g,R,false);g.fill(polyPath(P,CANADA));g.fill(polyPath(P,MEXICO));g.fill(polyPath(P,RUSSIA));g.fill(polyPath(P,CONUS))}
+    if(R.national||R.remote){g.fillStyle=wg;g.fillRect(0,0,W,H);g.fillStyle=landColor(g,R,false);{const O=oceanPaths(rk);if(O.ok)g.fill(O.all);else{g.fill(polyPath(P,CANADA));g.fill(polyPath(P,MEXICO));g.fill(polyPath(P,RUSSIA));g.fill(polyPath(P,CONUS))}}}
     for(const [k,pts] of Object.entries(STATES)){const foc=R.focus.includes(k);g.fillStyle=landColor(g,R,foc);g.fill(foc&&GEO_STATES[k]?statePath(rk,k):polyPath(P,pts))}
     g.fillStyle=wg;WATER.forEach(w=>g.fill(polyPath(P,w)));
     g.save();g.globalAlpha=.07;g.globalCompositeOperation='overlay';g.fillStyle=g.createPattern(grain,'repeat');g.fillRect(0,0,W,H);g.restore();
