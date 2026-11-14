@@ -240,7 +240,7 @@ button.pill{cursor:pointer;background:transparent}
 <div class="status">
   <span><kbd>Space</kbd> play / stop</span><span><kbd>←</kbd><kbd>→</kbd> previous / next</span><span><kbd>V</kbd> select</span><span><kbd>T</kbd> pen</span><span><kbd>B</kbd> contour</span><span><kbd>N</kbd> total</span><span><kbd>Del</kbd> delete selection</span><span><kbd>E</kbd> export PNG</span><span><kbd>K</kbd> storm track</span><span><kbd>L</kbd> map label</span><span><kbd>1</kbd>–<kbd>9</kbd> cue</span><span><kbd>Enter</kbd> take</span>
   <span id="srcNote"></span>
-  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-14 · 33</span>
+  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-14 · 34</span>
 </div>
 <input type="file" id="fileIn" accept=".json,application/json" hidden>
 
@@ -1514,9 +1514,10 @@ const MI_LAT=69.0;
 function trackPoint(tr,d,side=0){const r=tr.dir*Math.PI/180;const e=d*Math.sin(r)+side*Math.cos(r),n=d*Math.cos(r)-side*Math.sin(r);return[tr.lon+e/(MI_LAT*Math.cos(tr.lat*Math.PI/180)),tr.lat+n/MI_LAT]}
 function trackLocal(tr,lon,lat){const x=(lon-tr.lon)*MI_LAT*Math.cos(tr.lat*Math.PI/180),y=(lat-tr.lat)*MI_LAT;const r=tr.dir*Math.PI/180;return{along:x*Math.sin(r)+y*Math.cos(r),cross:x*Math.cos(r)-y*Math.sin(r)}}
 const coneHalf=d=>3+d*.26;
-function trackETAs(tracks){const best={};(tracks||[]).forEach(tr=>{const L=tr.mph*tr.mins/60;for(const k of [...CITY_KEYS,...TOWN_KEYS]){const p=placeOf(k);const{along,cross}=trackLocal(tr,p.lon,p.lat);
+function trackETAs(tracks){const best={};(tracks||[]).forEach(tr=>{const L=tr.mph*tr.mins/60;for(const k of [...CITY_KEYS,...TOWN_KEYS,...Object.keys(xpl())]){const p=placeOf(k);if(!p)continue;const{along,cross}=trackLocal(tr,p.lon,p.lat);
     if(along<0||along>L||Math.abs(cross)>coneHalf(along))continue;const eta=tr.t0+along/tr.mph*3600e3;if(eta<Date.now()-120e3)continue;if(!best[k]||best[k].eta>eta)best[k]={k,n:p.n,lon:p.lon,lat:p.lat,eta}}});
   return Object.values(best).sort((a,b)=>a.eta-b.eta)}
+function etaShown(sc,n){const all=trackETAs(sc.tracks);const pk=sc.etaPick;if(Array.isArray(pk)&&pk.length){const s2=all.filter(e=>pk.includes(e.k));if(s2.length)return s2.slice(0,n)}return all.slice(0,n)}
 const fmtTime=ms=>new Date(ms).toLocaleTimeString([], {hour:'numeric',minute:'2-digit'}).toUpperCase();
 function parseMotion(a){const m=a&&a.params&&a.params.eventMotionDescription&&a.params.eventMotionDescription[0];if(!m)return null;const p=m.split('...');if(p.length<5)return null;
   const t0=new Date(p[0]).getTime(),dirFrom=parseInt(p[2],10),kt=parseInt(p[3],10);const pts=p[4].trim().split(/\s+/).map(s=>s.split(',').map(Number)).filter(x=>x.length===2&&!isNaN(x[0]));
@@ -1535,10 +1536,10 @@ function drawTracks(g,sc,P,t){
       g.strokeStyle='#ffffff';g.lineWidth=3;g.beginPath();g.moveTo(P.x(s1[0]),P.y(s1[1]));g.lineTo(P.x(s2[0]),P.y(s2[1]));g.stroke();
       const lp=trackPoint(tr,d,coneHalf(d)+2);g.save();g.shadowColor='rgba(0,0,0,.9)';g.shadowBlur=6;text(g,fmtTime(tr.t0+m*60e3),P.x(lp[0]),P.y(lp[1]),`800 24px ${FD}`,'#ffd27a','center','middle',1);g.restore()}
     const s=[P.x(tr.lon),P.y(tr.lat)];g.fillStyle='#d7263d';g.strokeStyle='#ffffff';g.lineWidth=3.5;g.beginPath();g.arc(s[0],s[1],11,0,7);g.fill();g.stroke();g.restore()});
-  if(q>=1&&sc.showEtas!==false)trackETAs(sc.tracks).slice(0,8).forEach(e=>{const x=P.x(e.lon),y=P.y(e.lat);const tm=fmtTime(e.eta);const f=`800 22px ${FD}`;const w=measure(g,tm,f,1)+18;
-    void w;g.fillStyle='#ffb21e';g.strokeStyle='#0a1a3a';g.lineWidth=3;g.beginPath();g.arc(x,y,9,0,7);g.fill();g.stroke()});
+  if(q>=1&&sc.showEtas!==false)etaShown(sc,8).forEach(e=>{const x=P.x(e.lon),y=P.y(e.lat);const tm=fmtTime(e.eta);const f=`800 22px ${FD}`;const w=measure(g,tm,f,1)+18;
+    void w;g.fillStyle='#ffb21e';g.strokeStyle='#0a1a3a';g.lineWidth=3;g.beginPath();g.arc(x,y,9,0,7);g.fill();g.stroke();if(!CITIES[e.k]&&P.north-P.south<2.6)outlinedText(g,e.n.toUpperCase(),x-14,y-4,`700 20px ${FD}`,'#ffffff','right')});
 }
-function drawEtaBox(g,sc,t){if(!(sc.tracks||[]).length||sc.showEtas===false)return;const q=ease((t-1.3)/.5);if(q<=0)return;const list=trackETAs(sc.tracks).slice(0,7);
+function drawEtaBox(g,sc,t){if(!(sc.tracks||[]).length||sc.showEtas===false)return;const q=ease((t-1.3)/.5);if(q<=0)return;const list=etaShown(sc,7);
   const x=70,y=226,w=430,rh=46,h=64+Math.max(1,list.length)*rh;g.save();g.globalAlpha=q;g.translate(-40*(1-q),0);glass(g,x,y,w,h,12);
   text(g,'STORM ARRIVAL',x+26,y+40,`800 26px ${FD}`,'#ffb21e','left','alphabetic',3);
   if(!list.length)text(g,'NO TOWNS IN THE PATH',x+26,y+92,`700 24px ${FD}`,'#c8d4e8','left','alphabetic',1.5);
@@ -2518,7 +2519,7 @@ function clearTest(){const T=show.settings.brkTest;const el=$('#breaking');if(el
 /* ---------- Vertical 9:16 ---------- */
 function verticalInfo(sc){
   if(sc.type==='radar'){const a=findAlert(sc.alertSel);if(a)return[a.event.toUpperCase(),'UNTIL '+untilText(a.expires),...alertDetails(a).areas.slice(0,6).map(s=>s.toUpperCase())];
-    const e=trackETAs(sc.tracks).slice(0,5);if(e.length)return['STORM ARRIVAL',...e.map(x=>x.n.toUpperCase()+'  '+fmtTime(x.eta))]}
+    const e=etaShown(sc,5);if(e.length)return['STORM ARRIVAL',...e.map(x=>x.n.toUpperCase()+'  '+fmtTime(x.eta))]}
   if(sc.type==='forecast7'){return getDaily(sc.city).slice(0,4).map((d,i)=>`${i?DOW[d.date.getDay()]:'TODAY'}  ${d.hi??'--'}° / ${d.lo??'--'}°  ${(WMO[d.code]||'').toUpperCase()}`)}
   if(sc.type==='conditions'){const c=getCur(sc.city);if(c)return[`${CITIES[sc.city][0].toUpperCase()} ${c.t}°`,(WMO[c.code]||'').toUpperCase(),`FEELS LIKE ${c.feels}°`,`WIND ${dirTxt(c.wdir)} ${c.wind} MPH`]}
   return[(show.settings.ticker||'').toUpperCase()]}
@@ -2795,7 +2796,8 @@ function renderInspector(){syncClrTrack();
     <div class="row2"><label class="f">Speed (mph)<input type="number" id="i-tmph" min="5" max="90" value="${window._trackMph||30}"></label><label class="f">Track length<select id="i-tmins" data-k="trackMins">${opts([[30,'30 minutes'],[45,'45 minutes'],[60,'1 hour'],[90,'90 minutes']],sc.trackMins||60)}</select></label></div>
     ${mo?`<button data-trackalert>Track the selected warning (${mo.mph} mph toward ${dirTxt(mo.dir)})</button>`:''}
     ${(sc.tracks||[]).map((t,i)=>`<div class="trk"><b>${i+1}</b><span>Toward ${dirTxt(t.dir)} at</span><input type="number" data-tspeed="${i}" min="5" max="90" value="${t.mph}" style="width:72px"><span>mph</span><button data-tdel="${i}">Delete</button></div>`).join('')}
-    <label class="chk"><input type="checkbox" id="i-etas" data-k="showEtas"${sc.showEtas!==false?' checked':''}>Arrival times box and town markers</label></div>
+    <label class="chk"><input type="checkbox" id="i-etas" data-k="showEtas"${sc.showEtas!==false?' checked':''}>Arrival times box and town markers</label>
+    ${(sc.tracks||[]).length?(()=>{const all=trackETAs(sc.tracks),pk=Array.isArray(sc.etaPick)?sc.etaPick:[];return all.length?`<details class="tcd"${pk.length?' open':''}><summary>Towns in the path (${all.length})</summary><p class="note">${pk.length?'The box shows the towns you checked, up to 7.':'The box shows the first 7 to be hit. Check towns to choose your own.'}</p><div class="tcg">${all.slice(0,60).map(e=>`<label class="chk"><input type="checkbox" class="eta-pick" value="${esc(e.k)}"${pk.includes(e.k)?' checked':''}>${esc(e.n)} · ${fmtTime(e.eta)}</label>`).join('')}</div>${pk.length?'<button data-etaauto>Back to first 7</button>':''}</details>`:''})():''}</div>
     <div class="sec"><h3>Camera moves</h3><p class="note">Frame a view, then add it as a stop. When the scene plays, the camera flies from stop to stop.</p>
     <div class="grp"><button data-fl="add">Add current view</button><button data-fl="preview"${ks.length<2?' disabled':''}>Preview flight</button>${ks.length?'<button data-fl="clear">Clear stops</button>':''}</div>
     ${ks.map((v,i)=>{const nb=CITY_KEYS.map(k=>[k,(CITIES[k][1]-v.lat)**2+(CITIES[k][2]-v.lon)**2]).sort((a,b)=>a[1]-b[1])[0][0];return`<div class="trk"><b>${i+1}</b><span>${(REGIONS[sc.region].latSpan/v.latSpan).toFixed(1)}× near ${esc(CITIES[nb][0])}</span><label>Hold <input type="number" data-flhold="${i}" min="0" max="20" step=".5" value="${v.hold??1.5}" style="width:64px"> s</label><button data-flgo="${i}">Go</button><button data-fldel="${i}" aria-label="Remove stop">×</button></div>`}).join('')}
@@ -2999,7 +3001,7 @@ function renderInspector(){syncClrTrack();
   q1('#s-remote','change',x=>{const R=show.settings.remote=show.settings.remote||{};R.on=x.checked;if(R.on&&!R.code)R.code=newRemoteCode();save();remoteStart();renderInspector()});
   q1('#s-rnew','click',()=>{const R=show.settings.remote;R.code=newRemoteCode();save();remoteStart();renderInspector();toast('New phone link made. The old one no longer works.')});
   q1('#s-rcopy','click',()=>{const i=$('#s-rlink');try{navigator.clipboard.writeText(i.value).then(()=>toast('Link copied. Send it to your phone.'),()=>{i.select()})}catch(e){i.select()}});
-  q1('#s-auto','change',x=>{show.settings.autoMin=+x.value;autoLast=Date.now();save()});q1('#s-daily','change',x=>{show.settings.dailyAt=x.value;save()});q1('#i-winter','change',x=>{show.settings.winterMode=x.checked;save();renderInspector();queueThumbs()});el.querySelectorAll('.tc-city').forEach(c=>c.addEventListener('change',()=>{show.settings.tickerCondCities=[...el.querySelectorAll('.tc-city')].filter(x=>x.checked).map(x=>x.value);const sm=el.querySelector('.tcd summary');if(sm)sm.textContent='Ticker cities ('+tcCities().length+')';save()}));q1('#bTestTor','click',()=>{testBreaking('tor');renderInspector()});q1('#bClrTest2','click',clearTest);q1('#bClrBrk','click',()=>{show.settings.tickerOverride=null;save();renderInspector()});
+  q1('#s-auto','change',x=>{show.settings.autoMin=+x.value;autoLast=Date.now();save()});q1('#s-daily','change',x=>{show.settings.dailyAt=x.value;save()});el.querySelectorAll('.eta-pick').forEach(c=>c.addEventListener('change',()=>{const s0=scene();s0.etaPick=[...el.querySelectorAll('.eta-pick')].filter(x=>x.checked).map(x=>x.value);save();queueThumbs();renderInspector()}));q1('[data-etaauto]','click',()=>{scene().etaPick=[];save();queueThumbs();renderInspector()});q1('#i-winter','change',x=>{show.settings.winterMode=x.checked;save();renderInspector();queueThumbs()});el.querySelectorAll('.tc-city').forEach(c=>c.addEventListener('change',()=>{show.settings.tickerCondCities=[...el.querySelectorAll('.tc-city')].filter(x=>x.checked).map(x=>x.value);const sm=el.querySelector('.tcd summary');if(sm)sm.textContent='Ticker cities ('+tcCities().length+')';save()}));q1('#bTestTor','click',()=>{testBreaking('tor');renderInspector()});q1('#bClrTest2','click',clearTest);q1('#bClrBrk','click',()=>{show.settings.tickerOverride=null;save();renderInspector()});
   el.querySelectorAll('[data-eutype]').forEach(c=>c.addEventListener('change',()=>{const tp=+c.dataset.eutype;sc.euTypesOff=(sc.euTypesOff||[]).filter(x=>x!==tp);if(!c.checked)sc.euTypesOff.push(tp);save();queueThumbs()}));
   el.querySelectorAll('[data-eusel]').forEach(d=>{const go=()=>{sc.euSel=d.dataset.eusel;alertSelStart=performance.now()/1000;save();queueThumbs();renderInspector()};d.addEventListener('click',go);d.addEventListener('keydown',e=>{if(e.key==='Enter')go()})});
   el.querySelectorAll('[data-euclear]').forEach(b=>b.addEventListener('click',()=>{sc.euSel=null;save();queueThumbs();renderInspector()}));
