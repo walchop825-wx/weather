@@ -240,7 +240,7 @@ button.pill{cursor:pointer;background:transparent}
 <div class="status">
   <span><kbd>Space</kbd> play / stop</span><span><kbd>←</kbd><kbd>→</kbd> previous / next</span><span><kbd>V</kbd> select</span><span><kbd>T</kbd> pen</span><span><kbd>B</kbd> contour</span><span><kbd>N</kbd> total</span><span><kbd>Del</kbd> delete selection</span><span><kbd>E</kbd> export PNG</span><span><kbd>K</kbd> storm track</span><span><kbd>L</kbd> map label</span><span><kbd>1</kbd>–<kbd>9</kbd> cue</span><span><kbd>Enter</kbd> take</span>
   <span id="srcNote"></span>
-  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-14 · 32</span>
+  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-14 · 33</span>
 </div>
 <input type="file" id="fileIn" accept=".json,application/json" hidden>
 
@@ -1298,20 +1298,22 @@ function ptCode(r){const c=r&&r.current;if(!c)return null;const w=c.weather_code
   if([56,57,66,67].includes(w))return{s:0,ice:1};if([71,73,75,77,85,86].includes(w))return{s:rn>0?1.2:2,ice:0};
   if(sn>0&&rn>0)return{s:1,ice:0};if([51,53,55,61,63,65,80,81,82].includes(w))return T!=null&&T<=32?{s:0,ice:1}:{s:T!=null&&T<=34?.6:0,ice:0};
   if(T==null)return null;return T<=30?{s:2,ice:0}:T<=33?{s:1,ice:0}:{s:0,ice:0}}
-function ptGrid(rk){let Z=ptGrids[rk];if(Z&&(Z.status==='loading'||Date.now()-Z.t<(Z.status==='ok'?600000:120000)))return Z;const old=Z;Z=ptGrids[rk]={status:'loading',t:Date.now(),v:old?old.v:0,cells:old?old.cells:null};
-  const P=proj(rk),nx=16,ny=9,padX=(P.east-P.west)*.08,padY=(P.north-P.south)*.08,pts=[];for(let j=0;j<ny;j++)for(let i=0;i<nx;i++)pts.push({lon:P.west-padX+(i+.5)/nx*(P.east-P.west+2*padX),lat:P.south-padY+(j+.5)/ny*(P.north-P.south+2*padY)});
-  fetchJSON(`https://api.open-meteo.com/v1/forecast?latitude=${pts.map(p=>p.lat.toFixed(2)).join(',')}&longitude=${pts.map(p=>p.lon.toFixed(2)).join(',')}&current=temperature_2m,weather_code,rain,showers,snowfall&temperature_unit=fahrenheit&timezone=GMT`,20000).then(j=>{const arr=Array.isArray(j)?j:[j];
-    const L=[];pts.forEach((p,i)=>{const c=ptCode(arr[i]);if(c)L.push(Object.assign({lon:p.lon,lat:p.lat},c))});if(!L.length)throw new Error('empty');
-    const gw=160,gh=90,cells=new Uint8Array(gw*gh);for(let y=0;y<gh;y++)for(let x=0;x<gw;x++){const lon=P.lon((x+.5)/gw*W),lat=P.lat((y+.5)/gh*H);let ws=0,ss=0,is=0;for(const p of L){const d2=(p.lon-lon)**2*.55+(p.lat-lat)**2+.004;const w=1/(d2*d2);ws+=w;ss+=w*p.s;is+=w*p.ice}
-      const sv=ss/ws,iv=is/ws;cells[y*gw+x]=iv>.45?2:sv>1.45?3:sv>.55?1:0}
-    Z.cells=cells;Z.status='ok';Z.t=Date.now();Z.v++;queueThumbs();const sc=scene();if(sc&&sc.type==='radar')renderInspector()}).catch(()=>{Z.status='fail';Z.t=Date.now();queueThumbs()});return Z}
+function ptGrid(rk){const stamp=(data.liveAt?+data.liveAt:0)+'|'+(data.updated?+data.updated:0)+'|'+data.source+'|'+(show.settings.currentSource||'');let Z=ptGrids[rk];if(Z&&Z.stamp===stamp)return Z;const v=Z?Z.v+1:1;
+  if(data.source==='sample'){Z=ptGrids[rk]={status:'fail',stamp,v,cells:null};return Z}
+  const P=proj(rk),dx=(P.east-P.west)*.35,dy=(P.north-P.south)*.35;let L=[];
+  const pts=CITY_KEYS.filter(k=>CITIES[k][2]<-30).map(k=>{const c=getCur(k);if(!c)return null;const q=ptCode({current:{weather_code:c.code,temperature_2m:c.t}});return q?Object.assign({lon:CITIES[k][2],lat:CITIES[k][1]},q):null}).filter(Boolean);
+  L=pts.filter(p=>p.lon>P.west-dx&&p.lon<P.east+dx&&p.lat>P.south-dy&&p.lat<P.north+dy);if(L.length<4)L=pts;
+  if(!L.length){Z=ptGrids[rk]={status:'fail',stamp,v,cells:null};return Z}
+  const gw=384,gh=216,cells=new Uint8Array(gw*gh);for(let y=0;y<gh;y++)for(let x=0;x<gw;x++){const lon=P.lon((x+.5)/gw*W),lat=P.lat((y+.5)/gh*H);let ws=0,ss=0,is=0;for(const p of L){const d2=(p.lon-lon)**2*.55+(p.lat-lat)**2+.004;const w=1/(d2*d2);ws+=w;ss+=w*p.s;is+=w*p.ice}
+    const sv=ss/ws,iv=is/ws;cells[y*gw+x]=iv>.45?2:sv>1.45?3:sv>.55?1:0}
+  return ptGrids[rk]={status:'ok',stamp,v,cells,n:L.length}}
 const N0Q=[[5,[4,233,231]],[10,[1,159,244]],[15,[3,0,244]],[20,[2,253,2]],[25,[1,197,1]],[30,[0,142,0]],[35,[253,248,2]],[40,[229,188,0]],[45,[253,149,0]],[50,[253,0,0]],[55,[212,0,0]],[60,[188,0,0]],[65,[248,0,253]],[70,[152,84,198]],[75,[253,253,253]]];
 const N0Q_FINE=(()=>{const o=[];for(let i=0;i<N0Q.length-1;i++){const[a,ca]=N0Q[i],[b,cb]=N0Q[i+1];for(let k=0;k<5;k++){const f=k/5;o.push([a+(b-a)*f,ca.map((v,j)=>v+(cb[j]-v)*f)])}}o.push(N0Q[N0Q.length-1]);return o})();
 const dbzMemo=new Map();
 function rgbDbz(r,g2,b){const key=(r<<16)|(g2<<8)|b;let v=dbzMemo.get(key);if(v!==undefined)return v;let bd=1e9;v=0;for(const[d,c]of N0Q_FINE){const e=(c[0]-r)**2+(c[1]-g2)**2+(c[2]-b)**2;if(e<bd){bd=e;v=d}}if(dbzMemo.size<200000)dbzMemo.set(key,v);return v}
 const winterCache=new WeakMap();const PT_NAMES=['rain','mix','ice','snow'];
 function winterFrame(im,rk){const Z=ptGrid(rk);if(Z.status!=='ok'&&!Z.cells)return null;const tag=rk+'|'+Z.v;const hit=winterCache.get(im);if(hit&&hit.tag===tag)return hit.c;
-  try{const w=im.naturalWidth,h=im.naturalHeight,c=document.createElement('canvas');c.width=w;c.height=h;const g=c.getContext('2d');g.drawImage(im,0,0);const id=g.getImageData(0,0,w,h),d=id.data;const gw=160,gh=90;
+  try{const w=im.naturalWidth,h=im.naturalHeight,c=document.createElement('canvas');c.width=w;c.height=h;const g=c.getContext('2d');g.drawImage(im,0,0);const id=g.getImageData(0,0,w,h),d=id.data;const gw=384,gh=216;
     for(let y=0;y<h;y++){const cy=Math.min(gh-1,(y*gh/h)|0);for(let x=0;x<w;x++){const o=(y*w+x)*4;if(d[o+3]<40){d[o+3]=0;continue}const dbz=rgbDbz(d[o],d[o+1],d[o+2]);const pt=PT_NAMES[Z.cells[cy*gw+Math.min(gw-1,(x*gw/w)|0)]];const col=radarColor(Math.max(dbz,10.5),pt);if(!col){d[o+3]=0;continue}d[o]=col[0];d[o+1]=col[1];d[o+2]=col[2];d[o+3]=Math.max(col[3],200)}}
     g.putImageData(id,0,0);winterCache.set(im,{tag,c});return c}catch(e){return null}}
 function radarSim(rk,ptype){
@@ -2788,7 +2790,7 @@ function renderInspector(){syncClrTrack();
     <label class="f">Show<select id="i-prod" data-k="product">${opts(isEU(sc.region)?[['composite','Radar loop (RainViewer)'],...PRODUCTS.filter(p=>isSat(p[0]))]:PRODUCTS,isEU(sc.region)&&!isSat(pr)?'composite':pr)}</select></label>
     ${isSite(pr)?`<div class="row2"><label class="f">Radar site<select id="i-site" data-k="site">${opts(Object.entries(RADAR_SITES).map(([k,v])=>[k,'K'+k+' · '+v[0]]),sc.site||'CCX')}</select></label><button data-center style="align-self:end">Center on radar</button></div>`:''}
     <p class="note">${pNote}</p>
-    ${pr==='composite'&&!EUR?`<label class="chk"><input type="checkbox" id="i-winter"${winterOn()?' checked':''}>Winter mode: rain, mix, ice and snow colors</label><p class="note">${winterOn()?(()=>{const Z=ptGrid(sc.region);return Z.status==='fail'?'Precip type data could not load, so the radar shows rain colors.':Z.status==='loading'?'Loading precip type…':'Type comes from current Open-Meteo surface conditions on a grid, with temperature filling gaps. It is an estimate, like most TV winter radars. Applies to every radar scene.'})():'Applies to every radar scene in the show. Also on the Show tab.'}</p>`:''}</div>
+    ${pr==='composite'&&!EUR?`<label class="chk"><input type="checkbox" id="i-winter"${winterOn()?' checked':''}>Winter mode: rain, mix, ice and snow colors</label><p class="note">${winterOn()?(()=>{const Z=ptGrid(sc.region);return Z.status==='fail'?'Winter mode needs live current conditions. The studio is on sample data right now, so the radar shows rain colors.':`Type comes from current conditions at ${Z.n} cities in and around this map (weather type, with temperature filling gaps), the same data as the station bug. It is an estimate, like most TV winter radars. Applies to every radar scene.`})():'Applies to every radar scene in the show. Also on the Show tab.'}</p>`:''}</div>
     <div class="sec"><h3>Storm tracks</h3><p class="note">Pick Storm track in the toolbar, then drag from the storm in the direction it is moving. Towns in the path get arrival times.</p>
     <div class="row2"><label class="f">Speed (mph)<input type="number" id="i-tmph" min="5" max="90" value="${window._trackMph||30}"></label><label class="f">Track length<select id="i-tmins" data-k="trackMins">${opts([[30,'30 minutes'],[45,'45 minutes'],[60,'1 hour'],[90,'90 minutes']],sc.trackMins||60)}</select></label></div>
     ${mo?`<button data-trackalert>Track the selected warning (${mo.mph} mph toward ${dirTxt(mo.dir)})</button>`:''}
