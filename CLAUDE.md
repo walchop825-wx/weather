@@ -13,7 +13,7 @@ Broadcast-style weather graphics app for PA, the Northeast, the US and Europe. O
 - Render changed scenes headless (Playwright) and look at them before pushing.
 - Live data sources: Open-Meteo (forecast and air quality), NWS api.weather.gov, IEM (storm reports, snow reports, SPC watches and MDs), NOAA map services (WPC, SPC, NHC, CPC, MRMS QPE, NOHRSC), NWS Damage Assessment Toolkit, U.S. Drought Monitor (ArcGIS), Esri World Imagery, RainViewer, EUMETSAT, MeteoAlarm. Anything that can't load falls back to labeled sample data or a clear on-screen message.
 - Phone remote relays commands through ntfy.sh (topic `wgs-<code>`); the studio only acts on messages marked from the remote.
-- Saved shows live in localStorage key `wgs-show-v2`. New default scenes for existing users go in through a one-time `show.settings.<flag>` migration.
+- Saved shows live in localStorage key `wgs-show-v2`. New default scenes for existing users go in through a one-time `show.settings.<flag>` migration. New devices start with an empty show (`blankShow()`, all migration flags set); Show > Reset to starter rundown loads the sample show.
 
 ## Tests
 - `tests/smoke.mjs` renders every scene type in headless Chromium and fails on any script error. GitHub runs it on every push (`.github/workflows/smoke.yml`).

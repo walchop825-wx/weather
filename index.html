@@ -239,7 +239,7 @@ button.pill{cursor:pointer;background:transparent}
 <div class="status">
   <span><kbd>Space</kbd> play / stop</span><span><kbd>←</kbd><kbd>→</kbd> previous / next</span><span><kbd>V</kbd> select</span><span><kbd>T</kbd> pen</span><span><kbd>B</kbd> contour</span><span><kbd>N</kbd> total</span><span><kbd>Del</kbd> delete selection</span><span><kbd>E</kbd> export PNG</span><span><kbd>K</kbd> storm track</span><span><kbd>L</kbd> map label</span><span><kbd>1</kbd>–<kbd>9</kbd> cue</span><span><kbd>Enter</kbd> take</span>
   <span id="srcNote"></span>
-  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-14 · 27</span>
+  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-14 · 29</span>
 </div>
 <input type="file" id="fileIn" accept=".json,application/json" hidden>
 
@@ -1053,9 +1053,10 @@ function defaultShow(){
   return s;
 }
 const STORE='wgs-show-v2';
-function loadShow(){try{const s=JSON.parse(localStorage.getItem(STORE)||'null');if(s&&Array.isArray(s.scenes)&&s.scenes.length){s.scenes=s.scenes.map(x=>newScene(x.type,x));return s}}catch(e){}return null}
+function loadShow(){try{const s=JSON.parse(localStorage.getItem(STORE)||'null');if(s&&Array.isArray(s.scenes)){s.scenes=s.scenes.map(x=>newScene(x.type,x));return s}}catch(e){}return null}
 let saveT,appReady=false;function save(){if(appReady&&!fileDirty){fileDirty=true;try{localStorage.setItem('wgs-dirty','1')}catch(e){}updSaveBtn()}clearTimeout(saveT);saveT=setTimeout(()=>{try{localStorage.setItem(STORE,JSON.stringify(show))}catch(e){}if(typeof snapShow==='function')snapShow();if(typeof ensureCoverage==='function')ensureCoverage()},400)}
-let show=loadShow()||defaultShow();
+function blankShow(){const s=defaultShow();s.scenes=[];s.settings.ticker='';s.settings.showTicker=false;['paMapsAdded','ctMapAdded','nationalAdded','usLayout2','usLayout3','rainAdded','snowfallAdded','euAdded','autoRatio','l3Name'].forEach(k=>s.settings[k]=true);return s}
+let show=loadShow()||blankShow();
 show.settings.breaking=show.settings.breaking||{on:true,auto:false,events:['Tornado Warning','Severe Thunderstorm Warning','Flash Flood Warning','Snow Squall Warning'],areas:{PA:[]}};
 if(!show.settings.paMapsAdded){
   const src=show.scenes.find(s=>s.type==='snow');
@@ -1314,7 +1315,7 @@ function regionForView(base,v){
   return k;
 }
 function radarScene(sc){const rk=regionForView(sc.region,sc.view);return rk===sc.region?sc:Object.assign({},sc,{region:rk})}
-function clampView(v){const ls=clamp(v.latSpan,.35,60);return{lon:clamp(v.lon,-190,70),lat:clamp(v.lat,14,75),latSpan:ls}}
+function clampView(v){const sc0=typeof scene==='function'&&scene();const ls=clamp(v.latSpan,sc0&&sc0.type==='survey'?.03:.35,60);return{lon:clamp(v.lon,-190,70),lat:clamp(v.lat,14,75),latSpan:ls}}
 function lonSpanOf(v){return v.latSpan*(W/H)/Math.cos(v.lat*Math.PI/180)}
 function zoomAt(v,fx,fy,factor){const ls=v.latSpan*factor,lo=lonSpanOf(v);const plon=v.lon+(fx/W-.5)*lo,plat=v.lat-(fy/H-.5)*v.latSpan;
   const nv={latSpan:ls,lon:0,lat:0};nv.lat=plat+(v.lat-plat)*factor;nv.lon=plon+(v.lon-plon)*(lonSpanOf({latSpan:ls,lat:nv.lat})/lo);return clampView(nv)}
@@ -1458,7 +1459,7 @@ function drawViewInto(g,src,vFrom,vTo,alpha){const lc=lonSpanOf(vFrom),lp=lonSpa
 /* ---------- Camera moves ---------- */
 let flightPrev=null;const FLY=2.6;
 function flightTotal(sc){const k=sc.flight||[];if(k.length<2)return 0;return k.reduce((a,x)=>a+(x.hold??1.5),0)+(k.length-1)*FLY}
-function sceneDur(sc){if(clickMode()&&playing)return Infinity;if((sc.type==='radar'&&sc.flightAdv==='take'&&sc.flightOn&&(sc.flight||[]).length>1)||(FLY_TYPES.includes(sc.type)&&sc.flyAdv==='take'&&sc.flyIn&&flyFrom(sc)))return Infinity;if(FLY_TYPES.includes(sc.type)&&sc.flyIn&&flyFrom(sc))return sc.duration+FLYIN_T;return sc.type==='radar'&&sc.flightOn&&(sc.flight||[]).length>1?Math.max(sc.duration,flightTotal(sc)+2):sc.duration}
+function sceneDur(sc){if(!sc)return Infinity;if(clickMode()&&playing)return Infinity;if((sc.type==='radar'&&sc.flightAdv==='take'&&sc.flightOn&&(sc.flight||[]).length>1)||(FLY_TYPES.includes(sc.type)&&sc.flyAdv==='take'&&sc.flyIn&&flyFrom(sc)))return Infinity;if(FLY_TYPES.includes(sc.type)&&sc.flyIn&&flyFrom(sc))return sc.duration+FLYIN_T;return sc.type==='radar'&&sc.flightOn&&(sc.flight||[]).length>1?Math.max(sc.duration,flightTotal(sc)+2):sc.duration}
 let mstep=null;
 function clickMode(){return !!show.settings.clickAdvance}
 function radarManual(sc){return sc.type==='radar'&&(sc.flightAdv==='take'||(clickMode()&&playing&&sc.flightOn))&&(sc.flight||[]).length>1&&((playing&&sc.flightOn)||(flightPrev&&flightPrev.id===sc.id))}
@@ -2630,6 +2631,7 @@ function sceneKind(sc){const t=sc.type;if((t==='rainfall'||t==='snowfall')&&sc.s
 const hdrTitles={};let hdrFor=null;
 function renderScene(g,sc,t,o={}){hdrFor=sc&&sc.id;
   g.fillStyle='#000';g.fillRect(0,0,W,H);
+  if(!sc){const gr=g.createLinearGradient(0,0,0,H);gr.addColorStop(0,'#0d2350');gr.addColorStop(1,'#050d22');g.fillStyle=gr;g.fillRect(0,0,W,H);text(g,'EMPTY SHOW',W/2,H/2-10,`800 64px ${FD}`,'#ffffff','center','alphabetic',3);text(g,'Use + Add scenes to build your rundown',W/2,H/2+50,`600 30px ${FB}`,'#9fb4d8','center','alphabetic',1);return}
   if(ZOOM_TYPES.includes(sc.type)&&sc.view)sc=Object.assign({},sc,{region:regionForView(sc.region,sc.view),view:null,baseRegion:sc.region});
   if(flyActive(sc,o)){if(flyManual(sc)){const m=mState(sc);if(m.at==null){drawFlyIn(g,sc,0);return}t=FLY_HOLD+performance.now()/1000-m.at}if(t<FLYIN_T){drawFlyIn(g,sc,t);return}t-=FLYIN_T;if(flyPrev===sc.id&&!playing&&t>sc.duration+.5){flyPrev=null;if(mstep&&mstep.id===sc.id)mstep=null}}
   switch(sc.type){case'temps':renderTemps(g,sc,t,o);break;case'forecast7':renderForecast(g,sc,t,o);break;case'conditions':renderConditions(g,sc,t,o);break;case'models':renderModels(g,sc,t,o);break;case'snow':renderSnow(g,sc,t,o);break;case'radar':renderRadar(g,sc,t,o);break;case'ustemps':renderUsTemps(g,sc,t,o);break;case'travel':renderTravel(g,sc,t,o);break;case'extremes':renderExtremes(g,sc,t,o);break;case'futuremap':renderFutureMap(g,sc,t,o);break;case'winter':renderWinter(g,sc,t,o);break;case'rainfall':case'snowfall':renderRainfall(g,sc,t,o);break;case'timeline':renderTimeline(g,sc,t);break;case'hourly':renderHourly(g,sc,t);break;case'almanac':renderAlmanac(g,sc,t);break;case'rivers':renderRivers(g,sc,t);break;case'impact':renderImpact(g,sc,t);break;case'closings':renderClosings(g,sc,t);break;case'nwsmap':renderNwsMap(g,sc,t,o);break;case'stormreports':renderStormReports(g,sc,t,o);break;case'survey':renderSurvey(g,sc,t,o);break;case'wxmap':renderWxMap(g,sc,t,o);break;case'event':renderEvent(g,sc,t);break;case'drought':renderDrought(g,sc,t,o);break}
@@ -3114,7 +3116,7 @@ $('#bLoop').addEventListener('click',e=>{show.settings.loop=!show.settings.loop;
 $('#bPng').addEventListener('click',exportPng);$('#bRec').addEventListener('click',startRec);
 $('#bRefresh').addEventListener('click',()=>{for(const k in radarImgs)delete radarImgs[k];refresh.force=true;refresh()});
 $('#bSafe').addEventListener('click',e=>{const s=$('#safe');s.hidden=!s.hidden;e.currentTarget.classList.toggle('on',!s.hidden)});
-$('#bAdd').addEventListener('click',()=>{const t=$('#addType').value;const sc=newScene(t,{region:'pa',city:show.settings.bugCity||'harrisburg'});show.scenes.splice(cur+1,0,sc);save();goTo(cur+1)});
+$('#bAdd').addEventListener('click',()=>{const t=$('#addType').value;const sc=newScene(t,{region:'pa',city:show.settings.bugCity||'harrisburg'});addScenes([sc])});
 document.addEventListener('keydown',e=>{
   if(e.target.closest('input,textarea,select'))return;if(e.key==='Enter'&&e.target.closest('button,[role=button],a'))return;
   if(e.key===' '){e.preventDefault();$('#bPlay').click()}
@@ -3166,7 +3168,7 @@ const PICK_CATS=[['Radar and severe',[['radar','Radar, satellite and future rada
   ['Events and community',[['event:football','Kickoff, halftime and final for a game'],['event:busstop','Bus stop forecast with what to wear'],['event:commute','Morning and evening drive'],['event:weekend','Saturday and Sunday, morning and afternoon'],['event:custom','Your own event, up to four times'],['almanac','Sunrise, sunset, normals and records'],['closings','Your list, paged on a board and in the ticker']]]];
 const CITY_SCENES=['forecast7','hourly','conditions','almanac','models'];
 let pickTab='scenes',pickMulti=false,pickCities=[],pickCat=0,pickQ='';
-function addScenes(list,at=cur+1){list.forEach((sc,i)=>show.scenes.splice(at+i,0,sc));save();goTo(at);toast(list.length>1?list.length+' scenes added.':'Scene added.')}
+function addScenes(list,at=cur+1){at=Math.min(at,show.scenes.length);list.forEach((sc,i)=>show.scenes.splice(at+i,0,sc));save();goTo(at);toast(list.length>1?list.length+' scenes added.':'Scene added.')}
 function baseOpts(){const c=show.settings.bugCity||'harrisburg';return{city:c,region:regionFor(c)==='us'?'pa':regionFor(c)}}
 const TEMPLATES=[['Morning Show','Temps, conditions, radar, hour by hour, 7-day and almanac',()=>{const b=baseOpts();return[newScene('temps',{region:b.region}),newScene('conditions',{city:b.city}),newScene('radar',{region:b.region}),newScene('hourly',{city:b.city}),newScene('forecast7',{city:b.city}),newScene('almanac',{city:b.city})]}],
   ['Winter Storm','Radar, model snow, your snow map, timeline, NWS severity, impact, closings and 7-day',()=>{const b=baseOpts();return[newScene('radar',{region:b.region}),newScene('snowfall',{region:b.region}),newScene('snow',{region:b.region,sub:'Next 72 Hours'}),newScene('timeline',{region:b.region}),newScene('winter',{region:b.region}),newScene('impact',{region:b.region,level:3}),newScene('closings',{region:b.region}),newScene('forecast7',{city:b.city})]}],
