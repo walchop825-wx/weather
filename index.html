@@ -30,6 +30,7 @@ select,input[type=text],input[type=number],textarea{background:#0c1220;border:1p
 textarea{resize:vertical;min-height:58px}
 label.f{display:grid;gap:5px;font-size:12px;color:var(--muted);letter-spacing:.04em}
 label.chk{display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer}
+.tcd{margin:4px 0 6px}.tcd summary{cursor:pointer;font-size:13px;padding:4px 0}.tcg{display:grid;grid-template-columns:1fr 1fr;gap:4px 10px;max-height:220px;overflow:auto;padding:6px 2px}.tcg label.chk{font-size:12px}
 .top{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;padding-bottom:12px;border-bottom:1px solid var(--line);margin-bottom:12px}
 .brand{display:flex;align-items:center;gap:10px;margin-right:auto;min-width:0}
 .brand .mark{width:34px;height:34px;border-radius:7px;background:conic-gradient(from 200deg,#1e5bd8,#3ee0ff,#ffb21e,#1e5bd8);position:relative;flex:none}
@@ -239,7 +240,7 @@ button.pill{cursor:pointer;background:transparent}
 <div class="status">
   <span><kbd>Space</kbd> play / stop</span><span><kbd>←</kbd><kbd>→</kbd> previous / next</span><span><kbd>V</kbd> select</span><span><kbd>T</kbd> pen</span><span><kbd>B</kbd> contour</span><span><kbd>N</kbd> total</span><span><kbd>Del</kbd> delete selection</span><span><kbd>E</kbd> export PNG</span><span><kbd>K</kbd> storm track</span><span><kbd>L</kbd> map label</span><span><kbd>1</kbd>–<kbd>9</kbd> cue</span><span><kbd>Enter</kbd> take</span>
   <span id="srcNote"></span>
-  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-14 · 30</span>
+  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-14 · 31</span>
 </div>
 <input type="file" id="fileIn" accept=".json,application/json" hidden>
 
@@ -2598,13 +2599,16 @@ function drawStroke(g,s,f=1){
   pass('rgba(0,0,0,.45)',s.w+6,false);pass(s.color,s.w,true);g.restore();
 }
 /* chrome */
+const TC_DEF=['harrisburg','philadelphia','pittsburgh','allentown','scranton','lancaster','reading','statecollege','williamsport','erie'];
+function tcCities(){const L=show.settings.tickerCondCities;return(Array.isArray(L)&&L.length?L:TC_DEF).filter(k=>CITIES[k])}
+function condTicker(){if(!show.settings.tickerCond||data.source==='sample')return'';return tcCities().map(k=>{const c=getCur(k);if(!c||c.t==null)return'';const w=WMO[c.code]||'';return CITIES[k][0]+' '+c.t+'°'+(w?' '+w:'')}).filter(Boolean).join('   •   ')}
 function drawChrome(g,T){
   const st=show.settings;
   const brk=st.tickerOverride&&st.tickerOverride.until>Date.now()?st.tickerOverride:null;
   const clos=!brk&&st.closingsTicker?closingsList():[];
   if(st.showTicker||brk||clos.length){const y=H-64;g.fillStyle='rgba(6,14,32,.94)';g.fillRect(0,y,W,64);g.fillStyle='rgba(255,255,255,.08)';g.fillRect(0,y,W,2);
     const lbl=brk?'BREAKING':clos.length?'CLOSINGS':(st.tickerLabel||'Latest').toUpperCase();const lw=measure(g,lbl,`800 32px ${FD}`,3)+70;
-    g.save();g.beginPath();g.rect(lw,y,W-lw,64);g.clip();const msg=(brk?brk.text:clos.length?clos.map(c=>c[1]?c[0]+': '+c[1]:c[0]).join('   •   '):(st.ticker||'')).toUpperCase()+'   •   ';const f=`600 32px ${FD}`;const mw=Math.max(200,measure(g,msg,f,1.5));const off=(T*110)%mw;for(let x=lw+20-off;x<W;x+=mw)text(g,msg,x,y+44,f,'#ffffff','left','alphabetic',1.5);g.restore();
+    g.save();g.beginPath();g.rect(lw,y,W-lw,64);g.clip();const msg=(brk?brk.text:clos.length?clos.map(c=>c[1]?c[0]+': '+c[1]:c[0]).join('   •   '):[st.ticker||'',condTicker()].filter(x=>x.trim()).join('   •   ')).toUpperCase()+'   •   ';const f=`600 32px ${FD}`;const mw=Math.max(200,measure(g,msg,f,1.5));const off=(T*110)%mw;for(let x=lw+20-off;x<W;x+=mw)text(g,msg,x,y+44,f,'#ffffff','left','alphabetic',1.5);g.restore();
     g.fillStyle=brk?'#d7263d':BA();slant(g,-20,y,lw,64,-18);g.fill();text(g,lbl,26,y+44,`800 32px ${FD}`,brk||lum(hex3(BA()))<=.55?'#ffffff':'#0b1a38','left','alphabetic',3)}
   if(st.showBug){const by=H-(st.showTicker?64:0)-108,bx=W-70;const name=(st.station||'').toUpperCase();const nf=`800 40px ${FD}`;const nw=measure(g,name,nf,2)+48;const c=getCur(st.bugCity);
     const tw=c?150:0;const timeS=new Date().toLocaleTimeString([], {hour:'numeric',minute:'2-digit'}).toUpperCase();const x=bx-nw-tw;
@@ -2897,6 +2901,8 @@ function renderInspector(){syncClrTrack();
     <label class="f">Ticker label<input type="text" id="s-tl" data-s="tickerLabel" value="${esc(st.tickerLabel)}"></label>
     <label class="f">Ticker text<textarea id="s-ticker" data-s="ticker">${esc(st.ticker)}</textarea></label>
     <label class="chk"><input type="checkbox" id="s-st" data-s="showTicker"${st.showTicker?' checked':''}>Ticker</label>
+    <label class="chk"><input type="checkbox" id="s-tc" data-s="tickerCond"${st.tickerCond?' checked':''}>Live conditions in the ticker</label>
+    ${st.tickerCond?`<details class="tcd"><summary>Ticker cities (${tcCities().length})</summary><div class="tcg">${CITY_KEYS.filter(k=>CITIES[k][2]<-30).sort((a,b)=>cityFull(a).localeCompare(cityFull(b))).map(k=>`<label class="chk"><input type="checkbox" class="tc-city" value="${k}"${tcCities().includes(k)?' checked':''}>${esc(cityFull(k))}</label>`).join('')}</div></details><p class="note">Adds the current temperature and sky for each city after your ticker text. Updates with each data refresh. Hidden while the studio is on sample data.</p>`:''}
     <label class="chk"><input type="checkbox" id="s-sb" data-s="showBug"${st.showBug?' checked':''}>Station bug with time and temperature</label>
     <label class="chk"><input type="checkbox" id="s-sample" data-s="sampleTag"${st.sampleTag?' checked':''}>Label sample data on the graphic</label>
     <label class="chk"><input type="checkbox" id="s-ad" data-s="alertDay"${st.alertDay?' checked':''}>Alert day banner across the top of every scene</label>
@@ -2927,7 +2933,7 @@ function renderInspector(){syncClrTrack();
   el.querySelectorAll('[data-k]').forEach(inp=>inp.addEventListener(inp.type==='checkbox'||inp.tagName==='SELECT'?'change':'input',()=>{const k=inp.dataset.k;let v=inp.type==='checkbox'?inp.checked:inp.type==='number'?+inp.value:inp.value;if(['hours','trackMins','step','past'].includes(k)||(k==='ratio'&&v!=='auto'))v=+v;if(k==='cityVals')v=!!v;
     sc[k]=v;if(k==='trackMins')(sc.tracks||[]).forEach(t=>t.mins=v);if(k==='product'){if(isSite(v)&&!sc.view)centerOnSite(sc);renderInspector()}if(k==='site'&&isSite(sc.product))centerOnSite(sc);if(['v','hours','step','layer','days','svArea','kind','tmpl'].includes(k))renderInspector();if(k==='region'){delete sc.cityList;if(ZOOM_TYPES.includes(sc.type)){clearTimeout(pvT);pendingView=null;sc.view=null}}if(k==='region'&&sc.type==='temps'){sc.hidden=[];declutter(sc)}if(k==='region'&&sc.type==='snow'&&REGIONS[v].isolate)sc.clip='state';if(k==='region'&&(sc.type==='rainfall'||sc.type==='snowfall'))sc.clip=REGIONS[v].isolate?'state':'land';if(k==='mode'&&v==='custom'&&!sc.custom)sc.custom=customFromModel(sc);if(k==='svc'){sc.lyr=null;if((v==='nhc'||v==='nhc7')&&!REGIONS[sc.region].ocean)sc.region='atl';sc.view=null}if(['mode','svc','gauges','level','city'].includes(k)&&sc.type!=='radar')setTimeout(()=>{if(document.activeElement&&document.activeElement.id==='i-gauges')return;renderInspector()},k==='gauges'?900:0);if(k==='flightAdv'&&v==='take'&&(sc.flight||[]).length>1)sc.flightOn=true;if(k==='step'&&sc.type==='hourly')renderInspector();if(['wpc','flyIn','flyAdv','flightAdv'].includes(k)){mstep=null;renderInspector()}if(inp.tagName==='SELECT')setTimeout(()=>{const a=document.activeElement;if(a&&a.tagName==='SELECT')a.blur()},0);if(k==='flyIn'&&v){flyPrev=sc.id;mstep=null;cityFx.id=null;sceneStart=performance.now()/1000}if(['region','src'].includes(k)||k==='city'){renderInspector()}
     if(k==='region'||k==='city'||k==='v'){sceneStart=performance.now()/1000}if(k==='city'&&show.settings.forecastSource==='nws'&&!nws.fc[v])nwsForecast(v).then(()=>queueThumbs()).catch(()=>{});if(k==='area'&&v==='eu')loadEuWarnings(true);if(k==='area')renderInspector();if(k==='region'&&sc.type==='radar'){loadAlerts();clearTimeout(pvT);pendingView=null;sc.view=null;if(isEU(v)){loadRV();loadEuWarnings(true);sc.flight=[];sc.flightOn=false;if(!isSat(sc.product))sc.product='composite'}renderInspector()}save();renderRundown()}));
-  el.querySelectorAll('[data-s]').forEach(inp=>inp.addEventListener(inp.type==='checkbox'||inp.tagName==='SELECT'?'change':'input',()=>{show.settings[inp.dataset.s]=inp.type==='checkbox'?inp.checked:inp.value;if(['currentSource','forecastSource'].includes(inp.dataset.s)){loadNws();renderInspector()}$('#stationSub').textContent=(show.settings.station||'')+' workstation';save();queueThumbs()}));
+  el.querySelectorAll('[data-s]').forEach(inp=>inp.addEventListener(inp.type==='checkbox'||inp.tagName==='SELECT'?'change':'input',()=>{show.settings[inp.dataset.s]=inp.type==='checkbox'?inp.checked:inp.value;if(['currentSource','forecastSource'].includes(inp.dataset.s)){loadNws();renderInspector()}if(inp.dataset.s==='tickerCond')renderInspector();$('#stationSub').textContent=(show.settings.station||'')+' workstation';save();queueThumbs()}));
   el.querySelectorAll('[data-mcity]').forEach(c=>c.addEventListener('change',()=>{const k=c.dataset.mcity;let L=mapCities(sc).filter(x=>x!==k);if(c.checked)L.push(k);sc.cityList=L;if(sc.type==='temps'){sc.hidden=[];if(c.checked&&sc.offsets)delete sc.offsets[k]}save();queueThumbs();const n=el.querySelector('#bCityDef');if(n)n.disabled=false}));
   el.querySelectorAll('[data-c7]').forEach(c=>c.addEventListener(c.tagName==='SELECT'?'change':'input',()=>{const i=+c.dataset.c7,f=c.dataset.f;sc.custom=sc.custom||customFromModel(sc);if(!sc.custom[i])return;sc.custom[i][f]=f==='code'?+c.value:c.value;save();queueThumbs()}));
   {const b=el.querySelector('#bC7Model');if(b)b.addEventListener('click',()=>{sc.custom=customFromModel(sc);save();queueThumbs();renderInspector()})}
@@ -2967,7 +2973,7 @@ function renderInspector(){syncClrTrack();
   q1('#s-remote','change',x=>{const R=show.settings.remote=show.settings.remote||{};R.on=x.checked;if(R.on&&!R.code)R.code=newRemoteCode();save();remoteStart();renderInspector()});
   q1('#s-rnew','click',()=>{const R=show.settings.remote;R.code=newRemoteCode();save();remoteStart();renderInspector();toast('New phone link made. The old one no longer works.')});
   q1('#s-rcopy','click',()=>{const i=$('#s-rlink');try{navigator.clipboard.writeText(i.value).then(()=>toast('Link copied. Send it to your phone.'),()=>{i.select()})}catch(e){i.select()}});
-  q1('#s-auto','change',x=>{show.settings.autoMin=+x.value;autoLast=Date.now();save()});q1('#s-daily','change',x=>{show.settings.dailyAt=x.value;save()});q1('#bTestTor','click',()=>{testBreaking('tor');renderInspector()});q1('#bClrTest2','click',clearTest);q1('#bClrBrk','click',()=>{show.settings.tickerOverride=null;save();renderInspector()});
+  q1('#s-auto','change',x=>{show.settings.autoMin=+x.value;autoLast=Date.now();save()});q1('#s-daily','change',x=>{show.settings.dailyAt=x.value;save()});el.querySelectorAll('.tc-city').forEach(c=>c.addEventListener('change',()=>{show.settings.tickerCondCities=[...el.querySelectorAll('.tc-city')].filter(x=>x.checked).map(x=>x.value);const sm=el.querySelector('.tcd summary');if(sm)sm.textContent='Ticker cities ('+tcCities().length+')';save()}));q1('#bTestTor','click',()=>{testBreaking('tor');renderInspector()});q1('#bClrTest2','click',clearTest);q1('#bClrBrk','click',()=>{show.settings.tickerOverride=null;save();renderInspector()});
   el.querySelectorAll('[data-eutype]').forEach(c=>c.addEventListener('change',()=>{const tp=+c.dataset.eutype;sc.euTypesOff=(sc.euTypesOff||[]).filter(x=>x!==tp);if(!c.checked)sc.euTypesOff.push(tp);save();queueThumbs()}));
   el.querySelectorAll('[data-eusel]').forEach(d=>{const go=()=>{sc.euSel=d.dataset.eusel;alertSelStart=performance.now()/1000;save();queueThumbs();renderInspector()};d.addEventListener('click',go);d.addEventListener('keydown',e=>{if(e.key==='Enter')go()})});
   el.querySelectorAll('[data-euclear]').forEach(b=>b.addEventListener('click',()=>{sc.euSel=null;save();queueThumbs();renderInspector()}));
