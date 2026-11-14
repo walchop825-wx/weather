@@ -240,7 +240,7 @@ button.pill{cursor:pointer;background:transparent}
 <div class="status">
   <span><kbd>Space</kbd> play / stop</span><span><kbd>←</kbd><kbd>→</kbd> previous / next</span><span><kbd>V</kbd> select</span><span><kbd>T</kbd> pen</span><span><kbd>B</kbd> contour</span><span><kbd>N</kbd> total</span><span><kbd>Del</kbd> delete selection</span><span><kbd>E</kbd> export PNG</span><span><kbd>K</kbd> storm track</span><span><kbd>L</kbd> map label</span><span><kbd>1</kbd>–<kbd>9</kbd> cue</span><span><kbd>Enter</kbd> take</span>
   <span id="srcNote"></span>
-  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-14 · 31</span>
+  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-14 · 32</span>
 </div>
 <input type="file" id="fileIn" accept=".json,application/json" hidden>
 
@@ -1288,16 +1288,39 @@ const simCache={};
 function makeNoise(seed){const r=rng(seed);const p=new Float32Array(65536);for(let i=0;i<65536;i++)p[i]=r();const gv=(a,b)=>p[((a&255)<<8)|(b&255)];return(x,y)=>{const xi=Math.floor(x),yi=Math.floor(y),xf=x-xi,yf=y-yi;const u=xf*xf*(3-2*xf),v=yf*yf*(3-2*yf);return lerp(lerp(gv(xi,yi),gv(xi+1,yi),u),lerp(gv(xi,yi+1),gv(xi+1,yi+1),u),v)}}
 function radarColor(dbz,pt){
   if(pt==='snow'){if(dbz<10)return null;if(dbz<20)return[170,210,255,170];if(dbz<28)return[100,160,255,200];if(dbz<36)return[45,100,235,220];return[25,50,190,235]}
+  if(pt==='ice'){if(dbz<10)return null;if(dbz<20)return[215,175,255,175];if(dbz<30)return[165,95,240,215];return[110,35,190,235]}
   if(pt==='mix'){if(dbz<10)return null;if(dbz<20)return[255,185,225,170];if(dbz<30)return[240,120,195,210];return[200,60,160,230]}
   if(dbz<10)return null;if(dbz<20)return[90,190,110,150];if(dbz<30)return[35,200,60,200];if(dbz<38)return[20,145,30,220];if(dbz<45)return[250,220,40,230];if(dbz<50)return[250,150,30,235];if(dbz<56)return[230,40,40,240];return[200,30,180,245];
 }
+const winterOn=()=>!!show.settings.winterMode;
+const ptGrids={};
+function ptCode(r){const c=r&&r.current;if(!c)return null;const w=c.weather_code,T=c.temperature_2m,sn=c.snowfall||0,rn=(c.rain||0)+(c.showers||0);
+  if([56,57,66,67].includes(w))return{s:0,ice:1};if([71,73,75,77,85,86].includes(w))return{s:rn>0?1.2:2,ice:0};
+  if(sn>0&&rn>0)return{s:1,ice:0};if([51,53,55,61,63,65,80,81,82].includes(w))return T!=null&&T<=32?{s:0,ice:1}:{s:T!=null&&T<=34?.6:0,ice:0};
+  if(T==null)return null;return T<=30?{s:2,ice:0}:T<=33?{s:1,ice:0}:{s:0,ice:0}}
+function ptGrid(rk){let Z=ptGrids[rk];if(Z&&(Z.status==='loading'||Date.now()-Z.t<(Z.status==='ok'?600000:120000)))return Z;const old=Z;Z=ptGrids[rk]={status:'loading',t:Date.now(),v:old?old.v:0,cells:old?old.cells:null};
+  const P=proj(rk),nx=16,ny=9,padX=(P.east-P.west)*.08,padY=(P.north-P.south)*.08,pts=[];for(let j=0;j<ny;j++)for(let i=0;i<nx;i++)pts.push({lon:P.west-padX+(i+.5)/nx*(P.east-P.west+2*padX),lat:P.south-padY+(j+.5)/ny*(P.north-P.south+2*padY)});
+  fetchJSON(`https://api.open-meteo.com/v1/forecast?latitude=${pts.map(p=>p.lat.toFixed(2)).join(',')}&longitude=${pts.map(p=>p.lon.toFixed(2)).join(',')}&current=temperature_2m,weather_code,rain,showers,snowfall&temperature_unit=fahrenheit&timezone=GMT`,20000).then(j=>{const arr=Array.isArray(j)?j:[j];
+    const L=[];pts.forEach((p,i)=>{const c=ptCode(arr[i]);if(c)L.push(Object.assign({lon:p.lon,lat:p.lat},c))});if(!L.length)throw new Error('empty');
+    const gw=160,gh=90,cells=new Uint8Array(gw*gh);for(let y=0;y<gh;y++)for(let x=0;x<gw;x++){const lon=P.lon((x+.5)/gw*W),lat=P.lat((y+.5)/gh*H);let ws=0,ss=0,is=0;for(const p of L){const d2=(p.lon-lon)**2*.55+(p.lat-lat)**2+.004;const w=1/(d2*d2);ws+=w;ss+=w*p.s;is+=w*p.ice}
+      const sv=ss/ws,iv=is/ws;cells[y*gw+x]=iv>.45?2:sv>1.45?3:sv>.55?1:0}
+    Z.cells=cells;Z.status='ok';Z.t=Date.now();Z.v++;queueThumbs();const sc=scene();if(sc&&sc.type==='radar')renderInspector()}).catch(()=>{Z.status='fail';Z.t=Date.now();queueThumbs()});return Z}
+const N0Q=[[5,[4,233,231]],[10,[1,159,244]],[15,[3,0,244]],[20,[2,253,2]],[25,[1,197,1]],[30,[0,142,0]],[35,[253,248,2]],[40,[229,188,0]],[45,[253,149,0]],[50,[253,0,0]],[55,[212,0,0]],[60,[188,0,0]],[65,[248,0,253]],[70,[152,84,198]],[75,[253,253,253]]];
+const N0Q_FINE=(()=>{const o=[];for(let i=0;i<N0Q.length-1;i++){const[a,ca]=N0Q[i],[b,cb]=N0Q[i+1];for(let k=0;k<5;k++){const f=k/5;o.push([a+(b-a)*f,ca.map((v,j)=>v+(cb[j]-v)*f)])}}o.push(N0Q[N0Q.length-1]);return o})();
+const dbzMemo=new Map();
+function rgbDbz(r,g2,b){const key=(r<<16)|(g2<<8)|b;let v=dbzMemo.get(key);if(v!==undefined)return v;let bd=1e9;v=0;for(const[d,c]of N0Q_FINE){const e=(c[0]-r)**2+(c[1]-g2)**2+(c[2]-b)**2;if(e<bd){bd=e;v=d}}if(dbzMemo.size<200000)dbzMemo.set(key,v);return v}
+const winterCache=new WeakMap();const PT_NAMES=['rain','mix','ice','snow'];
+function winterFrame(im,rk){const Z=ptGrid(rk);if(Z.status!=='ok'&&!Z.cells)return null;const tag=rk+'|'+Z.v;const hit=winterCache.get(im);if(hit&&hit.tag===tag)return hit.c;
+  try{const w=im.naturalWidth,h=im.naturalHeight,c=document.createElement('canvas');c.width=w;c.height=h;const g=c.getContext('2d');g.drawImage(im,0,0);const id=g.getImageData(0,0,w,h),d=id.data;const gw=160,gh=90;
+    for(let y=0;y<h;y++){const cy=Math.min(gh-1,(y*gh/h)|0);for(let x=0;x<w;x++){const o=(y*w+x)*4;if(d[o+3]<40){d[o+3]=0;continue}const dbz=rgbDbz(d[o],d[o+1],d[o+2]);const pt=PT_NAMES[Z.cells[cy*gw+Math.min(gw-1,(x*gw/w)|0)]];const col=radarColor(Math.max(dbz,10.5),pt);if(!col){d[o+3]=0;continue}d[o]=col[0];d[o+1]=col[1];d[o+2]=col[2];d[o+3]=Math.max(col[3],200)}}
+    g.putImageData(id,0,0);winterCache.set(im,{tag,c});return c}catch(e){return null}}
 function radarSim(rk,ptype){
   const key=rk+'|'+ptype;if(simCache[key])return simCache[key];const P=proj(rk);const nz=makeNoise(.777);const frames=[];const gw=384,gh=216;
   for(let f=0;f<11;f++){const c=document.createElement('canvas');c.width=gw;c.height=gh;const g=c.getContext('2d');const id=g.createImageData(gw,gh);
     for(let j=0;j<gh;j++)for(let i=0;i<gw;i++){const[lon,lat]=euSimLL(rk,P.lon((i+.5)/gw*W),P.lat((j+.5)/gh*H));const mv=f*.045;
       const fr=(lat-38.6)-.62*(lon+80.5)+mv*1.6;const band=Math.exp(-((fr-1.2)**2)/1.1);
       const x=(lon-mv*1.4)*2.4,y=(lat-mv)*2.4;const n=.55*nz(x,y)+.3*nz(x*2.3,y*2.3)+.15*nz(x*5,y*5);
-      const dbz=(n-.28)*95*band;const pt=!ptype?'rain':lat+(nz(x*1.7,y*1.7)-.5)*.5>40.85?'snow':lat>40.45?'mix':'rain';const col=radarColor(dbz,pt);const o=(j*gw+i)*4;if(col){id.data[o]=col[0];id.data[o+1]=col[1];id.data[o+2]=col[2];id.data[o+3]=col[3]}}
+      const dbz=(n-.28)*95*band;const la2=lat+(nz(x*1.7,y*1.7)-.5)*.5;const pt=!ptype?'rain':la2>40.85?'snow':la2>40.6?'mix':la2>40.38?'ice':'rain';const col=radarColor(dbz,pt);const o=(j*gw+i)*4;if(col){id.data[o]=col[0];id.data[o+1]=col[1];id.data[o+2]=col[2];id.data[o+3]=col[3]}}
     g.putImageData(id,0,0);frames.push(c)}
   return simCache[key]=frames;
 }
@@ -1607,15 +1630,15 @@ function renderRadarMap(g,sc,t,o){
       const fr=rv.frames[fi];const st=drawXYZ(g,P,(z,x,y)=>`${rv.host}${fr.path}/512/${z}/${x}/${y}/2/1_1.png`,7,512);
       if(st.total&&!st.ok&&fi>0){const pf=rv.frames[fi-1];drawXYZ(g,P,(z,x,y)=>`${rv.host}${pf.path}/512/${z}/${x}/${y}/2/1_1.png`,7,512)}
       hud.time=fmtTime(fr.time*1000);hud.tag='RAINVIEWER RADAR';hud.live=true}
-    else if(rv.status==='fail'){const nF=11;const fi=radFi(sc,nF,Math.min(nF-1,Math.floor(((t*1000/420)|0)%(nF+5))));hud.nF=nF;hud.fi=fi;g.imageSmoothingEnabled=true;g.drawImage(radarSim(rk,sc.ptype)[fi],0,0,W,H);
+    else if(rv.status==='fail'){const nF=11;const fi=radFi(sc,nF,Math.min(nF-1,Math.floor(((t*1000/420)|0)%(nF+5))));hud.nF=nF;hud.fi=fi;g.imageSmoothingEnabled=true;g.drawImage(radarSim(rk,winterOn())[fi],0,0,W,H);
       const d=new Date(Date.now()-(nF-1-fi)*10*60e3);d.setMinutes(Math.floor(d.getMinutes()/10)*10);hud.time=fmtTime(d);hud.tag='SIMULATED';hud.sim=true;hud.ub=false}
     else{hud.tag='LOADING';hud.time='--'}}
   else if(isSat(prod)&&EUR){const S=euSatImage(rk,prod);const im=S.ok?S.img:S.prev;
     if(im&&im.complete&&im.naturalWidth){if(prod!=='satvis')g.globalCompositeOperation='screen';g.globalAlpha*=prod==='satvis'?.9:.95;g.drawImage(im,0,0,W,H)}else if(S.ok===false){g.imageSmoothingEnabled=true;g.drawImage(satSim(rk),0,0,W,H);hud.sim=true}
     hud.tag=hud.sim?'SATELLITE · SIMULATED':'METEOSAT '+SAT_NAME[prod];hud.time=hud.sim?fmtTime(Date.now()):'LATEST';hud.live=!hud.sim}
   else if(prod==='composite'){const R=radarState(sc);const nF=11;const fi=radFi(sc,nF,Math.min(nF-1,Math.floor(((t*1000/420)|0)%(nF+5))));hud.nF=nF;hud.fi=fi;
-    if(R.mode==='live'){const im=R.st.imgs[fi]||R.st.imgs.slice(0,fi+1).reverse().find(x=>x&&x.complete&&x.naturalWidth);if(im&&im.complete&&im.naturalWidth)g.drawImage(im,0,0,W,H)}
-    else if(R.mode==='sim'&&covered){g.imageSmoothingEnabled=true;g.drawImage(radarSim(rk,sc.ptype)[fi],0,0,W,H)}
+    if(R.mode==='live'){const im=R.st.imgs[fi]||R.st.imgs.slice(0,fi+1).reverse().find(x=>x&&x.complete&&x.naturalWidth);if(im&&im.complete&&im.naturalWidth){const wc=winterOn()&&covered?winterFrame(im,rk):null;g.drawImage(wc||im,0,0,W,H);if(wc)hud.wtype=true}}
+    else if(R.mode==='sim'&&covered){g.imageSmoothingEnabled=true;g.drawImage(radarSim(rk,winterOn())[fi],0,0,W,H)}
     const d=new Date(Date.now()-(nF-1-fi)*5*60e3);d.setMinutes(Math.floor(d.getMinutes()/5)*5);hud.time=fmtTime(d);
     hud.tag=!covered?'LOWER 48 RADAR ONLY':R.mode==='live'?'NWS NEXRAD':R.mode==='sim'?'SIMULATED':'LOADING';hud.live=R.mode==='live';hud.sim=R.mode!=='live'}
   else if(isSite(prod)){const site=sc.site||'CCX';loadSiteScans(site,prod);const S=siteScans[site+'|'+prod];const fr=S&&S.list?S.list:[null];const nF=fr.length;const fi=nF>1?radFi(sc,nF,Math.min(nF-1,Math.floor((t*1000/600)%(nF+3)))):0;
@@ -1649,8 +1672,8 @@ function renderRadarHud(g,sc,t,o,hud,sc0){
   if(prod==='sitevel'||prod==='sitesrv'){glass(g,lx,ly,560,70,10);const greens=['#00ff6a','#00c853','#008f3a','#1e5631'],reds=['#5a1414','#8f1b1b','#d32f2f','#ff5252'];let x=lx+20;
     text(g,'TOWARD RADAR',x,ly+45,`700 22px ${FD}`,'#9cf0b8','left','alphabetic',1.5);x+=measure(g,'TOWARD RADAR',`700 22px ${FD}`,1.5)+12;greens.concat(reds).forEach(c=>{g.fillStyle=c;g.fillRect(x,ly+20,26,30);x+=26});x+=12;text(g,'AWAY',x,ly+45,`700 22px ${FD}`,'#ff9a9a','left','alphabetic',1.5)}
   else if(hud.ub){glass(g,lx,ly,560,70,10);let x=lx+20;UB_COLORS.forEach(c=>{g.fillStyle=c;g.fillRect(x,ly+18,52,26);x+=52});text(g,'LIGHT',lx+20,ly+62,`600 16px ${FD}`,'#c8d4e8');text(g,'HEAVY',lx+540,ly+62,`600 16px ${FD}`,'#c8d4e8','right')}
-  else if(!isSat(prod)&&hud.covered){const pt=prod==='future'||(sc.ptype&&hud.sim);glass(g,lx,ly,pt?800:470,70,10);
-    const groups=pt?[['RAIN','rain'],['MIX','mix'],['SNOW','snow']]:[['','rain']];let x=lx+20;
+  else if(!isSat(prod)&&hud.covered){const wl=winterOn()&&prod==='composite'&&(hud.sim||hud.wtype);const pt=prod==='future'||wl;const groups=wl?[['RAIN','rain'],['MIX','mix'],['ICE','ice'],['SNOW','snow']]:pt?[['RAIN','rain'],['MIX','mix'],['SNOW','snow']]:[['','rain']];
+    const lgW=pt?40+groups.reduce((a,[l,p2])=>a+measure(g,l,`700 24px ${FD}`,2)+10+(p2==='rain'?7:4)*34+24,0)-24:470;glass(g,lx,ly,lgW,70,10);let x=lx+20;
     groups.forEach(([lbl,p2])=>{if(lbl){text(g,lbl,x,ly+45,`700 24px ${FD}`,'#ffffff','left','alphabetic',2);x+=measure(g,lbl,`700 24px ${FD}`,2)+10}
       const steps=p2==='rain'?[15,25,34,42,48,53,60]:[15,24,32,40];const sw2=p2==='rain'&&!lbl?58:34;steps.forEach(d=>{const c=radarColor(d,p2);g.fillStyle=`rgb(${c[0]},${c[1]},${c[2]})`;g.fillRect(x,ly+20,sw2,30);x+=sw2});x+=24});
     if(!pt){text(g,'LIGHT',lx+20,ly+66,`600 16px ${FD}`,'#c8d4e8');text(g,'HEAVY',lx+430,ly+66,`600 16px ${FD}`,'#c8d4e8','right')}}
@@ -2765,7 +2788,7 @@ function renderInspector(){syncClrTrack();
     <label class="f">Show<select id="i-prod" data-k="product">${opts(isEU(sc.region)?[['composite','Radar loop (RainViewer)'],...PRODUCTS.filter(p=>isSat(p[0]))]:PRODUCTS,isEU(sc.region)&&!isSat(pr)?'composite':pr)}</select></label>
     ${isSite(pr)?`<div class="row2"><label class="f">Radar site<select id="i-site" data-k="site">${opts(Object.entries(RADAR_SITES).map(([k,v])=>[k,'K'+k+' · '+v[0]]),sc.site||'CCX')}</select></label><button data-center style="align-self:end">Center on radar</button></div>`:''}
     <p class="note">${pNote}</p>
-    ${pr==='composite'&&!EUR?`<label class="chk"><input type="checkbox" id="i-ptype" data-k="ptype"${sc.ptype?' checked':''}>Precip type colors on the simulated loop</label>`:''}</div>
+    ${pr==='composite'&&!EUR?`<label class="chk"><input type="checkbox" id="i-winter"${winterOn()?' checked':''}>Winter mode: rain, mix, ice and snow colors</label><p class="note">${winterOn()?(()=>{const Z=ptGrid(sc.region);return Z.status==='fail'?'Precip type data could not load, so the radar shows rain colors.':Z.status==='loading'?'Loading precip type…':'Type comes from current Open-Meteo surface conditions on a grid, with temperature filling gaps. It is an estimate, like most TV winter radars. Applies to every radar scene.'})():'Applies to every radar scene in the show. Also on the Show tab.'}</p>`:''}</div>
     <div class="sec"><h3>Storm tracks</h3><p class="note">Pick Storm track in the toolbar, then drag from the storm in the direction it is moving. Towns in the path get arrival times.</p>
     <div class="row2"><label class="f">Speed (mph)<input type="number" id="i-tmph" min="5" max="90" value="${window._trackMph||30}"></label><label class="f">Track length<select id="i-tmins" data-k="trackMins">${opts([[30,'30 minutes'],[45,'45 minutes'],[60,'1 hour'],[90,'90 minutes']],sc.trackMins||60)}</select></label></div>
     ${mo?`<button data-trackalert>Track the selected warning (${mo.mph} mph toward ${dirTxt(mo.dir)})</button>`:''}
@@ -2901,6 +2924,7 @@ function renderInspector(){syncClrTrack();
     <label class="f">Ticker label<input type="text" id="s-tl" data-s="tickerLabel" value="${esc(st.tickerLabel)}"></label>
     <label class="f">Ticker text<textarea id="s-ticker" data-s="ticker">${esc(st.ticker)}</textarea></label>
     <label class="chk"><input type="checkbox" id="s-st" data-s="showTicker"${st.showTicker?' checked':''}>Ticker</label>
+    <label class="chk"><input type="checkbox" id="s-wm" data-s="winterMode"${st.winterMode?' checked':''}>Winter mode on radar (rain, mix, ice, snow)</label>
     <label class="chk"><input type="checkbox" id="s-tc" data-s="tickerCond"${st.tickerCond?' checked':''}>Live conditions in the ticker</label>
     ${st.tickerCond?`<details class="tcd"><summary>Ticker cities (${tcCities().length})</summary><div class="tcg">${CITY_KEYS.filter(k=>CITIES[k][2]<-30).sort((a,b)=>cityFull(a).localeCompare(cityFull(b))).map(k=>`<label class="chk"><input type="checkbox" class="tc-city" value="${k}"${tcCities().includes(k)?' checked':''}>${esc(cityFull(k))}</label>`).join('')}</div></details><p class="note">Adds the current temperature and sky for each city after your ticker text. Updates with each data refresh. Hidden while the studio is on sample data.</p>`:''}
     <label class="chk"><input type="checkbox" id="s-sb" data-s="showBug"${st.showBug?' checked':''}>Station bug with time and temperature</label>
@@ -2973,7 +2997,7 @@ function renderInspector(){syncClrTrack();
   q1('#s-remote','change',x=>{const R=show.settings.remote=show.settings.remote||{};R.on=x.checked;if(R.on&&!R.code)R.code=newRemoteCode();save();remoteStart();renderInspector()});
   q1('#s-rnew','click',()=>{const R=show.settings.remote;R.code=newRemoteCode();save();remoteStart();renderInspector();toast('New phone link made. The old one no longer works.')});
   q1('#s-rcopy','click',()=>{const i=$('#s-rlink');try{navigator.clipboard.writeText(i.value).then(()=>toast('Link copied. Send it to your phone.'),()=>{i.select()})}catch(e){i.select()}});
-  q1('#s-auto','change',x=>{show.settings.autoMin=+x.value;autoLast=Date.now();save()});q1('#s-daily','change',x=>{show.settings.dailyAt=x.value;save()});el.querySelectorAll('.tc-city').forEach(c=>c.addEventListener('change',()=>{show.settings.tickerCondCities=[...el.querySelectorAll('.tc-city')].filter(x=>x.checked).map(x=>x.value);const sm=el.querySelector('.tcd summary');if(sm)sm.textContent='Ticker cities ('+tcCities().length+')';save()}));q1('#bTestTor','click',()=>{testBreaking('tor');renderInspector()});q1('#bClrTest2','click',clearTest);q1('#bClrBrk','click',()=>{show.settings.tickerOverride=null;save();renderInspector()});
+  q1('#s-auto','change',x=>{show.settings.autoMin=+x.value;autoLast=Date.now();save()});q1('#s-daily','change',x=>{show.settings.dailyAt=x.value;save()});q1('#i-winter','change',x=>{show.settings.winterMode=x.checked;save();renderInspector();queueThumbs()});el.querySelectorAll('.tc-city').forEach(c=>c.addEventListener('change',()=>{show.settings.tickerCondCities=[...el.querySelectorAll('.tc-city')].filter(x=>x.checked).map(x=>x.value);const sm=el.querySelector('.tcd summary');if(sm)sm.textContent='Ticker cities ('+tcCities().length+')';save()}));q1('#bTestTor','click',()=>{testBreaking('tor');renderInspector()});q1('#bClrTest2','click',clearTest);q1('#bClrBrk','click',()=>{show.settings.tickerOverride=null;save();renderInspector()});
   el.querySelectorAll('[data-eutype]').forEach(c=>c.addEventListener('change',()=>{const tp=+c.dataset.eutype;sc.euTypesOff=(sc.euTypesOff||[]).filter(x=>x!==tp);if(!c.checked)sc.euTypesOff.push(tp);save();queueThumbs()}));
   el.querySelectorAll('[data-eusel]').forEach(d=>{const go=()=>{sc.euSel=d.dataset.eusel;alertSelStart=performance.now()/1000;save();queueThumbs();renderInspector()};d.addEventListener('click',go);d.addEventListener('keydown',e=>{if(e.key==='Enter')go()})});
   el.querySelectorAll('[data-euclear]').forEach(b=>b.addEventListener('click',()=>{sc.euSel=null;save();queueThumbs();renderInspector()}));
