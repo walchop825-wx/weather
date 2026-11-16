@@ -240,7 +240,7 @@ button.pill{cursor:pointer;background:transparent}
 <div class="status">
   <span><kbd>Space</kbd> play / stop</span><span><kbd>←</kbd><kbd>→</kbd> previous / next</span><span><kbd>V</kbd> select</span><span><kbd>T</kbd> pen</span><span><kbd>B</kbd> contour</span><span><kbd>N</kbd> total</span><span><kbd>Del</kbd> delete selection</span><span><kbd>E</kbd> export PNG</span><span><kbd>K</kbd> storm track</span><span><kbd>L</kbd> map label</span><span><kbd>1</kbd>–<kbd>9</kbd> cue</span><span><kbd>Enter</kbd> take</span>
   <span id="srcNote"></span>
-  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-14 · 34</span>
+  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-16 · 35</span>
 </div>
 <input type="file" id="fileIn" accept=".json,application/json" hidden>
 
@@ -2158,10 +2158,12 @@ function pnsParse(txt,wfo,issued){const out=[];if(!/Rating:/i.test(txt)||!/torna
     const num=v=>{const x=parseFloat(String(v).replace(/,/g,''));return isFinite(x)?x:null};const sm=blk.match(/Survey Summary:\s*([\s\S]*?)(?:\n\s*\n\s*\n|$)/i);
     const sd=f('Start Date'),start=pnsTime(sd,f('Start Time')),endT=pnsTime(f('End Date')||sd,f('End Time'));
     out.push({id:'p:'+wfo+':'+a[1].toFixed(3)+','+a[0].toFixed(3),src:'pns',issued,name:title.replace(/\s*tornado\s*$/i,'').replace(/,?\s+(Alabama|Alaska|Arizona|Arkansas|California|Colorado|Connecticut|Delaware|Florida|Georgia|Hawaii|Idaho|Illinois|Indiana|Iowa|Kansas|Kentucky|Louisiana|Maine|Maryland|Massachusetts|Michigan|Minnesota|Mississippi|Missouri|Montana|Nebraska|Nevada|New Hampshire|New Jersey|New Mexico|New York|North Carolina|North Dakota|Ohio|Oklahoma|Oregon|Pennsylvania|Rhode Island|South Carolina|South Dakota|Tennessee|Texas|Utah|Vermont|Virginia|Washington|West Virginia|Wisconsin|Wyoming)$/i,'').replace(/\s+\(?EF-?[0-5U]\)?$/i,''),ef,lines:[[a,b]],start,end:endT&&start&&endT>=start?endT:null,len:num(f('Path Length')),wid:num(f('Path Width')),inj:num(f('Injuries'))||0,dead:num(f('Fatalities'))||0,wfo,wind:num(f('Estimated Peak Wind')),startLoc:f('Start Location'),endLoc:f('End Location'),remark:sm?sm[1].replace(/\s+/g,' ').trim():''})});return out}
-async function pnsTornadoes(a,b,P){const from=new Date(a-12*3600000).toISOString().slice(0,19)+'Z',pad=2.5;
-  const offs=Object.keys(WFO_LL).filter(k=>{const c=WFO_LL[k];return c[0]>=P.south-pad&&c[0]<=P.north+pad&&c[1]>=P.west-pad&&c[1]<=P.east+pad});const lk=from.slice(0,13)+'|'+offs.join('');let L=pnsLists[lk];
-  if(!L||Date.now()-L.t>600000){const u=`https://api.weather.gov/products?type=PNS&start=${from}&limit=500`;const j=await fetchJSON(u+'&location='+offs.join(','),15000).catch(()=>fetchJSON(u,15000));L=pnsLists[lk]={t:Date.now(),list:(j['@graph']||[]).map(p=>({id:p.id,wfo:String(p.issuingOffice||'').replace(/^K/,''),issued:new Date(p.issuanceTime)}))}}
-  const cand=L.list.filter(p=>offs.includes(p.wfo)).sort((x,y)=>y.issued-x.issued).slice(0,80);
+async function pnsTornadoes(a,b,P){const from=a-12*3600000,pad=2.5;
+  const inB=(Q,k)=>{const c=WFO_LL[k];return c[0]>=Q.south-pad&&c[0]<=Q.north+pad&&c[1]>=Q.west-pad&&c[1]<=Q.east+pad};
+  let offs=Object.keys(WFO_LL).filter(k=>inB(P,k));if(offs.length>24){const Q=proj('ne');offs=Object.keys(WFO_LL).filter(k=>inB(Q,k))}
+  const lists=await Promise.all(offs.map(o=>{const c=pnsLists[o];if(c&&Date.now()-c.t<600000)return Promise.resolve(c.list);return fetchJSON('https://api.weather.gov/products/types/PNS/locations/'+o,15000).then(j=>{const list=(j['@graph']||[]).map(p=>({id:p.id,wfo:o,issued:new Date(p.issuanceTime)}));pnsLists[o]={t:Date.now(),list};return list}).catch(()=>{if(c)return c.list;throw new Error('pns list '+o)})}).map(p=>p.catch(()=>null)));
+  if(!lists.some(Boolean))throw new Error('pns lists failed');
+  const cand=lists.filter(Boolean).flat().filter(p=>+p.issued>=from).sort((x,y)=>y.issued-x.issued).slice(0,150);
   const todo=cand.filter(p=>pnsText[p.id]==null);for(let i=0;i<todo.length;i+=6)await Promise.all(todo.slice(i,i+6).map(p=>fetchJSON('https://api.weather.gov/products/'+p.id,12000).then(j=>{pnsText[p.id]=String(j.productText||'')}).catch(()=>{})));
   const byKey={};cand.forEach(p=>{const tx=pnsText[p.id];if(!tx)return;pnsParse(tx,p.wfo,p.issued).forEach(T=>{const ev=T.start?+T.start:+p.issued;if(!((ev>=a-12*3600000&&ev<=b)||(+p.issued>=a&&+p.issued<=b)))return;const[lo,la]=T.lines[0][0];if(lo<P.west-1||lo>P.east+1||la<P.south-1||la>P.north+1)return;
     const k=T.id+'|'+(T.start?new Date(T.start).toISOString().slice(0,10):'');if(!byKey[k]||byKey[k].issued<T.issued)byKey[k]=T})});return Object.values(byKey)}
