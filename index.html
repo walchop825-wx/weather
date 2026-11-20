@@ -240,7 +240,7 @@ button.pill{cursor:pointer;background:transparent}
 <div class="status">
   <span><kbd>Space</kbd> play / stop</span><span><kbd>←</kbd><kbd>→</kbd> previous / next</span><span><kbd>V</kbd> select</span><span><kbd>T</kbd> pen</span><span><kbd>B</kbd> contour</span><span><kbd>N</kbd> total</span><span><kbd>Del</kbd> delete selection</span><span><kbd>E</kbd> export PNG</span><span><kbd>K</kbd> storm track</span><span><kbd>L</kbd> map label</span><span><kbd>1</kbd>–<kbd>9</kbd> cue</span><span><kbd>Enter</kbd> take</span>
   <span id="srcNote"></span>
-  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-19 · 36</span>
+  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-19 · 37</span>
 </div>
 <input type="file" id="fileIn" accept=".json,application/json" hidden>
 
@@ -280,14 +280,15 @@ const CITIES={
  nyc:['New York',40.71,-74.01],albany:['Albany',42.65,-73.75],buffalo:['Buffalo',42.89,-78.88],syracuse:['Syracuse',43.05,-76.15],
  rochester:['Rochester',43.16,-77.61],binghamton:['Binghamton',42.10,-75.91],boston:['Boston',42.36,-71.06],hartford:['Hartford',41.76,-72.67],
  providence:['Providence',41.82,-71.41],burlington:['Burlington',44.48,-73.21],portland:['Portland',43.66,-70.26],concord:['Concord',43.21,-71.54],
- baltimore:['Baltimore',39.29,-76.61],washington:['Washington',38.91,-77.04],cleveland:['Cleveland',41.50,-81.69]
+ baltimore:['Baltimore',39.29,-76.61],washington:['Washington',38.91,-77.04],cleveland:['Cleveland',41.50,-81.69],
+ pensacola:['Pensacola',30.42,-87.22],destin:['Destin',30.39,-86.5],panamacity:['Panama City',30.16,-85.66],tallahassee:['Tallahassee',30.44,-84.28],lakecity:['Lake City',30.19,-82.64],gainesville:['Gainesville',29.65,-82.32],staugustine:['St. Augustine',29.9,-81.31],palmcoast:['Palm Coast',29.58,-81.21],daytona:['Daytona Beach',29.21,-81.02],ocala:['Ocala',29.19,-82.14],titusville:['Titusville',28.61,-80.81],kissimmee:['Kissimmee',28.29,-81.41],melbournefl:['Melbourne',28.08,-80.61],lakeland:['Lakeland',28.04,-81.95],clearwater:['Clearwater',27.97,-82.8],stpete:['St. Petersburg',27.77,-82.64],verobeach:['Vero Beach',27.64,-80.4],bradenton:['Bradenton',27.5,-82.57],sebring:['Sebring',27.5,-81.44],fortpierce:['Fort Pierce',27.45,-80.33],sarasota:['Sarasota',27.34,-82.53],stuart:['Stuart',27.2,-80.25],portcharlotte:['Port Charlotte',26.98,-82.09],westpalm:['West Palm Beach',26.72,-80.05],fortmyers:['Fort Myers',26.64,-81.87],capecoral:['Cape Coral',26.56,-81.95],bocaraton:['Boca Raton',26.37,-80.13],naplesfl:['Naples',26.14,-81.79],fortlauderdale:['Fort Lauderdale',26.12,-80.14],homestead:['Homestead',25.47,-80.48],keywest:['Key West',24.56,-81.78]
 };
 const CITY_KEYS=Object.keys(CITIES);
 const CITY_ST={nyc:'NY',albany:'NY',buffalo:'NY',syracuse:'NY',rochester:'NY',binghamton:'NY',boston:'MA',hartford:'CT',providence:'RI',burlington:'VT',portland:'ME',concord:'NH',baltimore:'MD',washington:'DC',cleveland:'OH',
  
  london:'UK',manchester:'UK',birmingham:'UK',edinburgh:'UK',glasgow:'UK',cardiff:'UK',belfast:'UK',dublin:'IE',cork:'IE',paris:'FR',lyon:'FR',marseille:'FR',bordeaux:'FR',nice:'FR',brussels:'BE',amsterdam:'NL',luxembourg:'LU',berlin:'DE',hamburg:'DE',munich:'DE',frankfurt:'DE',cologne:'DE',zurich:'CH',geneva:'CH',vienna:'AT',prague:'CZ',warsaw:'PL',krakow:'PL',copenhagen:'DK',oslo:'NO',bergen:'NO',stockholm:'SE',gothenburg:'SE',helsinki:'FI',reykjavik:'IS',madrid:'ES',barcelona:'ES',seville:'ES',valencia:'ES',lisbon:'PT',porto:'PT',rome:'IT',milan:'IT',naples:'IT',venice:'IT',athens:'GR',istanbul:'TR',budapest:'HU',bucharest:'RO',sofia:'BG',belgrade:'RS',zagreb:'HR',kyiv:'UA',riga:'LV',vilnius:'LT',tallinn:'EE',ljubljana:'SI',bratislava:'SK',valletta:'MT',
  anchorage:'AK',fairbanks:'AK',juneau:'AK',honolulu:'HI',hilo:'HI',nome:'AK',utqiagvik:'AK',bethel:'AK',kodiak:'AK',kahului:'HI',lihue:'HI',kona:'HI',seattle:'WA',portlandor:'OR',sanfrancisco:'CA',losangeles:'CA',sandiego:'CA',lasvegas:'NV',phoenix:'AZ',saltlake:'UT',boise:'ID',billings:'MT',denver:'CO',albuquerque:'NM',dallas:'TX',houston:'TX',sanantonio:'TX',oklahomacity:'OK',kansascity:'MO',omaha:'NE',minneapolis:'MN',fargo:'ND',chicago:'IL',stlouis:'MO',detroit:'MI',nashville:'TN',atlanta:'GA',neworleans:'LA',miami:'FL',tampa:'FL',jacksonville:'FL',charleston:'SC',norfolk:'VA',corpuschristi:'TX',sanjuan:'PR',orlando:'FL',charlotte:'NC',
- newhaven:'CT',bridgeport:'CT',stamford:'CT',waterbury:'CT',newlondon:'CT',norwich:'CT',danbury:'CT',torrington:'CT',windsorlocks:'CT',storrs:'CT',putnam:'CT',middletown:'CT'};
+ newhaven:'CT',bridgeport:'CT',stamford:'CT',waterbury:'CT',newlondon:'CT',norwich:'CT',danbury:'CT',torrington:'CT',windsorlocks:'CT',storrs:'CT',putnam:'CT',middletown:'CT',pensacola:'FL',destin:'FL',panamacity:'FL',tallahassee:'FL',lakecity:'FL',gainesville:'FL',staugustine:'FL',palmcoast:'FL',daytona:'FL',ocala:'FL',titusville:'FL',kissimmee:'FL',melbournefl:'FL',lakeland:'FL',clearwater:'FL',stpete:'FL',verobeach:'FL',bradenton:'FL',sebring:'FL',fortpierce:'FL',sarasota:'FL',stuart:'FL',portcharlotte:'FL',westpalm:'FL',fortmyers:'FL',capecoral:'FL',bocaraton:'FL',naplesfl:'FL',fortlauderdale:'FL',homestead:'FL',keywest:'FL'};
 const cityST=k=>CITY_ST[k]||'PA';const cityFull=k=>CITIES[k][0]+', '+cityST(k);
 const REGIONS={
  scpa:{name:'South Central PA',lon:-76.75,lat:40.25,latSpan:1.85,focus:['PA'],scale:1,counties:true,
@@ -320,6 +321,10 @@ const REGIONS={
    cities:['berlin','hamburg','munich','frankfurt','cologne','amsterdam','brussels','luxembourg','zurich','geneva','vienna','prague','warsaw','krakow','milan','venice','ljubljana','bratislava','budapest','copenhagen']},
  scan:{name:'Scandinavia',lon:17,lat:61.5,latSpan:16,focus:[],scale:.8,eu:true,
    cities:['oslo','bergen','stockholm','gothenburg','helsinki','copenhagen','tallinn','riga']},
+ fl:{name:'Florida',lon:-83.0,lat:27.85,latSpan:8.8,focus:[],scale:.85,counties:true,
+   cities:['pensacola','tallahassee','jacksonville','orlando','tampa','sarasota','fortmyers','naplesfl','westpalm','fortlauderdale','miami','keywest','melbournefl']},
+ sfl:{name:'South Florida',lon:-81.2,lat:26.35,latSpan:3.3,focus:[],scale:.9,counties:true,
+   cities:['tampa','stpete','sarasota','portcharlotte','fortmyers','capecoral','naplesfl','sebring','stuart','westpalm','bocaraton','fortlauderdale','miami','homestead']},
  ne:{name:'Northeast',lon:-75.2,lat:42.1,latSpan:8.4,focus:[],scale:.8,
    cities:['pittsburgh','buffalo','rochester','syracuse','albany','burlington','portland','concord','boston','hartford','providence','nyc','philadelphia','harrisburg','scranton','baltimore','washington','cleveland','binghamton']}
 };
@@ -672,6 +677,7 @@ const STATIONS={tampa:'KTPA',jacksonville:'KJAX',charleston:'KCHS',norfolk:'KORF
  anchorage:'PANC',fairbanks:'PAFA',juneau:'PAJN',honolulu:'PHNL',hilo:'PHTO',nome:'PAOM',utqiagvik:'PABR',bethel:'PABE',kodiak:'PADQ',kahului:'PHOG',lihue:'PHLI',kona:'PHKO',seattle:'KSEA',portlandor:'KPDX',sanfrancisco:'KSFO',losangeles:'KLAX',sandiego:'KSAN',lasvegas:'KLAS',phoenix:'KPHX',saltlake:'KSLC',boise:'KBOI',billings:'KBIL',denver:'KDEN',albuquerque:'KABQ',
  dallas:'KDFW',houston:'KIAH',sanantonio:'KSAT',oklahomacity:'KOKC',kansascity:'KMCI',omaha:'KOMA',minneapolis:'KMSP',fargo:'KFAR',chicago:'KORD',stlouis:'KSTL',detroit:'KDTW',nashville:'KBNA',atlanta:'KATL',
  neworleans:'KMSY',miami:'KMIA',orlando:'KMCO',charlotte:'KCLT',
+ pensacola:'KPNS',destin:'KDTS',panamacity:'KECP',tallahassee:'KTLH',lakecity:'KLCQ',gainesville:'KGNV',staugustine:'KSGJ',palmcoast:'KFIN',daytona:'KDAB',ocala:'KOCF',titusville:'KTIX',kissimmee:'KISM',melbournefl:'KMLB',lakeland:'KLAL',clearwater:'KPIE',stpete:'KSPG',verobeach:'KVRB',bradenton:'KSRQ',sebring:'KSEF',fortpierce:'KFPR',sarasota:'KSRQ',stuart:'KSUA',portcharlotte:'KPGD',westpalm:'KPBI',fortmyers:'KFMY',capecoral:'KRSW',bocaraton:'KBCT',naplesfl:'KAPF',fortlauderdale:'KFLL',homestead:'KHST',keywest:'KEYW',
  newhaven:'KHVN',bridgeport:'KBDR',waterbury:'KOXC',newlondon:'KGON',danbury:'KDXR',windsorlocks:'KBDL',storrs:'KIJD',middletown:'KMMK'};
 async function pool(items,n,fn){let i=0;await Promise.all(Array.from({length:Math.min(n,items.length)},async()=>{while(i<items.length){const it=items[i++];await fn(it)}}))}
 function textCode(t,fb){t=(t||'').toLowerCase();if(!t)return fb;
