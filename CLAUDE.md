@@ -12,6 +12,7 @@ Broadcast-style weather graphics app for PA, the Northeast, the US and Europe. O
 - Syntax check before committing: extract the script and run `node --check`.
 - Render changed scenes headless (Playwright) and look at them before pushing.
 - Live data sources: Open-Meteo (forecast and air quality), NWS api.weather.gov, IEM (storm reports, snow reports, SPC watches and MDs), NOAA map services (WPC, SPC, NHC, CPC, MRMS QPE, NOHRSC), NWS Damage Assessment Toolkit, U.S. Drought Monitor (ArcGIS), Esri World Imagery, RainViewer, EUMETSAT, MeteoAlarm. Anything that can't load falls back to labeled sample data or a clear on-screen message.
+- Open-Meteo city data refreshes in two tiers to stay under the free limit: cities a scene uses (`hotCities()`) every 10 minutes, all other cities hourly.
 - Phone remote relays commands through ntfy.sh (topic `wgs-<code>`); the studio only acts on messages marked from the remote.
 - Saved shows live in localStorage key `wgs-show-v2`. New default scenes for existing users go in through a one-time `show.settings.<flag>` migration. New devices start with an empty show (`blankShow()`, all migration flags set); Show > Reset to starter rundown loads the sample show.
 
