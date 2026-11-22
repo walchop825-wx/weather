@@ -240,7 +240,7 @@ button.pill{cursor:pointer;background:transparent}
 <div class="status">
   <span><kbd>Space</kbd> play / stop</span><span><kbd>←</kbd><kbd>→</kbd> previous / next</span><span><kbd>V</kbd> select</span><span><kbd>T</kbd> pen</span><span><kbd>B</kbd> contour</span><span><kbd>N</kbd> total</span><span><kbd>Del</kbd> delete selection</span><span><kbd>E</kbd> export PNG</span><span><kbd>K</kbd> storm track</span><span><kbd>L</kbd> map label</span><span><kbd>1</kbd>–<kbd>9</kbd> cue</span><span><kbd>Enter</kbd> take</span>
   <span id="srcNote"></span>
-  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-22 · 43</span>
+  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-22 · 44</span>
 </div>
 <input type="file" id="fileIn" accept=".json,application/json" hidden>
 
@@ -2439,7 +2439,7 @@ function parseVortex(txt,ref){const out=[];String(txt).split(/(?=UR(?:NT|PN|PA)1
     const a=T.match(/\bA\.\s*(\d{1,2})\/(\d{2}):(\d{2})(?::(\d{2}))?Z/);if(!a)return;const d0=new Date(ref||Date.now());let t=Date.UTC(d0.getUTCFullYear(),d0.getUTCMonth(),+a[1],+a[2],+a[3],+(a[4]||0));if(t>+d0+5*86400e3){const x=new Date(t);x.setUTCMonth(x.getUTCMonth()-1);t=+x}
     const bblk=(T.match(/\bB\.([\s\S]*?)\n\s*C\./)||[])[1]||'';let lat=null,lon=null;const dec=bblk.match(/(\d+(?:\.\d+)?)\s*deg\s*([NS])[\s\S]*?(\d+(?:\.\d+)?)\s*deg\s*([EW])/i);const dm=bblk.match(/(\d+)\s*deg\s*(\d+)\s*min\s*([NS])[\s\S]*?(\d+)\s*deg\s*(\d+)\s*min\s*([EW])/i);
     if(dm){lat=(+dm[1]+dm[2]/60)*(dm[3].toUpperCase()==='S'?-1:1);lon=(+dm[4]+dm[5]/60)*(dm[6].toUpperCase()==='W'?-1:1)}else if(dec){lat=+dec[1]*(dec[2].toUpperCase()==='S'?-1:1);lon=+dec[3]*(dec[4].toUpperCase()==='W'?-1:1)}if(lat==null)return;
-    const hm=T.match(/\bH\.\s*(?:EXTRAP\s*)?(\d{3,4})\s*mb/i),dk=T.match(/\bD\.\s*(\d{2,3})\s*kt/i),mi=T.match(/([A-Z]{2,4}\d{2,3}\s+\S+)\s+([A-Z0-9\-]+)\s+OB\s+\d+/),id=T.match(/VORTEX DATA MESSAGE\s+([A-Z]{2}\d{6})/i);
+    const hm=T.match(/\b[DH]\.\s*(?:EXTRAP\s*)?(\d{3,4})\s*mb/i),dk=T.match(/\b[DH]\.\s*(\d{2,3})\s*kt/i),mi=T.match(/([A-Z]{2,4}\d{2,3}\s+\S+)\s+([A-Z0-9\-]+)\s+OB\s+\d+/),id=T.match(/VORTEX DATA MESSAGE\s+([A-Z]{2}\d{6})/i);
     out.push({t,lat,lon,mb:hm?+hm[1]:null,sfcKt:dk?+dk[1]:null,mission:mi?mi[1].replace(/\s+/g,' '):'',name:mi?mi[2]:'',id:id?id[1]:''})});return out.sort((x,y)=>x.t-y.t)}
 function reconLoad(basin,date){const key=basin+'|'+(date||'live');let R=reconCache[key];if(R&&(R.status==='loading'||Date.now()-R.t<(date?3600e3:(R.status==='ok'?300e3:120e3))))return R;const old=R;
   R=reconCache[key]={status:'loading',t:Date.now(),obs:old?old.obs:[],fixes:old?old.fixes:[],v:old?old.v:0};const P2=RECON_PIL[basin]||RECON_PIL.atl;
@@ -2456,8 +2456,8 @@ function drawRecon(g,sc,P,t){const X=reconPick(sc);const ago=ms=>{const m=Math.r
   const cw=560,cx=70,cy=H-(show.settings.showTicker?64:0)-40-150;const q=ease((t-.4)/.5);
   const card=(l1,l2,l3)=>{g.save();g.globalAlpha=q;glass(g,cx,cy,cw,l3?150:116,12);text(g,'HURRICANE HUNTERS',cx+26,cy+36,`800 18px ${FD}`,'#ffb21e','left','alphabetic',2.5);let f=34;while(measure(g,l1,`800 ${f}px ${FD}`)>cw-52&&f>20)f--;text(g,l1,cx+26,cy+76,`800 ${f}px ${FD}`,'#ffffff');if(l2)text(g,l2.toUpperCase(),cx+26,cy+(l3?106:102),`700 19px ${FD}`,'#9fb4d8','left','alphabetic',1.5);if(l3){let f3=19;while(measure(g,l3,`700 ${f3}px ${FD}`,1.5)>cw-52&&f3>13)f3--;text(g,l3,cx+26,cy+134,`700 ${f3}px ${FD}`,'#dfe8f7','left','alphabetic',1.5)}g.restore()};
   if(!X.m){card(X.R.status==='loading'?'LOADING RECON':X.R.status==='fail'?'RECON DATA COULD NOT LOAD':sc.reconDate?'NO RECON FLIGHTS THAT DAY':'NO RECON IN THE PAST 24 HOURS','');return}
-  const {m,fixes}=X;const obs=sc.reconFerry?X.obs:X.obs.filter(o=>o.sfcP!=null);if(!obs.length){card('NO LOW-LEVEL RECON YET','THE PLANE IS STILL IN TRANSIT');return}const n=Math.max(1,Math.ceil(obs.length*clamp((t-.5)/1.6)));const pts=obs.slice(0,n).map(o=>({o,x:P.x(o.lon),y:P.y(o.lat)}));
-  g.save();g.strokeStyle='rgba(255,255,255,.75)';g.lineWidth=2.5;g.setLineDash([2,6]);g.beginPath();pts.forEach((p,i)=>i?g.lineTo(p.x,p.y):g.moveTo(p.x,p.y));g.stroke();g.setLineDash([]);
+  const {m,fixes}=X;const near=o=>!fixes.length||fixes.some(f=>Math.hypot((f.lon-o.lon)*Math.cos(o.lat*Math.PI/180),f.lat-o.lat)<2.2);const obs=sc.reconFerry?X.obs:X.obs.filter(o=>o.sfcP!=null&&near(o));if(!obs.length){card('NO LOW-LEVEL RECON YET','THE PLANE IS STILL IN TRANSIT');return}const n=Math.max(1,Math.ceil(obs.length*clamp((t-.5)/1.6)));const pts=obs.slice(0,n).map(o=>({o,x:P.x(o.lon),y:P.y(o.lat)}));
+  g.save();g.strokeStyle='rgba(255,255,255,.75)';g.lineWidth=2.5;g.setLineDash([2,6]);g.beginPath();pts.forEach((p,i)=>i&&p.o.t-pts[i-1].o.t<300e3?g.lineTo(p.x,p.y):g.moveTo(p.x,p.y));g.stroke();g.setLineDash([]);
   pts.forEach(p=>{const s2=p.o.sfmr;if(s2==null){g.fillStyle='rgba(255,255,255,.55)';g.beginPath();g.arc(p.x,p.y,3,0,7);g.fill();return}g.fillStyle=saffirCol(ktMph(s2));g.strokeStyle='#0a1a3a';g.lineWidth=1.5;g.beginPath();g.arc(p.x,p.y,s2>=64?8:6.5,0,7);g.fill();g.stroke()});
   const last=pts[pts.length-1];if(last){const pr=pts[pts.length-2]||last,ang=Math.atan2(last.y-pr.y,last.x-pr.x);g.save();g.translate(last.x,last.y);g.rotate(ang);g.fillStyle='#ffffff';g.strokeStyle='#0a1a3a';g.lineWidth=2.5;g.beginPath();g.moveTo(16,0);g.lineTo(-10,-11);g.lineTo(-5,0);g.lineTo(-10,11);g.closePath();g.fill();g.stroke();g.restore()}
   const shown=obs.slice(0,n);let pk=null;shown.forEach(o=>{if(o.sfmr!=null&&(!pk||o.sfmr>pk.sfmr))pk=o});
