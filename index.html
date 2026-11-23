@@ -240,7 +240,7 @@ button.pill{cursor:pointer;background:transparent}
 <div class="status">
   <span><kbd>Space</kbd> play / stop</span><span><kbd>←</kbd><kbd>→</kbd> previous / next</span><span><kbd>V</kbd> select</span><span><kbd>T</kbd> pen</span><span><kbd>B</kbd> contour</span><span><kbd>N</kbd> total</span><span><kbd>Del</kbd> delete selection</span><span><kbd>E</kbd> export PNG</span><span><kbd>K</kbd> storm track</span><span><kbd>L</kbd> map label</span><span><kbd>1</kbd>–<kbd>9</kbd> cue</span><span><kbd>Enter</kbd> take</span>
   <span id="srcNote"></span>
-  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-23 · 48</span>
+  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-23 · 49</span>
 </div>
 <input type="file" id="fileIn" accept=".json,application/json" hidden>
 
@@ -1207,7 +1207,8 @@ function renderTemps(g,sc,t,o){
   drawMapLabels(g,sc,P,o,t);
   drawHeader(g,sc.title||DEF_TITLES.temps,sc.sub||R.name,t);
 }
-function blurBg(g,rk){g.save();if('filter' in g)g.filter='blur(8px) brightness(.55) saturate(1.2)';g.drawImage(mapBase(rk),-30,-30,W+60,H+60);g.restore();if(!('filter' in g)){g.fillStyle='rgba(0,0,0,.45)';g.fillRect(0,0,W,H)}}
+function blurBg(g,rk){const ch=bgChoice(bgScene);if(ch!=='map'){if(BG_THEMES[ch]){drawThemeBg(g,ch,bgT);return}const im=bgPhotoImg(ch);if(im){drawPhotoBg(g,im);return}}blurMap(g,rk)}
+function blurMap(g,rk){g.save();if('filter' in g)g.filter='blur(8px) brightness(.55) saturate(1.2)';g.drawImage(mapBase(rk),-30,-30,W+60,H+60);g.restore();if(!('filter' in g)){g.fillStyle='rgba(0,0,0,.45)';g.fillRect(0,0,W,H)}}
 function regionFor(k){const[,lat,lon]=CITIES[k];if(lon>-30)return(lat>49.3&&lon<2.5&&lon>-11)?'uk':'eu';if(cityST(k)==='CT')return'ct';if(lon<-82.5||lat<37.5)return'us';return(lat>39.6&&lat<42.3&&lon>-80.6&&lon<-74.6)?'pa':'ne'}
 function renderForecast(g,sc,t){
   blurBg(g,regionFor(sc.city));const d=sc.mode==='custom'&&sc.custom?customDays(sc):getDaily(sc.city);const n=7,x0=80,gap=16,cw=(W-160-gap*(n-1))/n,y0=250,ch=600;
@@ -2150,6 +2151,40 @@ function renderClosings(g,sc,t){blurBg(g,sc.region||'pa');const L=closingsList()
   if(pages>1)text(g,`PAGE ${pg+1} OF ${pages}`,x0+w,y0+per*rh+30,`700 20px ${FD}`,'#9fb4d8','right','alphabetic',2);
   drawHeader(g,sc.title||DEF_TITLES.closings,sc.sub||autoSub(sc),t)}
 
+/* ---------- Backgrounds for information graphics: blurred map, animated weather themes, or your own photos ---------- */
+const INFO_TYPES=['forecast7','conditions','models','timeline','hourly','almanac','rivers','impact','closings','bottomline','event','travel','extremes'];
+const BG_THEMES={map:'Blurred map',auto:'Match the weather now',snow:'Snow',rain:'Rain',storm:'Thunderstorm',wind:'Wind',sun:'Sunny',clouds:'Cloudy',fog:'Fog',night:'Clear night'};
+let bgScene=null,bgT=0;const bgLayers={};let bgPhotos={},bgPhotoImgs={};
+idb.get('bgphotos').then(v=>{if(v&&typeof v==='object'){bgPhotos=v;queueThumbs();if(typeof renderInspector==='function'&&document.querySelector('#insp'))renderInspector()}});
+function bgPhotoImg(id){const p=bgPhotos[id];if(!p)return null;let im=bgPhotoImgs[id];if(!im){im=bgPhotoImgs[id]=new Image();im.onload=()=>queueThumbs();im.src=p.data}return im.complete&&im.naturalWidth?im:null}
+function bgChoice(sc){const v=(sc&&sc.bg)||show.settings.infoBg||'map';if(v!=='auto')return v;const c=getCur(show.settings.bugCity||CITY_KEYS[0]);if(!c)return'map';const w=c.code;
+  return[95,96,99].includes(w)?'storm':[71,73,75,77,85,86].includes(w)?'snow':[51,53,55,56,57,61,63,65,66,67,80,81,82].includes(w)?'rain':[45,48].includes(w)?'fog':(c.gust||0)>=30?'wind':w<=1?(c.day?'sun':'night'):'clouds'}
+const rnd=(i,k)=>{const x=Math.sin(i*127.1+k*311.7)*43758.5453;return x-Math.floor(x)};
+function bgLayer(th){if(bgLayers[th])return bgLayers[th];const c=document.createElement('canvas');c.width=960;c.height=540;const g=c.getContext('2d');
+  const G={snow:['#1d3557','#0b1628'],rain:['#14263f','#070d1a'],storm:['#231c38','#0a0812'],wind:['#1f3b4d','#0b1820'],sun:['#2f6fb8','#f0a44a'],clouds:['#3a4b63','#141c2a'],fog:['#5b6675','#262c35'],night:['#0d1a3a','#02050d']}[th]||['#14263f','#070d1a'];
+  const gr=g.createLinearGradient(0,0,0,540);gr.addColorStop(0,G[0]);gr.addColorStop(1,G[1]);g.fillStyle=gr;g.fillRect(0,0,960,540);
+  const blob=(n,cols,r0,r1,a0,a1,yMin,yMax)=>{for(let i=0;i<n;i++){const x=rnd(i,1)*960,y=yMin+rnd(i,2)*(yMax-yMin),r=r0+rnd(i,3)*(r1-r0);const rg=g.createRadialGradient(x,y,0,x,y,r);const col=cols[i%cols.length];rg.addColorStop(0,col.replace('A',String(a0+rnd(i,4)*(a1-a0))));rg.addColorStop(1,col.replace('A','0'));g.fillStyle=rg;g.fillRect(x-r,y-r,2*r,2*r)}};
+  if(th==='rain'||th==='storm')blob(26,['rgba(255,190,110,A)','rgba(120,170,255,A)','rgba(255,255,255,A)'],14,46,.12,.35,120,420);
+  if(th==='snow')blob(24,['rgba(200,225,255,A)','rgba(255,255,255,A)'],12,40,.1,.3,60,460);
+  if(th==='clouds'||th==='storm'||th==='fog')blob(18,['rgba(255,255,255,A)'],120,260,.04,th==='fog'?.16:.09,0,540);
+  if(th==='sun'){const rg=g.createRadialGradient(760,90,0,760,90,520);rg.addColorStop(0,'rgba(255,240,190,.95)');rg.addColorStop(.12,'rgba(255,214,120,.6)');rg.addColorStop(1,'rgba(255,170,60,0)');g.fillStyle=rg;g.fillRect(0,0,960,540);blob(8,['rgba(255,255,255,A)'],60,140,.05,.12,300,520)}
+  if(th==='night'){const rg=g.createRadialGradient(780,110,0,780,110,300);rg.addColorStop(0,'rgba(220,230,255,.5)');rg.addColorStop(.08,'rgba(200,215,255,.25)');rg.addColorStop(1,'rgba(120,140,200,0)');g.fillStyle=rg;g.fillRect(0,0,960,540)}
+  if(th==='wind')blob(10,['rgba(170,220,230,A)'],140,260,.05,.12,0,540);
+  return bgLayers[th]=c}
+function drawThemeBg(g,th,t){g.drawImage(bgLayer(th),0,0,W,H);g.save();
+  if(th==='snow'){for(let i=0;i<240;i++){const sz=1.5+rnd(i,5)*4.5,sp=30+sz*14,x=((rnd(i,6)*W+Math.sin(t*.6+i)*30+t*12)%W+W)%W,y=((rnd(i,7)*H+t*sp)%(H+20))-10;g.globalAlpha=.35+rnd(i,8)*.55;g.fillStyle='#ffffff';g.beginPath();g.arc(x,y,sz,0,7);g.fill()}}
+  if(th==='rain'||th==='storm'){g.strokeStyle='rgba(190,215,255,.45)';g.lineWidth=1.6;g.beginPath();for(let i=0;i<(th==='storm'?320:240);i++){const sp=900+rnd(i,9)*500,len=18+rnd(i,10)*26,x=((rnd(i,6)*W-t*160)%W+W)%W,y=((rnd(i,7)*H+t*sp)%(H+60))-30;g.moveTo(x,y);g.lineTo(x-len*.18,y+len)}g.stroke()}
+  if(th==='storm'){const cyc=t%5.3,fl=cyc<.09||(cyc>.18&&cyc<.26)?1:0;if(fl){g.fillStyle='rgba(220,225,255,.22)';g.fillRect(0,0,W,H);const bx=W*(.25+rnd(Math.floor(t/5.3),11)*.5);g.strokeStyle='rgba(255,255,255,.9)';g.lineWidth=3;g.beginPath();let x=bx,y=0;g.moveTo(x,y);for(let k=0;k<9;k++){x+=(rnd(k,Math.floor(t/5.3))-.5)*90;y+=H*.06;g.lineTo(x,y)}g.stroke()}}
+  if(th==='wind'){g.strokeStyle='rgba(220,240,255,.28)';g.lineWidth=2;for(let i=0;i<70;i++){const sp=500+rnd(i,9)*700,len=120+rnd(i,10)*260,y=rnd(i,7)*H+Math.sin(t*1.3+i)*18,x=((rnd(i,6)*(W+len)+t*sp)%(W+len))-len;g.beginPath();g.moveTo(x,y);g.quadraticCurveTo(x+len/2,y-10,x+len,y);g.stroke()}}
+  if(th==='clouds'||th==='fog'){for(let i=0;i<7;i++){const r=300+rnd(i,3)*300,x=((rnd(i,1)*W+t*(10+i*4))%(W+2*r))-r,y=rnd(i,2)*H;const rg=g.createRadialGradient(x,y,0,x,y,r);rg.addColorStop(0,`rgba(255,255,255,${th==='fog'?.14:.07})`);rg.addColorStop(1,'rgba(255,255,255,0)');g.fillStyle=rg;g.fillRect(x-r,y-r,2*r,2*r)}}
+  if(th==='night'){g.fillStyle='#ffffff';for(let i=0;i<160;i++){g.globalAlpha=.25+.5*Math.abs(Math.sin(t*(.4+rnd(i,4))+i));const x=rnd(i,1)*W,y=rnd(i,2)*H*.75;g.fillRect(x,y,rnd(i,3)<.85?1.6:2.6,rnd(i,3)<.85?1.6:2.6)}}
+  if(th==='sun'){g.globalAlpha=.10;g.translate(W*.79,H*.17);g.rotate(t*.03);g.fillStyle='#fff6d0';for(let k=0;k<12;k++){g.rotate(Math.PI/6);g.beginPath();g.moveTo(0,0);g.lineTo(1500,-60);g.lineTo(1500,60);g.closePath();g.fill()}}
+  g.restore();g.fillStyle='rgba(0,0,0,.18)';g.fillRect(0,0,W,H)}
+function drawPhotoBg(g,im){const s=Math.max(W/im.naturalWidth,H/im.naturalHeight),w=im.naturalWidth*s,h=im.naturalHeight*s;g.save();if('filter' in g)g.filter='blur(3px) brightness(.62) saturate(1.1)';g.drawImage(im,(W-w)/2-12,(H-h)/2-12,w+24,h+24);g.restore();if(!('filter' in g)){g.fillStyle='rgba(0,0,0,.4)';g.fillRect(0,0,W,H)}}
+function addBgPhoto(file,done){const r=new FileReader();r.onload=()=>{const im=new Image();im.onload=()=>{const s=Math.min(1,1920/im.naturalWidth,1080/im.naturalHeight)*(Math.max(im.naturalWidth/1920,im.naturalHeight/1080)<1?1:1);const c=document.createElement('canvas');const k=Math.max(1920/im.naturalWidth,1080/im.naturalHeight);c.width=Math.round(im.naturalWidth*Math.min(1,k));c.height=Math.round(im.naturalHeight*Math.min(1,k));
+      if(c.width>2400||c.height>2400){const f=2400/Math.max(c.width,c.height);c.width=Math.round(c.width*f);c.height=Math.round(c.height*f)}c.getContext('2d').drawImage(im,0,0,c.width,c.height);void s;
+      const id='p'+Date.now().toString(36);bgPhotos[id]={name:String(file.name||'Photo').replace(/\.[a-z0-9]+$/i,'').slice(0,40),data:c.toDataURL('image/jpeg',.82)};idb.set('bgphotos',bgPhotos);done&&done(id)};im.onerror=()=>toast('That image could not be read.');im.src=r.result};r.readAsDataURL(file)}
+function bgOpts(v,withDefault){const o=withDefault?[['','Show default ('+(BG_THEMES[show.settings.infoBg||'map']||(bgPhotos[show.settings.infoBg]||{}).name||'Blurred map')+')']]:[];return opts([...o,...Object.entries(BG_THEMES),...Object.entries(bgPhotos).map(([id,p])=>[id,'Photo: '+p.name])],v||'')}
 /* ---------- The Bottom Line: questions with color-coded answers ---------- */
 const BL_COLORS={red:['#d8352a','#ffffff','Red'],orange:['#f08a24','#14203d','Orange'],yellow:['#f6e53b','#14203d','Yellow'],green:['#62de43','#14203d','Green'],blue:['#2f80ff','#ffffff','Blue'],purple:['#9a5cff','#ffffff','Purple'],gray:['#a9b4c6','#14203d','Gray']};
 function renderBottomLine(g,sc,t){blurBg(g,sc.region||'pa');const rows=(sc.bl||[]).filter(r=>r&&(String(r.q||'').trim()||String(r.a||'').trim())).slice(0,6);
@@ -2821,7 +2856,7 @@ function sceneKind(sc){const t=sc.type;if((t==='rainfall'||t==='snowfall')&&sc.s
   if(t==='wxmap')return{change:'Temperature change',dew:'Dew point',aqi:'Air quality',freeze:'Frost and freeze'}[sc.kind||'change'];if(t==='event')return{football:'Football forecast',commute:'Commute forecast',busstop:'Bus stop forecast',weekend:'Weekend planner',custom:'Event forecast'}[sc.tmpl||'football'];
   if(t==='nwsmap')return{spc:'SPC severe outlook',fire:'SPC fire outlook',nhc:'NHC tropical',nhc7:'NHC tropical outlook',fronts:'WPC fronts',cpc:'CPC hazards',snowdepth:'Snow depth'}[sc.svc]||'NWS outlook';if(t==='radar'&&sc.product==='future')return'Future radar';if(t==='radar'&&/^sat/.test(sc.product||''))return'Satellite';return TYPE_NAMES[t]||t}
 const hdrTitles={};let hdrFor=null;
-function renderScene(g,sc,t,o={}){hdrFor=sc&&sc.id;
+function renderScene(g,sc,t,o={}){hdrFor=sc&&sc.id;bgScene=sc;bgT=t;
   g.fillStyle='#000';g.fillRect(0,0,W,H);
   if(!sc){const gr=g.createLinearGradient(0,0,0,H);gr.addColorStop(0,'#0d2350');gr.addColorStop(1,'#050d22');g.fillStyle=gr;g.fillRect(0,0,W,H);text(g,'EMPTY SHOW',W/2,H/2-10,`800 64px ${FD}`,'#ffffff','center','alphabetic',3);text(g,'Use + Add scenes to build your rundown',W/2,H/2+50,`600 30px ${FB}`,'#9fb4d8','center','alphabetic',1);return}
   if(ZOOM_TYPES.includes(sc.type)&&sc.view)sc=Object.assign({},sc,{region:regionForView(sc.region,sc.view),view:null,baseRegion:sc.region});
@@ -2923,6 +2958,7 @@ function renderInspector(){syncClrTrack();
   else if(isMapType(sc.type)||['timeline','impact','closings','rivers','bottomline'].includes(sc.type))h+=`<label class="f">${isMapType(sc.type)?'Map':sc.type==='bottomline'?'Background map':'Area'}<select id="i-region" data-k="region">${regionOpts(sc.region)}</select></label>`;
   else h+=`<label class="f">City<select id="i-city" data-k="city">${cityOpts(sc.city)}</select></label>`;
   h+=`<label class="f">Seconds<input type="number" id="i-dur" data-k="duration" min="2" max="60" value="${sc.duration}"></label></div>`;
+  if(INFO_TYPES.includes(sc.type))h+=`<label class="f">Background<select id="i-bg" data-k="bg">${bgOpts(sc.bg,true)}</select></label>`;
   if(REGIONS[sc.region]?.counties&&isMapType(sc.type))h+=`<label class="chk"><input type="checkbox" id="i-counties" data-k="counties"${sc.counties!==false?' checked':''}>County lines</label>${geoStatus[focusState(sc.region)]==='fail'?'<p class="note">County lines could not load in this view. They load from public map data when the standalone file opens in a browser, and stay saved after that.</p>':geoStatus[focusState(sc.region)]==='loading'?'<p class="note">Loading county lines.</p>':''}`;
   h+=`</div>`;
   if(CITY_TYPES.includes(sc.type)){const on=mapCities(sc),cand=candCities(sc.region);const all=[...on.filter(k=>!cand.includes(k)),...cand].sort((a,b)=>(cityST(a)||'').localeCompare(cityST(b)||'')||CITIES[a][0].localeCompare(CITIES[b][0]));
@@ -3103,6 +3139,10 @@ function renderInspector(){syncClrTrack();
     <div class="row2"><label class="f">Main color<input type="color" id="s-bp" data-s="brandPrimary" value="${esc(st.brandPrimary||'#0f3a86')}"></label><label class="f">Accent color<input type="color" id="s-ba" data-s="brandAccent" value="${esc(st.brandAccent||'#ffb21e')}"></label></div>
     <label class="f">Header style<select id="s-hs" data-s="hdrStyle">${opts([['slant','Slanted'],['flat','Square'],['round','Rounded']],st.hdrStyle||'slant')}</select></label>
     <label class="f">Logo (PNG with a clear background works best)<input type="file" id="s-logo" accept="image/png,image/jpeg,image/svg+xml,image/webp"></label>${st.brandLogo?'<button id="bLogoClr">Remove logo</button>':''}
+    <label class="f">Background for information graphics<select id="s-infobg">${bgOpts(st.infoBg||'map',false)}</select></label>
+    <label class="f">Add a background photo<input type="file" id="s-bgphoto" accept="image/png,image/jpeg,image/webp"></label>
+    ${Object.keys(bgPhotos).length?`<div class="chips">${Object.entries(bgPhotos).map(([id,p])=>`<label>${esc(p.name)} <button data-bgdel="${id}" title="Remove">✕</button></label>`).join('')}</div>`:''}
+    <p class="note">Applies to the 7-Day, Conditions, Hour by hour, Almanac, Models, Timeline, Rivers, Impact, Closings, Bottom Line, Event, Travel and Extremes scenes. Each scene can override it under Background. Weather themes are animated; "Match the weather now" follows the current conditions in your station bug city. Photos are resized to 1080p, darkened for readable text and kept on this device only.</p>
     <button id="bBrandReset">Back to the original colors</button></div>
     <div class="sec"><h3>Lower third</h3>
     <label class="f">Name<input type="text" id="s-l3n" data-s="l3Name" value="${esc(st.l3Name||'')}" placeholder="Wally Choplick"></label>
@@ -3186,6 +3226,9 @@ function renderInspector(){syncClrTrack();
   on('#bSave',exportShow);
   {const f=el.querySelector('#s-logo');if(f)f.addEventListener('change',()=>{const file=f.files[0];if(!file)return;if(file.size>600000){toast('That logo is too large. Use an image under 600 KB.');return}const r=new FileReader();r.onload=()=>{show.settings.brandLogo=r.result;save();queueThumbs();renderInspector()};r.readAsDataURL(file)})}
   on('#bLogoClr',()=>{delete show.settings.brandLogo;save();queueThumbs();renderInspector()});
+  q1('#s-infobg','change',x=>{show.settings.infoBg=x.value;save();queueThumbs();renderInspector()});
+  {const f=el.querySelector('#s-bgphoto');if(f)f.addEventListener('change',()=>{const file=f.files[0];if(!file)return;if(file.size>25e6){toast('That photo is too large.');return}addBgPhoto(file,id=>{toast('Photo added. Pick it under Background.');queueThumbs();renderInspector()})})}
+  el.querySelectorAll('[data-bgdel]').forEach(b=>b.addEventListener('click',()=>{const id=b.dataset.bgdel;delete bgPhotos[id];delete bgPhotoImgs[id];idb.set('bgphotos',bgPhotos);if(show.settings.infoBg===id)show.settings.infoBg='map';show.scenes.forEach(s2=>{if(s2.bg===id)delete s2.bg});save();queueThumbs();renderInspector()}));
   on('#bBrandReset',()=>{delete show.settings.brandPrimary;delete show.settings.brandAccent;delete show.settings.hdrStyle;save();queueThumbs();renderInspector()});
   on('#bLoad',()=>$('#fileIn').click());
   on('#bReset',()=>{el.querySelector('#resetConfirm').hidden=false});on('#bResetNo',()=>{el.querySelector('#resetConfirm').hidden=true});
