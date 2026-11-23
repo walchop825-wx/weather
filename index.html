@@ -240,7 +240,7 @@ button.pill{cursor:pointer;background:transparent}
 <div class="status">
   <span><kbd>Space</kbd> play / stop</span><span><kbd>←</kbd><kbd>→</kbd> previous / next</span><span><kbd>V</kbd> select</span><span><kbd>T</kbd> pen</span><span><kbd>B</kbd> contour</span><span><kbd>N</kbd> total</span><span><kbd>Del</kbd> delete selection</span><span><kbd>E</kbd> export PNG</span><span><kbd>K</kbd> storm track</span><span><kbd>L</kbd> map label</span><span><kbd>1</kbd>–<kbd>9</kbd> cue</span><span><kbd>Enter</kbd> take</span>
   <span id="srcNote"></span>
-  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-23 · 49</span>
+  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-23 · 50</span>
 </div>
 <input type="file" id="fileIn" accept=".json,application/json" hidden>
 
@@ -2157,7 +2157,7 @@ const BG_THEMES={map:'Blurred map',auto:'Match the weather now',snow:'Snow',rain
 let bgScene=null,bgT=0;const bgLayers={};let bgPhotos={},bgPhotoImgs={};
 idb.get('bgphotos').then(v=>{if(v&&typeof v==='object'){bgPhotos=v;queueThumbs();if(typeof renderInspector==='function'&&document.querySelector('#insp'))renderInspector()}});
 function bgPhotoImg(id){const p=bgPhotos[id];if(!p)return null;let im=bgPhotoImgs[id];if(!im){im=bgPhotoImgs[id]=new Image();im.onload=()=>queueThumbs();im.src=p.data}return im.complete&&im.naturalWidth?im:null}
-function bgChoice(sc){const v=(sc&&sc.bg)||show.settings.infoBg||'map';if(v!=='auto')return v;const c=getCur(show.settings.bugCity||CITY_KEYS[0]);if(!c)return'map';const w=c.code;
+function bgChoice(sc){const v=(sc&&sc.bg)||'map';if(v!=='auto')return v;const c=getCur(show.settings.bugCity||CITY_KEYS[0]);if(!c)return'map';const w=c.code;
   return[95,96,99].includes(w)?'storm':[71,73,75,77,85,86].includes(w)?'snow':[51,53,55,56,57,61,63,65,66,67,80,81,82].includes(w)?'rain':[45,48].includes(w)?'fog':(c.gust||0)>=30?'wind':w<=1?(c.day?'sun':'night'):'clouds'}
 const rnd=(i,k)=>{const x=Math.sin(i*127.1+k*311.7)*43758.5453;return x-Math.floor(x)};
 function bgLayer(th){if(bgLayers[th])return bgLayers[th];const c=document.createElement('canvas');c.width=960;c.height=540;const g=c.getContext('2d');
@@ -2958,7 +2958,7 @@ function renderInspector(){syncClrTrack();
   else if(isMapType(sc.type)||['timeline','impact','closings','rivers','bottomline'].includes(sc.type))h+=`<label class="f">${isMapType(sc.type)?'Map':sc.type==='bottomline'?'Background map':'Area'}<select id="i-region" data-k="region">${regionOpts(sc.region)}</select></label>`;
   else h+=`<label class="f">City<select id="i-city" data-k="city">${cityOpts(sc.city)}</select></label>`;
   h+=`<label class="f">Seconds<input type="number" id="i-dur" data-k="duration" min="2" max="60" value="${sc.duration}"></label></div>`;
-  if(INFO_TYPES.includes(sc.type))h+=`<label class="f">Background<select id="i-bg" data-k="bg">${bgOpts(sc.bg,true)}</select></label>`;
+  if(INFO_TYPES.includes(sc.type))h+=`<div class="row2"><label class="f">Background<select id="i-bg" data-k="bg">${bgOpts(sc.bg||'map',false)}</select></label><label class="f">Use a photo<input type="file" id="i-bgphoto" accept="image/png,image/jpeg,image/webp"></label></div>`;
   if(REGIONS[sc.region]?.counties&&isMapType(sc.type))h+=`<label class="chk"><input type="checkbox" id="i-counties" data-k="counties"${sc.counties!==false?' checked':''}>County lines</label>${geoStatus[focusState(sc.region)]==='fail'?'<p class="note">County lines could not load in this view. They load from public map data when the standalone file opens in a browser, and stay saved after that.</p>':geoStatus[focusState(sc.region)]==='loading'?'<p class="note">Loading county lines.</p>':''}`;
   h+=`</div>`;
   if(CITY_TYPES.includes(sc.type)){const on=mapCities(sc),cand=candCities(sc.region);const all=[...on.filter(k=>!cand.includes(k)),...cand].sort((a,b)=>(cityST(a)||'').localeCompare(cityST(b)||'')||CITIES[a][0].localeCompare(CITIES[b][0]));
@@ -3139,10 +3139,9 @@ function renderInspector(){syncClrTrack();
     <div class="row2"><label class="f">Main color<input type="color" id="s-bp" data-s="brandPrimary" value="${esc(st.brandPrimary||'#0f3a86')}"></label><label class="f">Accent color<input type="color" id="s-ba" data-s="brandAccent" value="${esc(st.brandAccent||'#ffb21e')}"></label></div>
     <label class="f">Header style<select id="s-hs" data-s="hdrStyle">${opts([['slant','Slanted'],['flat','Square'],['round','Rounded']],st.hdrStyle||'slant')}</select></label>
     <label class="f">Logo (PNG with a clear background works best)<input type="file" id="s-logo" accept="image/png,image/jpeg,image/svg+xml,image/webp"></label>${st.brandLogo?'<button id="bLogoClr">Remove logo</button>':''}
-    <label class="f">Background for information graphics<select id="s-infobg">${bgOpts(st.infoBg||'map',false)}</select></label>
-    <label class="f">Add a background photo<input type="file" id="s-bgphoto" accept="image/png,image/jpeg,image/webp"></label>
+    <label class="f">Background photos<input type="file" id="s-bgphoto" accept="image/png,image/jpeg,image/webp"></label>
     ${Object.keys(bgPhotos).length?`<div class="chips">${Object.entries(bgPhotos).map(([id,p])=>`<label>${esc(p.name)} <button data-bgdel="${id}" title="Remove">✕</button></label>`).join('')}</div>`:''}
-    <p class="note">Applies to the 7-Day, Conditions, Hour by hour, Almanac, Models, Timeline, Rivers, Impact, Closings, Bottom Line, Event, Travel and Extremes scenes. Each scene can override it under Background. Weather themes are animated; "Match the weather now" follows the current conditions in your station bug city. Photos are resized to 1080p, darkened for readable text and kept on this device only.</p>
+    <p class="note">Backgrounds work on the 7-Day, Conditions, Hour by hour, Almanac, Models, Timeline, Rivers, Impact, Closings, Bottom Line, Event, Travel and Extremes scenes. Pick each scene's background in its Scene tab. Photos added here show up in every scene's Background list. Weather themes are animated; "Match the weather now" follows the current conditions in your station bug city. Photos are resized to 1080p, darkened for readable text and kept on this device only.</p>
     <button id="bBrandReset">Back to the original colors</button></div>
     <div class="sec"><h3>Lower third</h3>
     <label class="f">Name<input type="text" id="s-l3n" data-s="l3Name" value="${esc(st.l3Name||'')}" placeholder="Wally Choplick"></label>
@@ -3226,9 +3225,9 @@ function renderInspector(){syncClrTrack();
   on('#bSave',exportShow);
   {const f=el.querySelector('#s-logo');if(f)f.addEventListener('change',()=>{const file=f.files[0];if(!file)return;if(file.size>600000){toast('That logo is too large. Use an image under 600 KB.');return}const r=new FileReader();r.onload=()=>{show.settings.brandLogo=r.result;save();queueThumbs();renderInspector()};r.readAsDataURL(file)})}
   on('#bLogoClr',()=>{delete show.settings.brandLogo;save();queueThumbs();renderInspector()});
-  q1('#s-infobg','change',x=>{show.settings.infoBg=x.value;save();queueThumbs();renderInspector()});
+  {const f=el.querySelector('#i-bgphoto');if(f)f.addEventListener('change',()=>{const file=f.files[0];if(!file)return;if(file.size>25e6){toast('That photo is too large.');return}addBgPhoto(file,id=>{const s0=scene();if(s0){s0.bg=id;save()}queueThumbs();renderInspector()})})}
   {const f=el.querySelector('#s-bgphoto');if(f)f.addEventListener('change',()=>{const file=f.files[0];if(!file)return;if(file.size>25e6){toast('That photo is too large.');return}addBgPhoto(file,id=>{toast('Photo added. Pick it under Background.');queueThumbs();renderInspector()})})}
-  el.querySelectorAll('[data-bgdel]').forEach(b=>b.addEventListener('click',()=>{const id=b.dataset.bgdel;delete bgPhotos[id];delete bgPhotoImgs[id];idb.set('bgphotos',bgPhotos);if(show.settings.infoBg===id)show.settings.infoBg='map';show.scenes.forEach(s2=>{if(s2.bg===id)delete s2.bg});save();queueThumbs();renderInspector()}));
+  el.querySelectorAll('[data-bgdel]').forEach(b=>b.addEventListener('click',()=>{const id=b.dataset.bgdel;delete bgPhotos[id];delete bgPhotoImgs[id];idb.set('bgphotos',bgPhotos);show.scenes.forEach(s2=>{if(s2.bg===id)delete s2.bg});save();queueThumbs();renderInspector()}));
   on('#bBrandReset',()=>{delete show.settings.brandPrimary;delete show.settings.brandAccent;delete show.settings.hdrStyle;save();queueThumbs();renderInspector()});
   on('#bLoad',()=>$('#fileIn').click());
   on('#bReset',()=>{el.querySelector('#resetConfirm').hidden=false});on('#bResetNo',()=>{el.querySelector('#resetConfirm').hidden=true});
