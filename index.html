@@ -240,7 +240,7 @@ button.pill{cursor:pointer;background:transparent}
 <div class="status">
   <span><kbd>Space</kbd> play / stop</span><span><kbd>←</kbd><kbd>→</kbd> previous / next</span><span><kbd>V</kbd> select</span><span><kbd>T</kbd> pen</span><span><kbd>B</kbd> contour</span><span><kbd>N</kbd> total</span><span><kbd>Del</kbd> delete selection</span><span><kbd>E</kbd> export PNG</span><span><kbd>K</kbd> storm track</span><span><kbd>L</kbd> map label</span><span><kbd>1</kbd>–<kbd>9</kbd> cue</span><span><kbd>Enter</kbd> take</span>
   <span id="srcNote"></span>
-  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-23 · 45</span>
+  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-23 · 46</span>
 </div>
 <input type="file" id="fileIn" accept=".json,application/json" hidden>
 
@@ -597,24 +597,37 @@ async function loadLive(force){
   const hs=hotCities(),HOT=NA.filter(k=>hs.has(k)),COLD=NA.filter(k=>!hs.has(k));const cur={},daily={};
   const take=(c,keys)=>{if(c&&c.cur)keys.forEach(k=>{if(c.cur[k]&&!cur[k]){cur[k]=c.cur[k];daily[k]=((c.daily&&c.daily[k])||[]).map(d=>Object.assign({},d,{date:new Date(d.date)}))}})};
   const covers=(c,keys)=>!!(c&&c.cur&&keys.every(k=>c.cur[k])),pick=(o,keys)=>{const r={};keys.forEach(k=>{if(o[k])r[k]=o[k]});return r};
-  const getCD=async(keys,tz)=>{for(let i=0;i<keys.length;i+=150){const ks=keys.slice(i,i+150);const j=await fetchJSON(`https://api.open-meteo.com/v1/forecast?${qFor(ks,tz)}&current=temperature_2m,apparent_temperature,relative_humidity_2m,dew_point_2m,weather_code,wind_speed_10m,wind_direction_10m,wind_gusts_10m,is_day&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,snowfall_sum&forecast_days=7`,20000);
-      const arr=Array.isArray(j)?j:[j];arr.forEach((r,n)=>{const k=ks[n];const c=r.current;
-      cur[k]={t:Math.round(c.temperature_2m),feels:Math.round(c.apparent_temperature),rh:Math.round(c.relative_humidity_2m),dew:Math.round(c.dew_point_2m),code:c.weather_code,wind:Math.round(c.wind_speed_10m),wdir:c.wind_direction_10m,gust:Math.round(c.wind_gusts_10m),day:!!c.is_day};
-      const d=r.daily;daily[k]=d.time.map((t,x)=>({date:parseLocal(t),code:d.weather_code[x],hi:Math.round(d.temperature_2m_max[x]),lo:Math.round(d.temperature_2m_min[x]),pop:d.precipitation_probability_max[x]??0,snow:+(d.snowfall_sum[x]||0).toFixed(1)}))})}};
+  /* Open-Meteo budget (free plan, about 10,000 location-calls a day): current and daily are separate requests so each stays at 10 variables or fewer.
+     Current: cities on screen every 15 min, other cities near the maps hourly, everything else every 6 hours. Daily: every 3 hours near the maps, 6 hours elsewhere. After a 429, no Open-Meteo calls for an hour. */
+  const CUR_V='temperature_2m,apparent_temperature,relative_humidity_2m,dew_point_2m,weather_code,wind_speed_10m,wind_direction_10m,wind_gusts_10m,is_day';
+  const fetchCur=async(keys,tz)=>{const o={};for(let i=0;i<keys.length;i+=150){const ks=keys.slice(i,i+150);const j=await fetchJSON(`https://api.open-meteo.com/v1/forecast?${qFor(ks,tz)}&current=${CUR_V}`,20000);(Array.isArray(j)?j:[j]).forEach((r,n)=>{const c=r.current;if(!c)return;
+      o[ks[n]]={t:Math.round(c.temperature_2m),feels:Math.round(c.apparent_temperature),rh:Math.round(c.relative_humidity_2m),dew:Math.round(c.dew_point_2m),code:c.weather_code,wind:Math.round(c.wind_speed_10m),wdir:c.wind_direction_10m,gust:Math.round(c.wind_gusts_10m),day:!!c.is_day}})}return o};
+  const fetchDaily=async(keys,tz)=>{const o={};for(let i=0;i<keys.length;i+=150){const ks=keys.slice(i,i+150);const j=await fetchJSON(`https://api.open-meteo.com/v1/forecast?${qFor(ks,tz)}&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,snowfall_sum&forecast_days=7`,20000);(Array.isArray(j)?j:[j]).forEach((r,n)=>{const d=r.daily;if(!d)return;
+      o[ks[n]]=d.time.map((t,x)=>({date:parseLocal(t),code:d.weather_code[x],hi:Math.round(d.temperature_2m_max[x]),lo:Math.round(d.temperature_2m_min[x]),pop:d.precipitation_probability_max[x]??0,snow:+(d.snowfall_sum[x]||0).toFixed(1)}))})}return o};
+  const blocked=C.block&&now<C.block;let firstErr=null;
+  const tier=async(name,keys,maxAge,fn,tz,critical)=>{if(!keys.length)return;const c=C[name];const fresh=c&&c.at&&now-c.at<maxAge&&keys.every(k=>c.v&&c.v[k]);
+    if(!fresh&&!(C.block&&Date.now()<C.block)){try{const v=await fn(keys,tz);C[name]={at:now,v:Object.assign({},(c&&c.v)||{},v)}}catch(e){if(/429/.test(String(e&&e.message||e)))C.block=now+60*60e3;firstErr=firstErr||e;if(critical&&!(c&&c.v))throw e}}};
+  const T1s=new Set(usedCities()),T1=NA.filter(k=>T1s.has(k)),T2=NA.filter(k=>hs.has(k)&&!T1s.has(k)),T3=COLD;const euOn=omCities().some(k=>CITIES[k][2]>=-30);
   try{
-    if(!force&&C.cd&&now-C.cd.at<10*60e3&&covers(C.cd,HOT)){take(C.cd,HOT);data.liveAt=new Date(C.cd.at)}
-    else{if(HOT.length)await getCD(HOT,'America%2FNew_York');C.cd={at:now,cur:pick(cur,HOT),daily:pick(daily,HOT)};data.liveAt=new Date(now)}
-    if(COLD.length){if(!force&&C.cold&&now-C.cold.at<60*60e3&&covers(C.cold,COLD))take(C.cold,COLD);
-      else{try{await getCD(COLD,'America%2FNew_York');C.cold={at:now,cur:pick(cur,COLD),daily:pick(daily,COLD)}}catch(e){take(C.cold,COLD);take(C.cd,COLD)}}}
-    if(omCities().some(k=>CITIES[k][2]>=-30)&&!(C.eu&&now-C.eu.at<10*60e3&&!force)){try{await getCD(EU,'auto');C.eu={at:now,cur:pick(cur,EU),daily:pick(daily,EU)}}catch(e){}}
-    take(C.eu,EU);take(C.cd,EU);EU.forEach(k=>{if(!cur[k]&&data.cur[k]){cur[k]=data.cur[k];daily[k]=data.daily[k]}});
-    data.cur=cur;data.daily=daily}
-  catch(e){data.omErr=omErrText(e);if(C.cd&&now-C.cd.at<36*3600e3){take(C.cd,CITY_KEYS);take(C.cold,CITY_KEYS);take(C.eu,CITY_KEYS);data.cur=cur;data.daily=daily;data.liveAt=new Date(C.cd.at)}else{throw e}}
+    await tier('c1',T1,(force?2:15)*60e3,fetchCur,'America%2FNew_York',true);
+    await tier('d1',HOT,(force?15:180)*60e3,fetchDaily,'America%2FNew_York',true);
+    await tier('c2',T2,60*60e3,fetchCur,'America%2FNew_York');
+    await tier('c3',T3,6*3600e3,fetchCur,'America%2FNew_York');
+    await tier('d3',T3,6*3600e3,fetchDaily,'America%2FNew_York');
+    if(euOn){await tier('ce',EU,30*60e3,fetchCur,'auto');await tier('de',EU,180*60e3,fetchDaily,'auto')}
+    if(blocked&&!(C.c1&&C.c1.v))throw new Error('429');
+    const ci=c=>(c&&c.v)||{};const curAll=Object.assign({},ci(C.c3),ci(C.c2),ci(C.c1),ci(C.ce));const dayAll=Object.assign({},ci(C.d3),ci(C.d1),ci(C.de));
+    if(C.cd&&C.cd.cur)CITY_KEYS.forEach(k=>{if(!curAll[k]&&C.cd.cur[k])curAll[k]=C.cd.cur[k];if(!dayAll[k]&&C.cd.daily&&C.cd.daily[k])dayAll[k]=C.cd.daily[k]});
+    for(const k in curAll){cur[k]=curAll[k];daily[k]=(dayAll[k]||[]).map(d=>Object.assign({},d,{date:new Date(d.date)}))}
+    EU.forEach(k=>{if(!cur[k]&&data.cur[k]){cur[k]=data.cur[k];daily[k]=data.daily[k]}});
+    data.cur=cur;data.daily=daily;data.liveAt=new Date((C.c1&&C.c1.at)||now);
+    if(firstErr||blocked)data.omErr=omErrText(firstErr||new Error('429'))+(C.block&&now<C.block?', paused until '+new Date(C.block).toLocaleTimeString([], {hour:'numeric',minute:'2-digit'}):'')}
+  catch(e){data.omErr=omErrText(e);const ok=C.c1&&C.c1.v&&now-C.c1.at<36*3600e3;if(ok){const ci=c=>(c&&c.v)||{};const curAll=Object.assign({},ci(C.c3),ci(C.c2),ci(C.c1)),dayAll=Object.assign({},ci(C.d3),ci(C.d1));for(const k in curAll){cur[k]=curAll[k];daily[k]=(dayAll[k]||[]).map(d=>Object.assign({},d,{date:new Date(d.date)}))}data.cur=cur;data.daily=daily;data.liveAt=new Date(C.c1.at)}else{await omWrite(C);throw e}}
   data.nwsFb=false;
   // hourly, only for cities a scene needs; every 30 minutes, filling in new cities as scenes are added
   const need=modelCities();const cachedH=()=>{data.hourly={};if(C.hr)for(const k in C.hr.h)data.hourly[k]=Object.assign({},C.hr.h[k],{time:revD(C.hr.h[k].time)})};
-  const staleH=force||!C.hr||now-C.hr.at>30*60e3;const getH=staleH?need:need.filter(k=>!(C.hr&&C.hr.h[k]));cachedH();
-  if(getH.length){try{const hj=await fetchJSON(`https://api.open-meteo.com/v1/forecast?${qFor(getH,'America%2FNew_York')}&hourly=temperature_2m,apparent_temperature,wind_gusts_10m,wind_speed_10m,wind_direction_10m,weather_code,precipitation_probability&forecast_hours=49`,15000);const ha=Array.isArray(hj)?hj:[hj];const H=staleH?{}:Object.assign({},(C.hr&&C.hr.h)||{});
+  const staleH=!(C.block&&now<C.block)&&(force||!C.hr||now-C.hr.at>60*60e3);const getH=staleH?need:need.filter(k=>!(C.hr&&C.hr.h[k]));cachedH();
+  if(getH.length&&!(C.block&&now<C.block)){try{const hj=await fetchJSON(`https://api.open-meteo.com/v1/forecast?${qFor(getH,'America%2FNew_York')}&hourly=temperature_2m,apparent_temperature,wind_gusts_10m,wind_speed_10m,wind_direction_10m,weather_code,precipitation_probability&forecast_hours=49`,15000);const ha=Array.isArray(hj)?hj:[hj];const H=staleH?{}:Object.assign({},(C.hr&&C.hr.h)||{});
       ha.forEach((r,i)=>{const h=r.hourly;H[getH[i]]={time:h.time.map(parseLocal),temp:h.temperature_2m,feels:h.apparent_temperature,gust:h.wind_gusts_10m,wind:h.wind_speed_10m,wdir:h.wind_direction_10m,code:h.weather_code,pop:h.precipitation_probability}});
       C.hr={at:staleH?now:(C.hr?C.hr.at:now),h:H};cachedH()}
     catch(e){data.omErr=data.omErr||omErrText(e);if(!C.hr&&!Object.keys(data.hourly).length)genHourly()}}
@@ -622,8 +635,8 @@ async function loadLive(force){
   const cachedModels=()=>{if(!C.md)return false;data.models={};CITY_KEYS.forEach(k=>data.models[k]={});for(const k in C.md.m){for(const mid in C.md.m[k]){const o=C.md.m[k][mid];data.models[k][mid]=Object.assign({},o,{time:revD(o.time)})}}MODELS.forEach(m=>data.modelOK[m.id]=C.md.ok[m.id]!==false);return true};
   const haveCache=cachedModels();if(!haveCache&&data.source!=='live'){data.models={};CITY_KEYS.forEach(k=>data.models[k]={});MODELS.forEach(m=>delete data.modelOK[m.id])}
   data.source='live';data.updated=new Date();await omWrite(C);
-  const staleM=force||!C.md||now-C.md.at>60*60e3;const getM=staleM?need:need.filter(k=>!(C.md&&C.md.m[k]));
-  if(getM.length)loadModelsBg(getM,haveCache,!staleM);
+  const staleM=force||!C.md||now-C.md.at>180*60e3;const getM=staleM?need:need.filter(k=>!(C.md&&C.md.m[k]));
+  if(getM.length&&!(C.block&&now<C.block))loadModelsBg(getM,haveCache,!staleM);
 }
 async function loadModelsBg(keys,haveCache,merge){if(omBusy)return;omBusy=true;const ok={};const out={};
   try{for(const m of MODELS){const mk=m.id==='gfs_hrrr'?keys.filter(k=>CITIES[k][2]<-50&&CITIES[k][2]>-135&&CITIES[k][1]>21&&CITIES[k][1]<55):keys;if(!mk.length)continue;
@@ -3452,7 +3465,7 @@ function obsSetup(){openProgram();try{if(progWin&&!progWin.closed){const dw=prog
   let d=document.getElementById('obsDlg');if(d)d.remove();d=document.createElement('div');d.id='obsDlg';d.className='obsdlg';d.innerHTML=`<div class="obsbox"><b>Send the show to OBS</b><ol><li>The Program window just opened. Leave it open, on any screen. It sizes itself to 1920×1080 when the screen allows.</li><li>In OBS, add a source: <b>Window Capture</b>.</li><li>Pick the window named <b>Program Out</b>. On Windows, set Capture Method to <b>Windows 10 (1903 and up)</b>. On a Mac, use <b>macOS Screen Capture</b> and pick the same window.</li><li>Right-click the source, then <b>Transform → Fit to screen</b>.</li></ol><p>Everything you take in the studio appears there, with no buttons or cursor.</p><button id="obsClose">Got it</button></div>`;document.body.appendChild(d);d.querySelector('#obsClose').onclick=()=>d.remove()}
 let autoLast=Date.now(),dailyDone='';
 function fullRefresh(){for(const k in radarImgs)delete radarImgs[k];[wxCache,evCache,mrmsImgs,snowReps,stormRepCache,datCache,usdmCache,snowSplits].forEach(c=>{for(const k in c)delete c[k]});mrmsCat=null;for(const k in mrmsPts)delete mrmsPts[k];spcWatch.status=null;spcMD.status=null;refresh.force=true;refresh();queueThumbs(true)}
-setInterval(()=>{if(REMOTE_ID)return;const st=show.settings;const m=+st.autoMin||0;if(m>0&&Date.now()-autoLast>m*60000){autoLast=Date.now();refresh.force=true;refresh()}
+setInterval(()=>{if(REMOTE_ID)return;const st=show.settings;const m=+st.autoMin||0;if(m>0&&Date.now()-autoLast>m*60000){autoLast=Date.now();refresh()}
   if(st.dailyAt){const n=new Date(),hm=String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0'),day=n.toDateString();if(hm===st.dailyAt&&dailyDone!==day){dailyDone=day;autoLast=Date.now();fullRefresh();toast('Morning refresh: all data reloaded.')}}},20000);
 function drawLowerThird(g,T){const st=show.settings;if(!st.l3On||!st.l3Name)return;const age=(Date.now()-(st.l3At||0))/1000;const p=ease(age/.5);if(p<=0)return;
   const nm=String(st.l3Name).toUpperCase(),ti=String(st.l3Title||'').toUpperCase();const nf=`800 50px ${FD}`,tf=`700 26px ${FD}`;const w=Math.max(measure(g,nm,nf,2),measure(g,ti,tf,3))+90;const x=70,y=H-(st.showTicker?64:0)-(st.showBug?130:30)-128;
