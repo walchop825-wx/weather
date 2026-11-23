@@ -240,7 +240,7 @@ button.pill{cursor:pointer;background:transparent}
 <div class="status">
   <span><kbd>Space</kbd> play / stop</span><span><kbd>←</kbd><kbd>→</kbd> previous / next</span><span><kbd>V</kbd> select</span><span><kbd>T</kbd> pen</span><span><kbd>B</kbd> contour</span><span><kbd>N</kbd> total</span><span><kbd>Del</kbd> delete selection</span><span><kbd>E</kbd> export PNG</span><span><kbd>K</kbd> storm track</span><span><kbd>L</kbd> map label</span><span><kbd>1</kbd>–<kbd>9</kbd> cue</span><span><kbd>Enter</kbd> take</span>
   <span id="srcNote"></span>
-  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-23 · 52</span>
+  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-23 · 53</span>
 </div>
 <input type="file" id="fileIn" accept=".json,application/json" hidden>
 
@@ -1240,9 +1240,9 @@ function drawHolIcon(g,ic,cx,cy,r){g.save();g.translate(cx,cy);g.scale(r/50,r/50
   else if(ic==='tie'){C('#2f6fd8');g.beginPath();g.moveTo(-10,-30);g.lineTo(10,-30);g.lineTo(6,-20);g.lineTo(-6,-20);g.closePath();g.fill();g.beginPath();g.moveTo(-6,-18);g.lineTo(6,-18);g.lineTo(14,22);g.lineTo(0,36);g.lineTo(-14,22);g.closePath();g.fill();g.strokeStyle='#ffd34d';g.lineWidth=3;for(let k=0;k<3;k++){g.beginPath();g.moveTo(-10,-4+k*12);g.lineTo(10,-12+k*12);g.stroke()}}
   else if(ic==='burst'){C('#2a4a9e');g.beginPath();g.arc(0,0,32,Math.PI,0);g.fill();C('#d83a3a');g.beginPath();g.arc(0,0,32,0,Math.PI);g.fill();C('#ffffff');g.beginPath();for(let i=0;i<10;i++){const a=-Math.PI/2+i*Math.PI/5,R=i%2?8:19;g.lineTo(Math.cos(a)*R,Math.sin(a)*R)}g.closePath();g.fill()}
   g.restore()}
-function drawHolBadge(g,ic,cx,cy,r){g.save();g.shadowColor='rgba(0,0,0,.45)';g.shadowBlur=12;g.fillStyle='#ffffff';g.beginPath();g.arc(cx,cy,r,0,7);g.fill();g.restore();drawHolIcon(g,ic,cx,cy+1,r*.72)}
+function drawHolBadge(g,ic,cx,cy,r){g.save();g.shadowColor='rgba(0,0,0,.45)';g.shadowBlur=12;g.fillStyle='#ffffff';g.beginPath();g.arc(cx,cy,r,0,7);g.fill();g.restore();drawHolIcon(g,ic,cx,cy+1,r*.82)}
 function renderForecast(g,sc,t){
-  blurBg(g,regionFor(sc.city));const d=sc.mode==='custom'&&sc.custom?customDays(sc):getDaily(sc.city);const n=7,x0=80,gap=16,cw=(W-160-gap*(n-1))/n,anyHol=sc.holidays!==false&&d.slice(0,n).some(dd=>dd.date&&holidayOn(dd.date,sc)),y0=anyHol?232:250,ch=600;
+  blurBg(g,regionFor(sc.city));const d=sc.mode==='custom'&&sc.custom?customDays(sc):getDaily(sc.city);const n=7,x0=80,gap=16,cw=(W-160-gap*(n-1))/n,anyHol=sc.holidays!==false&&d.slice(0,n).some(dd=>dd.date&&holidayOn(dd.date,sc)),y0=anyHol?226:250,ch=anyHol?550:600,Y=(a,b)=>anyHol?b:a;
   d.slice(0,n).forEach((day,i)=>{const p=ease((t-.4-i*.08)/.5);if(p<=0)return;const x=x0+i*(cw+gap),y=y0+60*(1-p);
     const AI=dayAlertInfo(day.date,sc.city),AD=!!AI,HOL=sc.holidays!==false&&day.date?holidayOn(day.date,sc):null;g.save();g.globalAlpha=p;glass(g,x,y,cw,ch,14);if(AD){g.save();g.strokeStyle=ADRED;g.lineWidth=5;g.shadowColor=ADRED;g.shadowBlur=18;rr(g,x,y,cw,ch,14);g.stroke();g.restore()}
     g.save();rr(g,x,y,cw,86,14);g.clip();g.fillStyle=AD?ADRED:i===0?'#ffb21e':'rgba(30,80,170,.9)';g.fillRect(x,y,cw,86);g.restore();
@@ -1250,11 +1250,11 @@ function renderForecast(g,sc,t){
     if(AD){let al=(show.settings.alertDayLabel||'ALERT DAY').toUpperCase();if(!AI.full){const w='ALERT '+winText(AI.from,AI.to);al=measure(g,w,`800 16px ${FD}`,2)<=cw-24?w:'ALERT '+(AI.from>=18||AI.to<6?'NIGHT':AI.from>=12?'PM':AI.to<12?'AM':'DAY')}let fs=22;while(measure(g,al,`800 ${fs}px ${FD}`,2)>cw-24&&fs>12)fs--;g.fillStyle=ADRED;rr(g,x+10,y+96,cw-20,34,8);g.fill();text(g,al,x+cw/2,y+120,`800 ${fs}px ${FD}`,'#ffffff','center','alphabetic',2)}
     else if(HOL){let hn=HOL.name.toUpperCase(),fs=22;while(measure(g,hn,`800 ${fs}px ${FD}`,1.5)>cw-24&&fs>12)fs--;g.fillStyle=HOL.col;rr(g,x+10,y+96,cw-20,34,8);g.fill();text(g,hn,x+cw/2,y+120,`800 ${fs}px ${FD}`,HOL.col==='#ffb21e'||HOL.col==='#ffd34d'?'#0b1a38':'#ffffff','center','alphabetic',1.5)}
     else text(g,(day.date.getMonth()+1)+'/'+day.date.getDate(),x+cw/2,y+120,`600 26px ${FD}`,'#9fb4d8','center','alphabetic',1);
-    drawIcon(g,day.code,x+cw/2,y+210,140);if(HOL){const bq=ease((t-.9-i*.08)/.35);if(bq>0){g.save();g.globalAlpha=p*bq;drawHolBadge(g,HOL.icon,x+cw/2,y+ch+40,34*(.7+.3*bq));g.restore()}}
-    const desc=(day.desc||WMO[day.code]||'').toUpperCase();text(g,desc,x+cw/2,y+318,`700 26px ${FD}`,'#dfe8f7','center','alphabetic',1);
-    const hc=tempRGB(day.hi);g.fillStyle=rgb(hc);rr(g,x+cw/2-46,y+344,92,6,3);g.fill();
-    text(g,(day.hi??'--')+'°',x+cw/2+6,y+436,`800 98px ${FD}`,'#ffffff','center');
-    text(g,(day.lo??'--')+'°',x+cw/2+4,y+500,`700 58px ${FD}`,'#8fb0e0','center');
+    drawIcon(g,day.code,x+cw/2,y+Y(210,200),Y(140,124));if(HOL){const bq=ease((t-.9-i*.08)/.35);if(bq>0){g.save();g.globalAlpha=p*bq;drawHolBadge(g,HOL.icon,x+cw/2,y+ch+64,56*(.7+.3*bq));g.restore()}}
+    const desc=(day.desc||WMO[day.code]||'').toUpperCase();text(g,desc,x+cw/2,y+Y(318,296),`700 26px ${FD}`,'#dfe8f7','center','alphabetic',1);
+    const hc=tempRGB(day.hi);g.fillStyle=rgb(hc);rr(g,x+cw/2-46,y+Y(344,318),92,6,3);g.fill();
+    text(g,(day.hi??'--')+'°',x+cw/2+6,y+Y(436,402),`800 98px ${FD}`,'#ffffff','center');
+    text(g,(day.lo??'--')+'°',x+cw/2+4,y+Y(500,462),`700 58px ${FD}`,'#8fb0e0','center');
     g.fillStyle='rgba(255,255,255,.08)';rr(g,x+18,y+ch-78,cw-36,52,10);g.fill();
     if(day.snowTxt){text(g,'SNOW '+day.snowTxt.toUpperCase(),x+cw/2,y+ch-42,`700 28px ${FD}`,'#bfe0ff','center','alphabetic',1)}else if(day.pop==null&&sc.mode==='custom'){}else if(day.snow>=.1){text(g,'SNOW '+(day.snow<1?'<1':Math.round(day.snow))+'"',x+cw/2,y+ch-42,`700 28px ${FD}`,'#bfe0ff','center','alphabetic',1)}
     else{text(g,'PRECIP '+day.pop+'%',x+cw/2,y+ch-42,`700 28px ${FD}`,day.pop>=50?'#7cc4ff':'#c8d4e8','center','alphabetic',1)}
