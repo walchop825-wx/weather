@@ -14,7 +14,7 @@ await page.waitForTimeout(3000);
 const result = await page.evaluate(() => {
   const out = [];
   const c = document.createElement('canvas'); c.width = W; c.height = H; const g = c.getContext('2d');
-  const extra = { futuremap: [{ v: 'temp' }, { v: 'rain' }, { v: 'snow' }, { v: 'ptype' }, { v: 'wind' }], forecast7: [{}, { mode: 'custom' }], quake: [{}, { region: 'us', feature: 'latest', period: 'month' }], briefing: Object.keys(BRF_PRESETS).map(k => ({ preset: k })).concat([{ bmap: 'radar' }, { bmap: 'snow' }, { loop: true }, { bmap: 'spc1' }, { bmap: 'ero2' }, { bmap: 'wssi13' }, { bmap: 'qpf' }, { bmap: 'nhc' }]) };
+  const extra = { futuremap: [{ v: 'temp' }, { v: 'rain' }, { v: 'snow' }, { v: 'ptype' }, { v: 'wind' }], forecast7: [{}, { mode: 'custom' }], quake: [{}, { region: 'us', feature: 'latest', period: 'month' }], aurora: [{}], smoke: [{}, { loop: true }], briefing: Object.keys(BRF_PRESETS).map(k => ({ preset: k })).concat([{ bmap: 'radar' }, { bmap: 'snow' }, { loop: true }, { bmap: 'spc1' }, { bmap: 'ero2' }, { bmap: 'wssi13' }, { bmap: 'qpf' }, { bmap: 'nhc' }]) };
   for (const type of Object.keys(TYPE_NAMES)) {
     for (const o of (extra[type] || [{}])) {
       for (const t of [0.4, 2, 99]) {
