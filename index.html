@@ -240,7 +240,7 @@ button.pill{cursor:pointer;background:transparent}
 <div class="status">
   <span><kbd>Space</kbd> play / stop</span><span><kbd>←</kbd><kbd>→</kbd> previous / next</span><span><kbd>V</kbd> select</span><span><kbd>T</kbd> pen</span><span><kbd>B</kbd> contour</span><span><kbd>N</kbd> total</span><span><kbd>Del</kbd> delete selection</span><span><kbd>E</kbd> export PNG</span><span><kbd>K</kbd> storm track</span><span><kbd>L</kbd> map label</span><span><kbd>1</kbd>–<kbd>9</kbd> cue</span><span><kbd>Enter</kbd> take</span>
   <span id="srcNote"></span>
-  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-24 · 76</span>
+  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-24 · 77</span>
 </div>
 <input type="file" id="fileIn" accept=".json,application/json" hidden>
 
@@ -2210,7 +2210,7 @@ const BRF_BG={rain:'rain',snow:'snow',blizzard:'blizzard',ice:'ice',mix:'mix',se
 let bgScene=null,bgT=0;const bgLayers={};let bgPhotos={},bgPhotoImgs={};
 idb.get('bgphotos').then(v=>{if(v&&typeof v==='object'){bgPhotos=v;queueThumbs();if(typeof renderInspector==='function'&&document.querySelector('#insp'))renderInspector()}});
 function bgPhotoImg(id){const p=bgPhotos[id];if(!p)return null;let im=bgPhotoImgs[id];if(!im){im=bgPhotoImgs[id]=new Image();im.onload=()=>queueThumbs();im.src=p.data}return im.complete&&im.naturalWidth?im:null}
-const AUTO_BG_TYPES=['conditions','hourly','almanac','bottomline'];
+const AUTO_BG_TYPES=['conditions'];
 const bgDefault=sc=>sc&&sc.type==='briefing'?BRF_BG[sc.preset||'rain']:sc&&AUTO_BG_TYPES.includes(sc.type)?'auto':sc&&INFO_TYPES.includes(sc.type)?'brand':'map';
 function bgChoice(sc){const v=(sc&&sc.bg)||bgDefault(sc);if(v!=='auto')return v;const ck=sc&&sc.city&&CITIES[sc.city]&&['conditions','hourly','almanac'].includes(sc.type)?sc.city:show.settings.bugCity||CITY_KEYS[0],c=getCur(ck);if(!c)return'map';const w=c.code,C=CITIES[ck];
   const al=C?alerts.list.filter(a=>inRings(a.rings||a.zrings||[],C[2],C[1])).map(a=>a.event):[];const has=re=>al.some(e=>re.test(e));
