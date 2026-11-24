@@ -240,7 +240,7 @@ button.pill{cursor:pointer;background:transparent}
 <div class="status">
   <span><kbd>Space</kbd> play / stop</span><span><kbd>←</kbd><kbd>→</kbd> previous / next</span><span><kbd>V</kbd> select</span><span><kbd>T</kbd> pen</span><span><kbd>B</kbd> contour</span><span><kbd>N</kbd> total</span><span><kbd>Del</kbd> delete selection</span><span><kbd>E</kbd> export PNG</span><span><kbd>K</kbd> storm track</span><span><kbd>L</kbd> map label</span><span><kbd>1</kbd>–<kbd>9</kbd> cue</span><span><kbd>Enter</kbd> take</span>
   <span id="srcNote"></span>
-  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-23 · 57</span>
+  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-23 · 58</span>
 </div>
 <input type="file" id="fileIn" accept=".json,application/json" hidden>
 
@@ -2262,37 +2262,28 @@ function renderBriefing(g,sc,t,o){const st=show.settings,v=sc.bmap||'ptype',MX=8
   if(v==='radar'){renderRadarMap(g,Object.assign({},sc,{region:ik,product:'composite',tracks:[],labels:[],counties:sc.counties}),t,{noLabels:true,noCities:true})}
   else{g.drawImage(mapBase(ik),0,0);if(v!=='none'){g.save();g.clip(landPath(ik));g.globalAlpha=(v==='ptype'?.95:.82)*fade;g.drawImage(v==='ptype'?ptField(ik,hi):fmField(ik,v,hi),0,0);g.restore()}g.drawImage(mapOverlay(ik),0,0);drawCounties(g,{region:ik,counties:sc.counties})}
   const R=REGIONS[sc.region]||REGIONS.pa,cand=[...(R.national?US_MAP_CITIES:R.cities),...(sc.region==='us'?[]:CITY_KEYS)].filter((k,i,a)=>CITIES[k]&&a.indexOf(k)===i);const placed=[],yMax=H-tick-70,showV=['temp','feels','gust','rain','snow'].includes(v);
-  for(const k of cand){if(placed.length>=(R.national?10:8))break;const x=P.x(CITIES[k][2]),y=P.y(CITIES[k][1]);const hw=measure(g,CITIES[k][0].toUpperCase(),`800 ${showV?24:34}px ${FD}`)/2+8;if(x-hw<MX+14||x+hw>W-14||y<300||y>yMax)continue;if(st.showBug!==false&&x>W-560&&y>H-tick-150)continue;if(placed.some(p=>Math.abs(p[0]-x)<(showV?170:260)&&Math.abs(p[1]-y)<(showV?95:70)))continue;placed.push([x,y,k])}
+  for(const k of cand){if(placed.length>=(R.national?10:8))break;const x=P.x(CITIES[k][2]),y=P.y(CITIES[k][1]);const hw=measure(g,CITIES[k][0].toUpperCase(),`800 ${showV?24:34}px ${FD}`)/2+8;if(x-hw<MX+14||x+hw>W-14||y<330||y>yMax)continue;if(st.showBug!==false&&x>W-560&&y>H-tick-150)continue;if(placed.some(p=>Math.abs(p[0]-x)<(showV?170:260)&&Math.abs(p[1]-y)<(showV?95:70)))continue;placed.push([x,y,k])}
   const lp=ease((t-.5)/.5);if(lp>0){g.save();g.globalAlpha=lp;placed.forEach(([x,y,k])=>{const nm=CITIES[k][0].toUpperCase();if(showV){const val=fmVal(k,v,hi);if(val==null){outlinedText(g,nm,x,y+10,`800 30px ${FD}`,'#ffffff');return}outlinedText(g,v==='snow'?fmtSnow(val):v==='rain'?fmtRain(val):val+(v==='gust'?'':'°'),x,y+8,`800 50px ${FD}`,'#ffffff');outlinedText(g,nm,x,y+34,`700 20px ${FD}`,'#dfe8f7')}else outlinedText(g,nm,x,y+12,`800 34px ${FD}`,'#ffffff')});g.restore()}
   g.restore();
   // header
-  const title=String(sc.title||BRF_PRESETS[sc.preset||'rain']?.title||'Weather Briefing');if(hdrFor!=null)hdrTitles[hdrFor]=title;
-  let sub=sc.sub;if(!sub){const d=fmTime(hi);sub=v==='radar'?'Live Radar   '+fmtTime(new Date()):v==='none'?'':(v==='rain'||v==='snow'?'Totals Through '+fmtTime(d).replace(':00','')+'   ':fmtTime(d)+'   ')+DAYN[d.getDay()]}
-  const hp=ease(t/.5);if(hp>0){g.save();g.globalAlpha=hp;g.translate(-50*(1-hp),0);const hx=64,hy=90,hr=1856;
-    g.save();g.shadowColor='rgba(0,0,0,.45)';g.shadowBlur=24;g.shadowOffsetY=8;g.fillStyle='#ffffff';g.beginPath();g.moveTo(370,hy);g.lineTo(hr,hy);g.lineTo(hr,hy+106);g.lineTo(330,hy+106);g.closePath();g.fill();g.restore();
-    const lg=g.createLinearGradient(0,hy+106,0,hy+164);lg.addColorStop(0,'#14306e');lg.addColorStop(1,'#0b1c46');g.fillStyle=lg;g.fillRect(hx,hy+106,hr-hx,58);
-    const bg2=g.createLinearGradient(0,hy,0,hy+164);bg2.addColorStop(0,'#1d4fb8');bg2.addColorStop(1,'#0f2d78');g.fillStyle=bg2;g.beginPath();g.moveTo(hx,hy);g.lineTo(370,hy);g.lineTo(330,hy+106);g.lineTo(330,hy+164);g.lineTo(hx,hy+164);g.closePath();g.fill();
-    const nm=String(st.station||'WEATHER').toUpperCase();let nf=46;while(nf>22&&measure(g,nm,`800 ${nf}px ${FD}`,1)>236)nf--;text(g,nm,hx+20,hy+64,`800 ${nf}px ${FD}`,'#ffffff','left','alphabetic',1);
-    const tag=String(sc.tag??'STORM TEAM').toUpperCase();if(tag){let tf=24;while(tf>12&&measure(g,tag,`800 ${tf}px ${FD}`,2)>220)tf--;const tw=measure(g,tag,`800 ${tf}px ${FD}`,2)+24;g.fillStyle=BA();rr(g,hx+18,hy+82,tw,36,4);g.fill();text(g,tag,hx+30,hy+108,`800 ${tf}px ${FD}`,lum(hex3(BA()))<=.55?'#ffffff':'#0b1a38','left','alphabetic',2)}
-    const T=title.toUpperCase();let tf=64;while(tf>32&&measure(g,T,`800 ${tf}px ${FD}`,1)>hr-430)tf-=2;text(g,T,400,hy+(sub?62:76),`800 ${tf}px ${FD}`,'#0f2a66','left','alphabetic',1);
-    if(sub)text(g,sub.toUpperCase(),402,hy+96,`700 30px ${FD}`,'#5b6b88','left','alphabetic',1.5);
-    brfLegend(g,sc,370,hr,hy+106,58);g.restore()}
+  const title=String(sc.title||BRF_PRESETS[sc.preset||'rain']?.title||'Weather Briefing');  let sub=sc.sub;if(!sub){const d=fmTime(hi);sub=v==='radar'?'Live Radar   '+fmtTime(new Date()):v==='none'?'':(v==='rain'||v==='snow'?'Totals Through '+fmtTime(d).replace(':00','')+'   ':fmtTime(d)+'   ')+DAYN[d.getDay()]}
+  const hp=ease((t-.25)/.5);if(hp>0&&v!=='none'){g.save();g.globalAlpha=hp;const lx=MX+20,lw=W-64-lx;glass(g,lx,232,lw,56,10);brfLegend(g,sc,lx+10,lx+lw-10,231,58);g.restore()}
   // left panel
-  const px=64,pw=MX-px,top=280,L=brfLevels(sc),n=L.length,sw=pw/n,cols=brfScale(n);if(sc.rev)cols.reverse();const lv=clamp(+sc.level||1,1,n);
+  const px=64,pw=MX-px,top=232,L=brfLevels(sc),n=L.length,sw=pw/n,cols=brfScale(n);if(sc.rev)cols.reverse();const lv=clamp(+sc.level||1,1,n);
   const mp=ease((t-.3)/.45);if(mp>0){g.save();g.globalAlpha=mp;g.translate(-40*(1-mp),0);
-    g.fillStyle='#ffffff';g.fillRect(px,top,pw,46);let lf=30;L.forEach(l=>{while(lf>14&&measure(g,l.toUpperCase(),`800 ${lf}px ${FD}`,1)>sw-14)lf--});const f=lf;L.forEach((l,i)=>{const u=l.toUpperCase();text(g,u,px+sw*i+sw/2,top+35,`800 ${f}px ${FD}`,'#0f2a66','center','alphabetic',1)});
+    g.fillStyle='#ffffff';g.fillRect(px,top,pw,46);let lf=30;L.forEach(l=>{while(lf>14&&measure(g,l.toUpperCase(),`800 ${lf}px ${FD}`,1)>sw-14)lf--});const f=lf;L.forEach((l,i)=>{const u=l.toUpperCase();text(g,u,px+sw*i+sw/2,top+35,`800 ${f}px ${FD}`,BP(),'center','alphabetic',1)});
     cols.forEach((c,i)=>{const C=BRF_SEG[c],x=px+sw*i,gr=g.createLinearGradient(x,0,x+sw,0);gr.addColorStop(0,C[1]);gr.addColorStop(1,C[0]);g.fillStyle=gr;g.fillRect(x,top+46,sw+.5,62);g.fillStyle='rgba(255,255,255,.18)';g.fillRect(x,top+46,sw,4)});
     const ap=ease((t-.75)/.7),mx=px+sw*((1+(lv-1)*ap)-.5);g.save();g.shadowColor='rgba(0,0,0,.4)';g.shadowBlur=8;g.fillStyle='#ffffff';g.beginPath();g.moveTo(mx-24,top+108);g.lineTo(mx+24,top+108);g.lineTo(mx,top+70);g.closePath();g.fill();g.restore();
-    const cg=g.createLinearGradient(0,top+108,0,top+172);cg.addColorStop(0,'#2d62d6');cg.addColorStop(1,'#1c45ad');g.fillStyle=cg;g.fillRect(px,top+108,pw,64);
+    const cg=g.createLinearGradient(0,top+108,0,top+172);cg.addColorStop(0,shade(BP(),.25));cg.addColorStop(1,BP());g.fillStyle=cg;g.fillRect(px,top+108,pw,64);
     const cap=String(sc.meter??'');if(cap){let f=40;while(f>20&&measure(g,cap,`600 ${f}px ${FD}`,.5)>pw-40)f--;text(g,cap,px+pw/2,top+154,`600 ${f}px ${FD}`,'#ffffff','center','alphabetic',.5)}g.restore()}
   const secs=(sc.secs||[]).filter(s=>s&&(String(s.h||'').trim()||String(s.b||'').trim())).slice(0,3);const sy=top+190,bot=H-tick-22,avail=bot-sy,hh=54,gap=14,tw=pw-44;
   const lay=f=>{const fn=`600 ${f}px ${FD}`;return secs.map(s=>{const out=[];String(s.b||'').split('\n').forEach(p=>{p=p.trim();if(!p)return;wrapLines(g,p,fn,tw,12).forEach(l=>out.push(l))});return out})};
   let f=44,LS=lay(f);const need=(f,LS)=>secs.reduce((a,s,i)=>a+(String(s.h||'').trim()?hh:0)+(LS[i].length?LS[i].length*f*1.2+26:0),0)+gap*Math.max(0,secs.length-1);
   while(f>22&&(need(f,LS)>avail||LS.some(ls=>ls.some(l=>measure(g,l,`600 ${f}px ${FD}`)>tw)))){f-=2;LS=lay(f)}
   let y=sy;secs.forEach((s,i)=>{const p=ease((t-.55-i*.18)/.45);const hd=String(s.h||'').trim().toUpperCase(),bl=LS[i],bh=bl.length?bl.length*f*1.2+26:0;if(y+(hd?hh:0)>bot)return;
-    if(p>0){g.save();g.globalAlpha=p;g.translate(-40*(1-p),0);if(hd){const hg=g.createLinearGradient(0,y,0,y+hh);hg.addColorStop(0,'#ffffff');hg.addColorStop(1,'#dfe5ef');g.fillStyle=hg;g.fillRect(px,y,pw,hh);let hf=42;while(hf>20&&measure(g,hd,`800 ${hf}px ${FD}`,1)>pw-44)hf--;text(g,hd,px+22,y+hh/2+hf*.36,`800 ${hf}px ${FD}`,'#0f2a66','left','alphabetic',1)}
-      if(bl.length){const by=y+(hd?hh:0),h2=Math.min(bh,bot-by);const bg3=g.createLinearGradient(0,by,0,by+h2);bg3.addColorStop(0,'#2152c2');bg3.addColorStop(1,'#173f9e');g.fillStyle=bg3;g.fillRect(px,by,pw,h2);g.save();g.beginPath();g.rect(px,by,pw,h2);g.clip();bl.forEach((l,j)=>text(g,l,px+22,by+13+f*.98+j*f*1.2,`600 ${f}px ${FD}`,'#ffffff','left'));g.restore()}g.restore()}
-    y+=(hd?hh:0)+bh+gap})}
+    if(p>0){g.save();g.globalAlpha=p;g.translate(-40*(1-p),0);if(hd){const hg=g.createLinearGradient(0,y,0,y+hh);hg.addColorStop(0,'#ffffff');hg.addColorStop(1,'#dfe5ef');g.fillStyle=hg;g.fillRect(px,y,pw,hh);let hf=42;while(hf>20&&measure(g,hd,`800 ${hf}px ${FD}`,1)>pw-44)hf--;g.fillStyle=BA();g.fillRect(px,y,10,hh);text(g,hd,px+26,y+hh/2+hf*.36,`800 ${hf}px ${FD}`,shade(BP(),-.2),'left','alphabetic',1)}
+      if(bl.length){const by=y+(hd?hh:0),h2=Math.min(bh,bot-by);const bg3=g.createLinearGradient(0,by,0,by+h2);bg3.addColorStop(0,shade(BP(),.12));bg3.addColorStop(1,shade(BP(),-.3));g.fillStyle=bg3;g.fillRect(px,by,pw,h2);g.save();g.beginPath();g.rect(px,by,pw,h2);g.clip();bl.forEach((l,j)=>text(g,l,px+22,by+13+f*.98+j*f*1.2,`600 ${f}px ${FD}`,'#ffffff','left'));g.restore()}g.restore()}
+    y+=(hd?hh:0)+bh+gap});drawHeader(g,title,sub,t)}
 function renderBottomLine(g,sc,t){blurBg(g,sc.region||'pa');const rows=(sc.bl||[]).filter(r=>r&&(String(r.q||'').trim()||String(r.a||'').trim())).slice(0,6);
   if(!rows.length){centerMsg(g,'ADD QUESTIONS IN THE SCENE TAB');drawHeader(g,sc.title||DEF_TITLES.bottomline,sc.sub||'',t);return}
   const qw=900,aw=440,gap=8,x0=(W-qw-aw-gap)/2,top=250,avail=H-(show.settings.showTicker?64:0)-(show.settings.showBug===false?60:190)-top,rh=Math.min(150,Math.floor((avail-(rows.length-1)*gap)/rows.length));const y0=top+Math.max(0,(avail-(rows.length*rh+(rows.length-1)*gap))/2);
@@ -3167,7 +3158,6 @@ function renderInspector(){syncClrTrack();
   if(sc.type==='impact')h+=`<div class="sec"><h3>Impact meter</h3><label class="f">Level<select id="i-lv" data-k="level">${opts([[1,'1 · Low'],[2,'2 · Minor'],[3,'3 · Moderate'],[4,'4 · High'],[5,'5 · Extreme']],+sc.level)}</select></label><label class="f">Message<input type="text" id="i-idesc" data-k="desc" value="${esc(sc.desc||'')}" placeholder="${esc(IMPACT_DESC[clamp(+sc.level||3,1,5)-1])}"></label></div>`;
   if(sc.type==='briefing'){const n=brfLevels(sc).length,lvO=[];for(let i=1;i<=n;i+=.5)lvO.push([i,(Number.isInteger(i)?'':'Between ')+brfLevels(sc).slice(Math.floor(i)-1,Math.ceil(i)).join(' and ')]);const h0=data.hourly&&data.hourly.harrisburg,t0=h0?h0.time[hourStart(h0)].getTime():(()=>{const d=new Date();d.setMinutes(0,0,0);return d.getTime()})(),N=brfHours(),tl=ms=>{const d=new Date(ms);return DOW[d.getDay()].slice(0,1)+DOW[d.getDay()].slice(1).toLowerCase()+' '+fmtTime(d).replace(':00','')};const tO=[['auto','Auto: '+((sc.bmap||'ptype')==='rain'||(sc.bmap||'ptype')==='snow'?'totals through ':'busiest hour, ')+tl(t0+brfAuto(sc)*3600e3)]];for(let i=0;i<=N;i+=3)tO.push([t0+i*3600e3,tl(t0+i*3600e3)]);const wv=sc.when&&sc.when!=='auto'?String(t0+brfHour(sc)*3600e3):'auto';
     h+=`<div class="sec"><h3>Briefing</h3><label class="f">Weather type<select data-k="preset">${opts(Object.entries(BRF_PRESETS).map(([k,v])=>[k,v.n]),sc.preset||'rain')}</select></label><p class="note">Changing the type loads its meter, map and sample text. Edit everything below after that.</p>
-    <label class="f">Tag under the station name<input type="text" data-k="tag" value="${esc(sc.tag??'STORM TEAM')}" placeholder="Leave blank to hide"></label>
     <label class="f">Meter caption<input type="text" data-k="meter" value="${esc(sc.meter??'')}"></label>
     <label class="f">Meter levels, separated by commas (2 to 5)<input type="text" data-k="levels" value="${esc(sc.levels||'')}"></label>
     <div class="row2"><label class="f">Marker<select data-k="level">${opts(lvO,clamp(+sc.level||1,1,n))}</select></label><label class="chk"><input type="checkbox" data-k="rev"${sc.rev?' checked':''}>Green on the high end</label></div>
