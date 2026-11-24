@@ -240,7 +240,7 @@ button.pill{cursor:pointer;background:transparent}
 <div class="status">
   <span><kbd>Space</kbd> play / stop</span><span><kbd>←</kbd><kbd>→</kbd> previous / next</span><span><kbd>V</kbd> select</span><span><kbd>T</kbd> pen</span><span><kbd>B</kbd> contour</span><span><kbd>N</kbd> total</span><span><kbd>Del</kbd> delete selection</span><span><kbd>E</kbd> export PNG</span><span><kbd>K</kbd> storm track</span><span><kbd>L</kbd> map label</span><span><kbd>1</kbd>–<kbd>9</kbd> cue</span><span><kbd>Enter</kbd> take</span>
   <span id="srcNote"></span>
-  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-24 · 75</span>
+  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-24 · 76</span>
 </div>
 <input type="file" id="fileIn" accept=".json,application/json" hidden>
 
@@ -1214,7 +1214,19 @@ function renderTemps(g,sc,t,o){
   drawMapLabels(g,sc,P,o,t);
   drawHeader(g,sc.title||DEF_TITLES.temps,sc.sub||R.name,t);
 }
-function blurBg(g,rk){const ch=bgChoice(bgScene);if(ch!=='map'){if(BG_THEMES[ch]){drawThemeBg(g,ch,bgT);return}const im=bgPhotoImg(ch);if(im){drawPhotoBg(g,im);return}}blurMap(g,rk)}
+
+const brandLayers={};
+function brandLayer(){const P0=BP(),A0=BA(),key=P0+A0;if(brandLayers[key])return brandLayers[key];const c=document.createElement('canvas');c.width=1920;c.height=1080;const g=c.getContext('2d');
+  const gr=g.createLinearGradient(0,0,0,1080);gr.addColorStop(0,shade(P0,-.25));gr.addColorStop(.55,shade(P0,-.6));gr.addColorStop(1,shade(P0,-.82));g.fillStyle=gr;g.fillRect(0,0,1920,1080);
+  let rg=g.createRadialGradient(1500,120,0,1500,120,1100);rg.addColorStop(0,hexA(shade(P0,.35),.55));rg.addColorStop(1,hexA(shade(P0,.35),0));g.fillStyle=rg;g.fillRect(0,0,1920,1080);
+  rg=g.createRadialGradient(220,1000,0,220,1000,800);rg.addColorStop(0,hexA(A0,.16));rg.addColorStop(1,hexA(A0,0));g.fillStyle=rg;g.fillRect(0,0,1920,1080);
+  g.save();g.globalAlpha=1;[[-200,520,.05],[260,220,.035],[1100,380,.04],[1500,160,.03]].forEach(([x0,w,a])=>{g.fillStyle=`rgba(255,255,255,${a})`;g.beginPath();g.moveTo(x0+380,0);g.lineTo(x0+380+w,0);g.lineTo(x0+w,1080);g.lineTo(x0,1080);g.closePath();g.fill()});
+  g.fillStyle=hexA(A0,.5);g.beginPath();g.moveTo(1680,0);g.lineTo(1694,0);g.lineTo(1314,1080);g.lineTo(1300,1080);g.closePath();g.globalAlpha=.35;g.fill();g.restore();
+  g.fillStyle='rgba(255,255,255,.045)';for(let y=24;y<1080;y+=36)for(let x=(y/36%2)*18+12;x<1920;x+=36){g.beginPath();g.arc(x,y,1.6,0,7);g.fill()}
+  const vg=g.createRadialGradient(960,540,400,960,540,1250);vg.addColorStop(0,'rgba(0,0,0,0)');vg.addColorStop(1,'rgba(0,0,0,.45)');g.fillStyle=vg;g.fillRect(0,0,1920,1080);return brandLayers[key]=c}
+function drawBrandBg(g,t){g.drawImage(brandLayer(),0,0,W,H);const ph=(t%9)/9;const x=-700+ph*(W+1400);g.save();const sg=g.createLinearGradient(x-260,0,x+260,0);sg.addColorStop(0,'rgba(255,255,255,0)');sg.addColorStop(.5,'rgba(255,255,255,.06)');sg.addColorStop(1,'rgba(255,255,255,0)');g.fillStyle=sg;g.beginPath();g.moveTo(x-60,0);g.lineTo(x+460,0);g.lineTo(x+60,H);g.lineTo(x-460,H);g.closePath();g.fill();
+  for(let i=0;i<14;i++){const px=(rnd(i,1)*W+t*(8+rnd(i,2)*14))%W,py=H-((rnd(i,3)*H+t*(6+rnd(i,4)*10))%H),r=40+rnd(i,5)*90;const rg=g.createRadialGradient(px,py,0,px,py,r);rg.addColorStop(0,`rgba(255,255,255,${.025+rnd(i,6)*.03})`);rg.addColorStop(1,'rgba(255,255,255,0)');g.fillStyle=rg;g.fillRect(px-r,py-r,2*r,2*r)}g.restore()}
+function blurBg(g,rk){const ch=bgChoice(bgScene);if(ch==='brand'){drawBrandBg(g,bgT);return}if(ch!=='map'){if(BG_THEMES[ch]){drawThemeBg(g,ch,bgT);return}const im=bgPhotoImg(ch);if(im){drawPhotoBg(g,im);return}}blurMap(g,rk)}
 function blurMap(g,rk){g.save();if('filter' in g)g.filter='blur(8px) brightness(.55) saturate(1.2)';g.drawImage(mapBase(rk),-30,-30,W+60,H+60);g.restore();if(!('filter' in g)){g.fillStyle='rgba(0,0,0,.45)';g.fillRect(0,0,W,H)}}
 function regionFor(k){const[,lat,lon]=CITIES[k];if(lon>-30)return(lat>49.3&&lon<2.5&&lon>-11)?'uk':'eu';if(cityST(k)==='CT')return'ct';if(lon<-82.5||lat<37.5)return'us';return(lat>39.6&&lat<42.3&&lon>-80.6&&lon<-74.6)?'pa':'ne'}
 /* ---------- Holiday graphics for the 7-Day ---------- */
@@ -2193,14 +2205,14 @@ function renderClosings(g,sc,t){blurBg(g,sc.region||'pa');const L=closingsList()
 
 /* ---------- Backgrounds for information graphics: blurred map, animated weather themes, or your own photos ---------- */
 const INFO_TYPES=['holtravel','briefing','forecast7','conditions','models','timeline','hourly','almanac','rivers','impact','closings','bottomline','event','travel','extremes'];
-const BG_THEMES={map:'Blurred map',auto:'Match the weather now',snow:'Snow',rain:'Rain',storm:'Thunderstorm',wind:'Wind',sun:'Sunny',clouds:'Cloudy',fog:'Fog',night:'Clear night',ice:'Ice',mix:'Wintry mix',heat:'Heat',cold:'Bitter cold',tropical:'Tropical',heavysnow:'Heavy snow',blizzard:'Blizzard'};
+const BG_THEMES={map:'Blurred map',auto:'Match the weather now',snow:'Snow',rain:'Rain',storm:'Thunderstorm',wind:'Wind',sun:'Sunny',clouds:'Cloudy',fog:'Fog',night:'Clear night',ice:'Ice',mix:'Wintry mix',heat:'Heat',cold:'Bitter cold',tropical:'Tropical',heavysnow:'Heavy snow',blizzard:'Blizzard',brand:'Station look (brand colors)'};
 const BRF_BG={rain:'rain',snow:'snow',blizzard:'blizzard',ice:'ice',mix:'mix',severe:'storm',wind:'wind',heat:'heat',cold:'cold',flood:'rain',fog:'fog',tropical:'tropical',nice:'sun'};
 let bgScene=null,bgT=0;const bgLayers={};let bgPhotos={},bgPhotoImgs={};
 idb.get('bgphotos').then(v=>{if(v&&typeof v==='object'){bgPhotos=v;queueThumbs();if(typeof renderInspector==='function'&&document.querySelector('#insp'))renderInspector()}});
 function bgPhotoImg(id){const p=bgPhotos[id];if(!p)return null;let im=bgPhotoImgs[id];if(!im){im=bgPhotoImgs[id]=new Image();im.onload=()=>queueThumbs();im.src=p.data}return im.complete&&im.naturalWidth?im:null}
-const AUTO_BG_TYPES=['conditions','forecast7','hourly','almanac','bottomline'];
-const bgDefault=sc=>sc&&sc.type==='briefing'?BRF_BG[sc.preset||'rain']:sc&&AUTO_BG_TYPES.includes(sc.type)?'auto':'map';
-function bgChoice(sc){const v=(sc&&sc.bg)||bgDefault(sc);if(v!=='auto')return v;const ck=sc&&sc.city&&CITIES[sc.city]&&['conditions','forecast7','hourly','almanac'].includes(sc.type)?sc.city:show.settings.bugCity||CITY_KEYS[0],c=getCur(ck);if(!c)return'map';const w=c.code,C=CITIES[ck];
+const AUTO_BG_TYPES=['conditions','hourly','almanac','bottomline'];
+const bgDefault=sc=>sc&&sc.type==='briefing'?BRF_BG[sc.preset||'rain']:sc&&AUTO_BG_TYPES.includes(sc.type)?'auto':sc&&INFO_TYPES.includes(sc.type)?'brand':'map';
+function bgChoice(sc){const v=(sc&&sc.bg)||bgDefault(sc);if(v!=='auto')return v;const ck=sc&&sc.city&&CITIES[sc.city]&&['conditions','hourly','almanac'].includes(sc.type)?sc.city:show.settings.bugCity||CITY_KEYS[0],c=getCur(ck);if(!c)return'map';const w=c.code,C=CITIES[ck];
   const al=C?alerts.list.filter(a=>inRings(a.rings||a.zrings||[],C[2],C[1])).map(a=>a.event):[];const has=re=>al.some(e=>re.test(e));
   if(has(/Blizzard/))return'blizzard';if(has(/Ice Storm/))return'ice';if(has(/Hurricane|Tropical Storm/))return'tropical';if(has(/Excessive Heat|Extreme Heat|Heat Advisory|Heat Warning/))return'heat';if(has(/Extreme Cold|Wind Chill|Cold Weather/))return'cold';
   if([95,96,99].includes(w))return'storm';if([56,57,66,67].includes(w))return'ice';if([75,86].includes(w))return(c.gust||0)>=35?'blizzard':'heavysnow';if([71,73,77,85].includes(w))return(c.gust||0)>=40?'blizzard':'snow';
