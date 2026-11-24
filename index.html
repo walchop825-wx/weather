@@ -240,7 +240,7 @@ button.pill{cursor:pointer;background:transparent}
 <div class="status">
   <span><kbd>Space</kbd> play / stop</span><span><kbd>←</kbd><kbd>→</kbd> previous / next</span><span><kbd>V</kbd> select</span><span><kbd>T</kbd> pen</span><span><kbd>B</kbd> contour</span><span><kbd>N</kbd> total</span><span><kbd>Del</kbd> delete selection</span><span><kbd>E</kbd> export PNG</span><span><kbd>K</kbd> storm track</span><span><kbd>L</kbd> map label</span><span><kbd>1</kbd>–<kbd>9</kbd> cue</span><span><kbd>Enter</kbd> take</span>
   <span id="srcNote"></span>
-  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-24 · 71</span>
+  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-24 · 72</span>
 </div>
 <input type="file" id="fileIn" accept=".json,application/json" hidden>
 
@@ -3073,8 +3073,9 @@ function htCond(k,di){const d=getDaily(k)[di];if(!d)return null;const c=d.code,g
   if([56,57,66,67].includes(c)){lv=3;lb='ICY'}else if([71,73,75,77,85,86].includes(c)){lv=(d.snow||0)>=1||c===75||c===86?3:2;lb='SNOW'}else if([95,96,99].includes(c)){lv=2;lb='STORMS'}else if([51,53,55,61,63,65,80,81,82].includes(c)&&(d.pop==null||d.pop>=40)){lv=c===65||c===82?2:1;lb='WET'}else if([45,48].includes(c)){lv=1;lb='FOG'}
   if(gu!=null&&gu>=40&&lv<2){lv=Math.max(lv,gu>=50?2:1);lb=lb==='GOOD'?'WINDY':lb}return{d,lv,lb,gu}}
 const htCol=lv=>['#2fbf5a','#ffd21f','#ff8c1a','#e8303a'][lv];
-function drawShield(g,x,y,num,s){g.save();g.translate(x,y);g.scale(s,s);g.beginPath();g.moveTo(-24,-26);g.quadraticCurveTo(0,-32,24,-26);g.quadraticCurveTo(30,4,0,28);g.quadraticCurveTo(-30,4,-24,-26);g.closePath();g.fillStyle='#ffffff';g.fill();
-  g.beginPath();g.moveTo(-20,-22);g.quadraticCurveTo(0,-27,20,-22);g.lineTo(21,-12);g.lineTo(-21,-12);g.closePath();g.fillStyle='#c8102e';g.fill();g.beginPath();g.moveTo(-21,-10);g.lineTo(21,-10);g.quadraticCurveTo(25,6,0,24);g.quadraticCurveTo(-25,6,-21,-10);g.closePath();g.fillStyle='#003f87';g.fill();text(g,String(num),0,15,`800 ${num.length>2?18:24}px ${FD}`,'#ffffff','center');g.restore()}
+function drawShield(g,x,y,num,s){const sh=(k)=>{const p=new Path2D();p.moveTo(0,-27*k);p.quadraticCurveTo(-15*k,-32*k,-28*k,-29*k);p.bezierCurveTo(-31*k,-8*k,-28*k,14*k,0,31*k);p.bezierCurveTo(28*k,14*k,31*k,-8*k,28*k,-29*k);p.quadraticCurveTo(15*k,-32*k,0,-27*k);p.closePath();return p};
+  g.save();g.translate(x,y);g.scale(s,s);g.shadowColor='rgba(0,0,0,.45)';g.shadowBlur=6;g.shadowOffsetY=2;g.fillStyle='#ffffff';g.fill(sh(1));g.shadowColor='transparent';const inner=sh(.86);g.save();g.clip(inner);g.fillStyle='#003f87';g.fillRect(-40,-40,80,80);g.fillStyle='#c8102e';g.fillRect(-40,-40,80,28);g.fillStyle='#ffffff';g.fillRect(-40,-12,80,2.2);
+  text(g,'INTERSTATE',0,-15.5,`800 6.5px ${FD}`,'#ffffff','center','alphabetic',.4);g.restore();text(g,String(num),0,15,`800 ${String(num).length>2?19:26}px ${FD}`,'#ffffff','center');g.restore()}
 function renderHolTravel(g,sc,t){blurBg(g,sc.region||'ne');const A=htAuto(),di=sc.day==null||sc.day==='auto'?A.day:+sc.day;const routes=(sc.routes||['i81','i76','i78','i80','i95']).filter(k=>HT_ROUTES[k]).slice(0,6),airs=(sc.airports||['MDT','PHL','PIT','BWI','NYC','BOS']).filter(k=>HT_AIR[k]).slice(0,8);
   const tick=show.settings.showTicker?64:0,top=250,bot=H-tick-40;
   const col=(x,w,title,rows,draw,bot=H-tick-40)=>{const q=ease((t-.3)/.5);g.save();g.globalAlpha=q;text(g,title,x+4,top+24,`800 26px ${FD}`,'#ffb21e','left','alphabetic',3);g.restore();const rh=Math.min(112,(bot-top-44)/Math.max(1,rows.length));rows.forEach((r,i)=>{const p=ease((t-.45-i*.08)/.45);if(p<=0)return;const y=top+44+i*rh;g.save();g.globalAlpha=p;g.translate(40*(1-p),0);glass(g,x,y,w,rh-12,10);draw(r,x,y,w,rh-12);g.restore()})};
