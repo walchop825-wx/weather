@@ -240,7 +240,7 @@ button.pill{cursor:pointer;background:transparent}
 <div class="status">
   <span><kbd>Space</kbd> play / stop</span><span><kbd>←</kbd><kbd>→</kbd> previous / next</span><span><kbd>V</kbd> select</span><span><kbd>T</kbd> pen</span><span><kbd>B</kbd> contour</span><span><kbd>N</kbd> total</span><span><kbd>Del</kbd> delete selection</span><span><kbd>E</kbd> export PNG</span><span><kbd>K</kbd> storm track</span><span><kbd>L</kbd> map label</span><span><kbd>1</kbd>–<kbd>9</kbd> cue</span><span><kbd>Enter</kbd> take</span>
   <span id="srcNote"></span>
-  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-24 · 83</span>
+  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-24 · 84</span>
 </div>
 <input type="file" id="fileIn" accept=".json,application/json" hidden>
 
@@ -615,11 +615,11 @@ async function loadLive(force){
   const T1s=new Set(usedCities()),T1=NA.filter(k=>T1s.has(k)),T2=NA.filter(k=>hs.has(k)&&!T1s.has(k)),T3=COLD;const euOn=omCities().some(k=>CITIES[k][2]>=-30);
   try{
     await tier('c1',T1,(force?2:15)*60e3,fetchCur,'America%2FNew_York',true);
-    await tier('d1',HOT,(force?15:180)*60e3,fetchDaily,'America%2FNew_York',true);
-    await tier('c2',T2,60*60e3,fetchCur,'America%2FNew_York');
-    await tier('c3',T3,6*3600e3,fetchCur,'America%2FNew_York');
-    await tier('d3',T3,6*3600e3,fetchDaily,'America%2FNew_York');
-    if(euOn){await tier('ce',EU,30*60e3,fetchCur,'auto');await tier('de',EU,180*60e3,fetchDaily,'auto')}
+    await tier('d1',HOT,(force?15:omKey?60:180)*60e3,fetchDaily,'America%2FNew_York',true);
+    await tier('c2',T2,(omKey?15:60)*60e3,fetchCur,'America%2FNew_York');
+    await tier('c3',T3,(omKey?1:6)*3600e3,fetchCur,'America%2FNew_York');
+    await tier('d3',T3,(omKey?3:6)*3600e3,fetchDaily,'America%2FNew_York');
+    if(euOn){await tier('ce',EU,(omKey?15:30)*60e3,fetchCur,'auto');await tier('de',EU,(omKey?60:180)*60e3,fetchDaily,'auto')}
     if(blocked&&!(C.c1&&C.c1.v))throw new Error('429');if(!omLeader&&!(C.c1&&C.c1.v))throw new Error('Another studio tab is loading the data');
     const ci=c=>(c&&c.v)||{};const curAll=Object.assign({},ci(C.c3),ci(C.c2),ci(C.c1),ci(C.ce));const dayAll=Object.assign({},ci(C.d3),ci(C.d1),ci(C.de));
     if(C.cd&&C.cd.cur)CITY_KEYS.forEach(k=>{if(!curAll[k]&&C.cd.cur[k])curAll[k]=C.cd.cur[k];if(!dayAll[k]&&C.cd.daily&&C.cd.daily[k])dayAll[k]=C.cd.daily[k]});
@@ -631,7 +631,7 @@ async function loadLive(force){
   data.nwsFb=false;
   // hourly, only for cities a scene needs; every 30 minutes, filling in new cities as scenes are added
   const need=modelCities();const cachedH=()=>{data.hourly={};if(C.hr)for(const k in C.hr.h)data.hourly[k]=Object.assign({},C.hr.h[k],{time:revD(C.hr.h[k].time)})};
-  const staleH=omLeader&&!(C.block&&now<C.block)&&(force||!C.hr||now-C.hr.at>60*60e3);const getH=staleH?need:need.filter(k=>!(C.hr&&C.hr.h[k]));cachedH();
+  const staleH=omLeader&&!(C.block&&now<C.block)&&(force||!C.hr||now-C.hr.at>(omKey?30:60)*60e3);const getH=staleH?need:need.filter(k=>!(C.hr&&C.hr.h[k]));cachedH();
   if(getH.length&&omLeader&&!(C.block&&now<C.block)){try{const hj=await fetchJSON(`https://api.open-meteo.com/v1/forecast?${qFor(getH,'America%2FNew_York')}&hourly=temperature_2m,apparent_temperature,wind_gusts_10m,wind_speed_10m,wind_direction_10m,weather_code,precipitation_probability&forecast_hours=49`,15000);const ha=Array.isArray(hj)?hj:[hj];const H=staleH?{}:Object.assign({},(C.hr&&C.hr.h)||{});
       ha.forEach((r,i)=>{const h=r.hourly;H[getH[i]]={time:h.time.map(parseLocal),temp:h.temperature_2m,feels:h.apparent_temperature,gust:h.wind_gusts_10m,wind:h.wind_speed_10m,wdir:h.wind_direction_10m,code:h.weather_code,pop:h.precipitation_probability}});
       C.hr={at:staleH?now:(C.hr?C.hr.at:now),h:H};cachedH()}
@@ -640,7 +640,7 @@ async function loadLive(force){
   const cachedModels=()=>{if(!C.md)return false;data.models={};CITY_KEYS.forEach(k=>data.models[k]={});for(const k in C.md.m){for(const mid in C.md.m[k]){const o=C.md.m[k][mid];data.models[k][mid]=Object.assign({},o,{time:revD(o.time)})}}MODELS.forEach(m=>data.modelOK[m.id]=C.md.ok[m.id]!==false);return true};
   const haveCache=cachedModels();if(!haveCache&&data.source!=='live'){data.models={};CITY_KEYS.forEach(k=>data.models[k]={});MODELS.forEach(m=>delete data.modelOK[m.id])}
   data.source='live';data.updated=new Date();await omWrite(C);
-  const staleM=force||!C.md||now-C.md.at>180*60e3;const getM=staleM?need:need.filter(k=>!(C.md&&C.md.m[k]));
+  const staleM=force||!C.md||now-C.md.at>(omKey?60:180)*60e3;const getM=staleM?need:need.filter(k=>!(C.md&&C.md.m[k]));
   if(getM.length&&omLeader&&!(C.block&&now<C.block))loadModelsBg(getM,haveCache,!staleM);
 }
 async function loadModelsBg(keys,haveCache,merge){if(omBusy)return;omBusy=true;const ok={};const out={};
@@ -1287,17 +1287,28 @@ function renderForecast(g,sc,t){
   });
   drawHeader(g,sc.title||DEF_TITLES.forecast7,sc.sub||CITIES[sc.city][0],t);
 }
+
+/* Precipitation timing from Open-Meteo's 15-minute forecast */
+const nowcastC={};
+function nowcast(k){const pl=CITIES[k];if(!pl||pl[2]>=-30)return null;let N=nowcastC[k];if(N&&(N.status==='loading'||Date.now()-N.t<(N.status==='ok'?15*60e3:5*60e3)))return N;const old=N;N=nowcastC[k]={status:'loading',t:Date.now(),text:old?old.text:null,kind:old?old.kind:null};if(!omLeader&&!omKey){N.status='fail';return N}
+  fetchJSON(`https://api.open-meteo.com/v1/forecast?latitude=${pl[1]}&longitude=${pl[2]}&minutely_15=precipitation,snowfall,freezing_rain&forecast_minutely_15=32&past_minutely_15=1&precipitation_unit=inch&timezone=America%2FNew_York`,15000).then(j=>{const m=j.minutely_15;if(!m)throw 0;const ts=m.time.map(t=>parseLocal(t)),now=Date.now();let i0=ts.findIndex(t=>t.getTime()+15*60e3>now);if(i0<0)i0=0;
+    const wet=i=>(m.precipitation[i]||0)>=.004,typ=i=>(m.freezing_rain&&m.freezing_rain[i]>0)?'freezing rain':(m.snowfall[i]||0)>0&&(m.snowfall[i]||0)>=(m.precipitation[i]||0)*3?'snow':(m.snowfall[i]||0)>0?'mix':'rain';
+    const at=i=>fmtTime(ts[i]).replace(':00','');let text=null,kind=null;
+    if(wet(i0)){let e=i0;while(e<ts.length&&wet(e))e++;kind=typ(i0);text=e>=ts.length?kind[0].toUpperCase()+kind.slice(1)+' continues for the next several hours':kind[0].toUpperCase()+kind.slice(1)+' ending around '+at(e)}
+    else{let s0=i0;while(s0<ts.length&&!wet(s0))s0++;if(s0<ts.length){kind=typ(s0);text=kind[0].toUpperCase()+kind.slice(1)+' starting around '+at(s0)}else text='Dry for the next several hours'}
+    N.text=text;N.kind=kind;N.status='ok';N.t=Date.now();queueThumbs()}).catch(()=>{N.status='fail';N.t=Date.now()});return N}
 function renderConditions(g,sc,t){
   blurBg(g,regionFor(sc.city));const c=getCur(sc.city);const d=getDaily(sc.city)[0];if(!c)return;
   const p=ease((t-.3)/.6);g.save();g.globalAlpha=p;g.translate(-80*(1-p),0);
   glass(g,90,250,830,640,18);const col=tempRGB(c.t);
   drawIcon(g,c.code,330,500,330,!c.day);
-  text(g,c.t+'°',740,610,`800 300px ${FD}`,'#ffffff','center');
+  {let tf=300;while(tf>160&&measure(g,c.t+'°',`800 ${tf}px ${FD}`)>400)tf-=6;text(g,c.t+'°',715,610,`800 ${tf}px ${FD}`,'#ffffff','center')}
   g.fillStyle=rgb(col);rr(g,600,640,280,10,5);g.fill();
   text(g,(WMO[c.code]||'').toUpperCase(),505,790,`800 64px ${FD}`,'#ffffff','center','alphabetic',3);
   if(d)text(g,`HIGH ${d.hi??'--'}°   LOW ${d.lo??'--'}°`,505,850,`600 36px ${FD}`,'#9fb4d8','center','alphabetic',3);
   if(c.station)text(g,`OBSERVED AT ${c.station} · ${c.obsTime.toLocaleTimeString([], {hour:'numeric',minute:'2-digit'}).toUpperCase()}`,505,880,`600 22px ${FD}`,'#7f93b8','center','alphabetic',2);
   g.restore();
+  if(sc.nowcast!==false&&data.source!=='sample'){const N=nowcast(sc.city);if(N&&N.text){const q=ease((t-1.1)/.5);if(q>0){g.save();g.globalAlpha=q;const wet=!/^Dry/.test(N.text);glass(g,90,910,1250,64,14);g.fillStyle=wet?(N.kind==='snow'?'#8fc6ff':N.kind==='rain'?'#3ddc6b':'#ff8ad8'):'#ffd54a';rr(g,90,910,12,64,6);g.fill();text(g,'NEXT 6 HOURS',126,952,`800 24px ${FD}`,'#9fb4d8','left','alphabetic',3);let nf=34;while(nf>20&&measure(g,N.text.toUpperCase(),`800 ${nf}px ${FD}`,1.5)>960)nf--;text(g,N.text.toUpperCase(),360,954,`800 ${nf}px ${FD}`,'#ffffff','left','alphabetic',1.5);g.restore()}}}
   const rows=[['FEELS LIKE',c.feels+'°'],['WIND',`${dirTxt(c.wdir)} ${c.wind} MPH`],['GUSTS',c.gust+' MPH'],['HUMIDITY',c.rh+'%'],['DEW POINT',c.dew+'°']];
   rows.forEach((r,i)=>{const q=ease((t-.5-i*.09)/.5);if(q<=0)return;const y=250+i*130;g.save();g.globalAlpha=q;g.translate(80*(1-q),0);glass(g,960,y,870,112,14);
     text(g,r[0],1000,y+70,`700 36px ${FD}`,'#9fb4d8','left','alphabetic',3);text(g,r[1],1790,y+76,`800 64px ${FD}`,'#ffffff','right');
@@ -3044,7 +3055,7 @@ function verticalInfo(sc){
   if(sc.type==='aurora'){const T=auTonight(),ck=show.settings.bugCity||CITY_KEYS[0],C=CITIES[ck],need=C?kpNeed(C[1]):7,mx=T.max;const v=mx==null?'NOT LIKELY':mx>=need?'GOOD CHANCE':mx>=need-1.5?'POSSIBLE':'NOT LIKELY';return['TONIGHT IN '+(C?C[0].toUpperCase():'YOUR AREA')+': '+v,'MAX KP '+(mx==null?'--':mx.toFixed(1))+(mx!=null&&kpG(mx)?' ('+kpG(mx)+' STORM)':''),'KP NEEDED HERE: '+need,'LOOK NORTH AFTER DARK, AWAY FROM CITY LIGHTS']}
   if(sc.type==='smoke'){const d=new Date(smokeTime(+sc.hour||0));return['NEAR-SURFACE SMOKE FORECAST',(fmtTime(d).replace(':00','')+' '+DAYN[d.getDay()]).toUpperCase()]}
   if(sc.type==='holtravel'){const A=htAuto(),di=sc.day==null||sc.day==='auto'?A.day:+sc.day;const out=(sc.routes||[]).filter(k=>HT_ROUTES[k]).map(k=>{const C=HT_ROUTES[k][2].filter(c=>CITIES[c]).map(c=>htCond(c,di)).filter(Boolean);const w=C.reduce((a,b)=>b.lv>a.lv?b:a,{lv:0,lb:'GOOD'});return'I-'+HT_ROUTES[k][0]+': '+(w.lv?w.lb:'GOOD')});const bad=(sc.airports||[]).filter(k=>HT_AIR[k]).filter(k=>{const z=htCond(HT_AIR[k][1],di);return z&&z.lv>=1});return[...out,bad.length?'AIRPORT DELAYS: '+bad.join(' '):'NO WEATHER DELAYS AT AIRPORTS']}
-  if(sc.type==='conditions'){const c=getCur(sc.city);if(c)return[`${CITIES[sc.city][0].toUpperCase()} ${c.t}°`,(WMO[c.code]||'').toUpperCase(),`FEELS LIKE ${c.feels}°`,`WIND ${dirTxt(c.wdir)} ${c.wind} MPH`]}
+  if(sc.type==='conditions'){const c=getCur(sc.city);if(c)return[`${CITIES[sc.city][0].toUpperCase()} ${c.t}°`,(WMO[c.code]||'').toUpperCase(),`FEELS LIKE ${c.feels}°`,`WIND ${dirTxt(c.wdir)} ${c.wind} MPH`,...(sc.nowcast!==false&&nowcastC[sc.city]&&nowcastC[sc.city].text?[nowcastC[sc.city].text.toUpperCase()]:[])]}
   return[(show.settings.ticker||'').toUpperCase()]}
 function composeVertical(src,out){const g=out.getContext('2d');const VW=1080,VH=1920;const sc=scene();
   const bg=g.createLinearGradient(0,0,0,VH);bg.addColorStop(0,'#0f3a86');bg.addColorStop(.5,'#081b3f');bg.addColorStop(1,'#050d20');g.fillStyle=bg;g.fillRect(0,0,VW,VH);
@@ -3413,6 +3424,7 @@ function renderInspector(){syncClrTrack();
   if(sc.type==='impact')h+=`<div class="sec"><h3>Impact meter</h3><label class="f">Level<select id="i-lv" data-k="level">${opts([[1,'1 · Low'],[2,'2 · Minor'],[3,'3 · Moderate'],[4,'4 · High'],[5,'5 · Extreme']],+sc.level)}</select></label><label class="f">Message<input type="text" id="i-idesc" data-k="desc" value="${esc(sc.desc||'')}" placeholder="${esc(IMPACT_DESC[clamp(+sc.level||3,1,5)-1])}"></label></div>`;
   if(sc.type==='holtravel'){const A=htAuto(),dO=[['auto','Auto: '+(A.hol?'day before '+A.hol:'today')]];for(let i=0;i<7;i++){const d=(getDaily('harrisburg')[i]||{}).date;if(d)dO.push([String(i),i===0?'Today':DAYN[d.getDay()]])}
     h+=`<div class="sec"><h3>Holiday travel</h3><label class="f">Travel day<select data-k="day">${opts(dO,String(sc.day??'auto'))}</select></label><p class="note">Roads (up to 6)</p><div class="chips">${Object.entries(HT_ROUTES).map(([k,r])=>`<label class="chk"><input type="checkbox" data-htr="${k}"${(sc.routes||[]).includes(k)?' checked':''}>I-${r[0]} ${esc(r[1])}</label>`).join('')}</div><p class="note">Airports (up to 8)</p><div class="chips">${Object.entries(HT_AIR).map(([k,a])=>`<label class="chk"><input type="checkbox" data-hta="${k}"${(sc.airports||[]).includes(k)?' checked':''}>${k} ${esc(a[0])}</label>`).join('')}</div><p class="note">Each road shows the worst weather of the towns along it. Airport delays are weather-based only (storms, snow, ice, fog, strong wind).</p></div>`}
+  if(sc.type==='conditions'){const N=nowcast(sc.city);h+=`<div class="sec"><h3>Next 6 hours</h3><label class="chk"><input type="checkbox" data-k="nowcast"${sc.nowcast!==false?' checked':''}>Show when rain or snow starts or ends</label><p class="note">${N&&N.text?'Now: '+esc(N.text)+'. ':''}From Open-Meteo's 15-minute forecast, updated every 15 minutes.</p></div>`}
   if(sc.type==='aurora'){const T=auTonight(),ck=show.settings.bugCity||CITY_KEYS[0];h+=`<div class="sec"><h3>Northern lights</h3><p class="note">Aurora chances from NOAA's Space Weather Prediction Center, refreshed every 15 minutes. The card judges tonight for ${esc((CITIES[ck]||['your city'])[0])} (the bug city): it compares the highest Kp from 6 PM to 7 AM with the Kp usually needed at that latitude (${kpNeed((CITIES[ck]||[0,41])[1])} here).</p>${auData.sample?'<p class="note">Showing sample data: NOAA space weather did not load.</p>':''}</div>`}
   if(sc.type==='smoke'){const hO=[];for(let i=0;i<=45;i+=3)hO.push([i,i?'In '+i+' hours':'Now']);h+=`<div class="sec"><h3>Smoke forecast</h3><label class="f">Forecast time<select data-k="hour">${opts(hO,+sc.hour||0)}</select></label><label class="chk"><input type="checkbox" data-k="loop"${sc.loop?' checked':''}>Play the next 24 hours</label><p class="note">NOAA's near-surface smoke forecast, updated once a day and good for about 48 hours.</p></div>`}
   if(sc.type==='quake'){h+=`<div class="sec"><h3>Earthquakes</h3><div class="row2"><label class="f">Period<select data-k="period">${opts(Object.entries(EQ_PER),sc.period||'week')}</select></label><label class="f">Size<select data-k="minMag">${opts(Object.entries(EQ_MAG),sc.minMag||'all')}</select></label></div>
