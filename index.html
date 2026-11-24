@@ -240,7 +240,7 @@ button.pill{cursor:pointer;background:transparent}
 <div class="status">
   <span><kbd>Space</kbd> play / stop</span><span><kbd>←</kbd><kbd>→</kbd> previous / next</span><span><kbd>V</kbd> select</span><span><kbd>T</kbd> pen</span><span><kbd>B</kbd> contour</span><span><kbd>N</kbd> total</span><span><kbd>Del</kbd> delete selection</span><span><kbd>E</kbd> export PNG</span><span><kbd>K</kbd> storm track</span><span><kbd>L</kbd> map label</span><span><kbd>1</kbd>–<kbd>9</kbd> cue</span><span><kbd>Enter</kbd> take</span>
   <span id="srcNote"></span>
-  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-23 · 58</span>
+  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-23 · 59</span>
 </div>
 <input type="file" id="fileIn" accept=".json,application/json" hidden>
 
@@ -1070,7 +1070,7 @@ function newScene(type,o={}){
 }
 function blob(cx,cy,rx,ry,seed){const r=rng(seed),pts=[];for(let i=0;i<26;i++){const a=i/26*Math.PI*2;const w=.82+r()*.3;pts.push([cx+Math.cos(a)*rx*w,cy+Math.sin(a)*ry*w])}return pts}
 function defaultShow(){
-  const s={settings:{station:'WEATHER 8',ticker:'Snow chances return late this week across the northern tier · Watch for slick spots on untreated roads · Stay with Weather 8 for updates',tickerLabel:'Latest',showTicker:true,showBug:true,bugCity:'harrisburg',sampleTag:true,transition:'wipe',loop:false,paMapsAdded:true,ctMapAdded:true,nationalAdded:true,usLayout2:true,usLayout3:true,rainAdded:true,snowfallAdded:true},
+  const s={settings:{station:'AccuWally',ticker:'Snow chances return late this week across the northern tier · Watch for slick spots on untreated roads · Stay with AccuWally for updates',tickerLabel:'Latest',showTicker:true,showBug:true,bugCity:'harrisburg',sampleTag:true,transition:'wipe',loop:false,paMapsAdded:true,ctMapAdded:true,nationalAdded:true,usLayout2:true,usLayout3:true,rainAdded:true,snowfallAdded:true},
   scenes:[
     newScene('radar',{region:'pa'}),
     newScene('temps',{region:'scpa'}),
@@ -1096,7 +1096,7 @@ function defaultShow(){
 const STORE='wgs-show-v2';
 function loadShow(){try{const s=JSON.parse(localStorage.getItem(STORE)||'null');if(s&&Array.isArray(s.scenes)){s.scenes=s.scenes.map(x=>newScene(x.type,x));return s}}catch(e){}return null}
 let saveT,appReady=false;function save(){if(appReady&&!fileDirty){fileDirty=true;try{localStorage.setItem('wgs-dirty','1')}catch(e){}updSaveBtn()}clearTimeout(saveT);saveT=setTimeout(()=>{try{localStorage.setItem(STORE,JSON.stringify(show))}catch(e){}if(typeof snapShow==='function')snapShow();if(typeof ensureCoverage==='function')ensureCoverage()},400)}
-function blankShow(){const s=defaultShow();s.scenes=[];s.settings.ticker='';s.settings.showTicker=false;['paMapsAdded','ctMapAdded','nationalAdded','usLayout2','usLayout3','rainAdded','snowfallAdded','euAdded','autoRatio','l3Name'].forEach(k=>s.settings[k]=true);return s}
+function blankShow(){const s=defaultShow();s.scenes=[];s.settings.ticker='';s.settings.showTicker=false;['paMapsAdded','ctMapAdded','nationalAdded','usLayout2','usLayout3','rainAdded','snowfallAdded','euAdded','autoRatio','l3Name','accuWally'].forEach(k=>s.settings[k]=true);return s}
 let show=loadShow()||blankShow();
 show.settings.breaking=show.settings.breaking||{on:true,auto:false,events:['Tornado Warning','Severe Thunderstorm Warning','Flash Flood Warning','Snow Squall Warning'],areas:{PA:[]}};
 if(!show.settings.paMapsAdded){
@@ -1123,6 +1123,7 @@ if(!show.settings.ctMapAdded){
   show.scenes.splice(last>=0?last+1:show.scenes.length,0,newScene('snow',{region:'ct',sub:'Next 72 Hours'}));
   show.settings.ctMapAdded=true;save();
 }
+if(!show.settings.accuWally){if(/^weather 8$/i.test(String(show.settings.station||'').trim()))show.settings.station='AccuWally';show.settings.ticker=String(show.settings.ticker||'').replace(/Weather 8/g,'AccuWally');show.settings.accuWally=true;save()}
 let cur=0,sceneStart=performance.now()/1000,playing=false,trans=null,tool='select',penColor='#ffd60a',sel=null,draft=null,dragging=null,recorder=null;
 const scene=()=>show.scenes[cur];
 
