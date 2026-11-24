@@ -14,7 +14,7 @@ await page.waitForTimeout(3000);
 const result = await page.evaluate(() => {
   const out = [];
   const c = document.createElement('canvas'); c.width = W; c.height = H; const g = c.getContext('2d');
-  const extra = { futuremap: [{ v: 'temp' }, { v: 'rain' }, { v: 'snow' }, { v: 'ptype' }, { v: 'wind' }], forecast7: [{}, { mode: 'custom' }] };
+  const extra = { futuremap: [{ v: 'temp' }, { v: 'rain' }, { v: 'snow' }, { v: 'ptype' }, { v: 'wind' }], forecast7: [{}, { mode: 'custom' }], briefing: Object.keys(BRF_PRESETS).map(k => ({ preset: k })).concat([{ bmap: 'radar' }, { bmap: 'snow' }, { loop: true }]) };
   for (const type of Object.keys(TYPE_NAMES)) {
     for (const o of (extra[type] || [{}])) {
       for (const t of [0.4, 2, 99]) {
