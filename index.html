@@ -240,7 +240,7 @@ button.pill{cursor:pointer;background:transparent}
 <div class="status">
   <span><kbd>Space</kbd> play / stop</span><span><kbd>←</kbd><kbd>→</kbd> previous / next</span><span><kbd>V</kbd> select</span><span><kbd>T</kbd> pen</span><span><kbd>B</kbd> contour</span><span><kbd>N</kbd> total</span><span><kbd>Del</kbd> delete selection</span><span><kbd>E</kbd> export PNG</span><span><kbd>K</kbd> storm track</span><span><kbd>L</kbd> map label</span><span><kbd>1</kbd>–<kbd>9</kbd> cue</span><span><kbd>Enter</kbd> take</span>
   <span id="srcNote"></span>
-  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-24 · 80</span>
+  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-24 · 81</span>
 </div>
 <input type="file" id="fileIn" accept=".json,application/json" hidden>
 
@@ -590,7 +590,7 @@ function hotCities(){const S=new Set([show.settings.bugCity,...tcCities()].filte
   modelCities().forEach(add);return S}
 function omCities(){const eu=show.scenes.some(sc=>isEU(sc.region)||(sc.city&&CITIES[sc.city]&&CITIES[sc.city][2]>=-30)||(sc.type==='travel'&&(sc.cities||[]).some(k=>CITIES[k]&&CITIES[k][2]>=-30))||(sc.type==='extremes'&&sc.area==='eu'));return CITY_KEYS.filter(k=>eu||CITIES[k][2]<-30)}
 /* Only one studio tab in this browser calls Open-Meteo; the others read its saved data. */
-let omLeader=!(navigator.locks&&navigator.locks.request);try{if(!omLeader)navigator.locks.request('wgs-om-leader',()=>{omLeader=true;setTimeout(()=>loadLive&&loadLive(false),500);return new Promise(()=>{})})}catch(e){omLeader=true}
+let omLeader=!(navigator.locks&&navigator.locks.request);try{if(!omLeader)navigator.locks.request('wgs-om-leader',()=>{omLeader=true;setTimeout(()=>{try{refresh()}catch(e){}},300);return new Promise(()=>{})})}catch(e){omLeader=true}
 let omBusy=false;const omQ=(keys,tz)=>`latitude=${keys.map(k=>CITIES[k][1]).join(',')}&longitude=${keys.map(k=>CITIES[k][2]).join(',')}&temperature_unit=fahrenheit&wind_speed_unit=mph&precipitation_unit=inch&timezone=${tz}`;
 async function loadLive(force){
   const qFor=omQ;const C=await omRead(),now=Date.now();data.omErr=null;
@@ -674,7 +674,7 @@ function genHourly(){data.hourly={};const now=new Date();now.setMinutes(0,0,0);f
     const tp=lerp(dd.lo,dd.hi,dn);const gu=Math.max(5,14+12*Math.sin((i+h*20)/7)+(dd.code>=60?10:0)+h*6);o.time.push(t);o.temp.push(+tp.toFixed(1));o.gust.push(Math.round(gu));o.wind.push(Math.round(gu*.6));o.wdir.push(Math.round((260+h*60+i*3)%360));o.code.push(dd.code);o.pop.push(dd.pop);o.feels.push(Math.round(tp<50?tp-gu*.35:tp))}data.hourly[k]=o}}
 async function refresh(){
   $('#dataTxt').textContent='Loading';
-  try{await loadLive(refresh.force);refresh.force=false;data.note=data.omErr?data.omErr+'. Showing live data saved at '+(data.liveAt?data.liveAt.toLocaleTimeString([], {hour:'numeric',minute:'2-digit'}):'earlier')+'.':'';}
+  try{await loadLive(refresh.force);refresh.force=false;data.note=data.omErr?data.omErr+'. Showing live data saved at '+(data.liveAt?tm(data.liveAt):'earlier')+'.':'';}
   catch(e){if(data.source==='nws'){data.note=(data.omErr||omErrText(e))+'. Using NWS data for US cities. Open-Meteo is tried again every 15 minutes.';loadNwsBackup()}else if(data.source!=='live'){genSample();data.note=(data.omErr||omErrText(e))+'. Switching to NWS data for US cities. Open-Meteo is tried again every 15 minutes.';loadNwsBackup()}else data.note=(data.omErr||omErrText(e))+'. It tries again every 15 minutes.'}
   for(const k in guideCache)delete guideCache[k];
   updateStatus();queueThumbs();renderInspector();loadNws();loadAlerts();loadEuWarnings();
