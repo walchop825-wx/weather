@@ -240,7 +240,7 @@ button.pill{cursor:pointer;background:transparent}
 <div class="status">
   <span><kbd>Space</kbd> play / stop</span><span><kbd>←</kbd><kbd>→</kbd> previous / next</span><span><kbd>V</kbd> select</span><span><kbd>T</kbd> pen</span><span><kbd>B</kbd> contour</span><span><kbd>N</kbd> total</span><span><kbd>Del</kbd> delete selection</span><span><kbd>E</kbd> export PNG</span><span><kbd>K</kbd> storm track</span><span><kbd>L</kbd> map label</span><span><kbd>1</kbd>–<kbd>9</kbd> cue</span><span><kbd>Enter</kbd> take</span>
   <span id="srcNote"></span>
-  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-24 · 78</span>
+  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-24 · 79</span>
 </div>
 <input type="file" id="fileIn" accept=".json,application/json" hidden>
 
@@ -621,7 +621,7 @@ async function loadLive(force){
     for(const k in curAll){cur[k]=curAll[k];daily[k]=(dayAll[k]||[]).map(d=>Object.assign({},d,{date:new Date(d.date)}))}
     EU.forEach(k=>{if(!cur[k]&&data.cur[k]){cur[k]=data.cur[k];daily[k]=data.daily[k]}});
     data.cur=cur;data.daily=daily;data.liveAt=new Date((C.c1&&C.c1.at)||now);
-    if(firstErr||blocked)data.omErr=omErrText(firstErr||new Error('429'))+(C.block&&now<C.block?', paused until '+new Date(C.block).toLocaleTimeString([], {hour:'numeric',minute:'2-digit'}):'')}
+    if(firstErr||blocked)data.omErr=omErrText(firstErr||new Error('429'))+(C.block&&now<C.block?', paused until '+new Date(C.block).toLocaleTimeString([], {hour:'numeric',minute:'2-digit'})+' (it refused at '+new Date(C.block-36e5).toLocaleTimeString([], {hour:'numeric',minute:'2-digit'})+')':'')}
   catch(e){data.omErr=omErrText(e);const ok=C.c1&&C.c1.v&&now-C.c1.at<36*3600e3;if(ok){const ci=c=>(c&&c.v)||{};const curAll=Object.assign({},ci(C.c3),ci(C.c2),ci(C.c1)),dayAll=Object.assign({},ci(C.d3),ci(C.d1));for(const k in curAll){cur[k]=curAll[k];daily[k]=(dayAll[k]||[]).map(d=>Object.assign({},d,{date:new Date(d.date)}))}data.cur=cur;data.daily=daily;data.liveAt=new Date(C.c1.at)}else{await omWrite(C);throw e}}
   data.nwsFb=false;
   // hourly, only for cities a scene needs; every 30 minutes, filling in new cities as scenes are added
@@ -843,7 +843,7 @@ function loadMDs(){if(spcMD.status==='loading'||(spcMD.status&&Date.now()-spcMD.
         L.forEach(m=>{const r=arr.map(x=>x.properties||x).filter(x=>+x.product_num===m.num&&(!x.year||+x.year===yr)).sort((a,b)=>String(b.utc_issue).localeCompare(String(a.utc_issue)))[0];if(r){m.concern=String(r.concerning||'').trim();m.conf=r.watch_confidence;m.hail=r.most_prob_hail;m.gust=r.most_prob_gust;m.torp=r.most_prob_tornado;m.expire=srTime(r.utc_expire);m.issue=srTime(r.utc_issue)}})}catch(e){}}
       spcMD.list=L.filter(m=>!m.expire||m.expire>new Date());spcMD.status='ok';spcMD.t=Date.now();queueThumbs()}).catch(()=>{spcMD.status='fail';spcMD.t=Date.now()-240000;queueThumbs()});return spcMD}
 const tcase=x=>String(x||'').toLowerCase().replace(/(^|[\s.(])\w/g,c=>c.toUpperCase());
-function spcInfo(o){const tm=d=>d?fmtTime(d):'';if(o.id.startsWith('w:'))return{band:o.tor?'#ffe600':'#ff7ab8',dark:true,title:(o.pds?'PDS ':'')+(o.tor?'TORNADO WATCH ':'SEVERE T-STORM WATCH ')+o.num,l1:o.expire?'Until '+tm(o.expire):'In effect',l2:(o.issue?'Issued '+tm(o.issue)+' · ':'')+'Storm Prediction Center',remark:o.pds?'Particularly dangerous situation.':''};
+function spcInfo(o){const tm=d=>{if(!d)return'';const x=new Date(d),n=new Date(),y=new Date(n);y.setDate(y.getDate()-1);return x.toDateString()===n.toDateString()?fmtTime(x):x.toDateString()===y.toDateString()?'yesterday '+fmtTime(x):DOW[x.getDay()].slice(0,1)+DOW[x.getDay()].slice(1,3).toLowerCase()+' '+fmtTime(x)};if(o.id.startsWith('w:'))return{band:o.tor?'#ffe600':'#ff7ab8',dark:true,title:(o.pds?'PDS ':'')+(o.tor?'TORNADO WATCH ':'SEVERE T-STORM WATCH ')+o.num,l1:o.expire?'Until '+tm(o.expire):'In effect',l2:(o.issue?'Issued '+tm(o.issue)+' · ':'')+'Storm Prediction Center',remark:o.pds?'Particularly dangerous situation.':''};
   const bits=[o.torp&&!/null/i.test(o.torp)?'Tornadoes '+o.torp:'',o.hail?'Hail '+String(o.hail).toLowerCase():'',o.gust?'Gusts '+String(o.gust).toLowerCase():''].filter(Boolean).join(' · ');
   return{band:'#3b8cff',dark:false,title:'MESOSCALE DISCUSSION '+(o.num||''),l1:o.concern?tcase(o.concern):'Storm Prediction Center',l2:[o.conf!=null?'Watch chance '+Math.round(o.conf)+'%':'',o.expire?'until '+tm(o.expire):''].filter(Boolean).join(' · ')||'Storm Prediction Center',remark:bits}}
 function ringBox(P,rings){let x0=1e9,x1=-1e9,y0=1e9,y1=-1e9;rings.forEach(r=>r.forEach(([lo,la])=>{const x=P.x(lo),y=P.y(la);x0=Math.min(x0,x);x1=Math.max(x1,x);y0=Math.min(y0,y);y1=Math.max(y1,y)}));return{x0,x1,y0,y1,cx:(x0+x1)/2,cy:(y0+y1)/2}}
