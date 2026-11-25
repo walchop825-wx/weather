@@ -240,7 +240,7 @@ button.pill{cursor:pointer;background:transparent}
 <div class="status">
   <span><kbd>Space</kbd> play / stop</span><span><kbd>←</kbd><kbd>→</kbd> previous / next</span><span><kbd>V</kbd> select</span><span><kbd>T</kbd> pen</span><span><kbd>B</kbd> contour</span><span><kbd>N</kbd> total</span><span><kbd>Del</kbd> delete selection</span><span><kbd>E</kbd> export PNG</span><span><kbd>K</kbd> storm track</span><span><kbd>L</kbd> map label</span><span><kbd>1</kbd>–<kbd>9</kbd> cue</span><span><kbd>Enter</kbd> take</span>
   <span id="srcNote"></span>
-  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-24 · 104</span>
+  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-24 · 105</span>
 </div>
 <input type="file" id="fileIn" accept=".json,application/json" hidden>
 
@@ -1736,6 +1736,7 @@ function sceneAt(sc0,v){const rk=regionForView(sc0.region,v);return rk===sc0.reg
 const radarCtl={id:null,paused:false,fi:0,nF:0,shown:'',drag:false};
 /* loop timing with pause points: frame index at time t */
 function loopIdx(t,t0,N,spd,isStop,hold,endHold){const d=[];let T=0;for(let i=0;i<N;i++){d.push(T);T+=spd+(isStop(i)?hold:0)+(i===N-1?endHold:0)}const u=Math.max(0,t-t0)%T;for(let k=0;k<N;k++){if(u<(k+1<N?d[k+1]:T))return{i:k,T}}return{i:N-1,T}}
+function addFutRadar(){const cs=scene();const sc=newScene('radar',{region:cs&&cs.region||'pa'});sc.product='future';sc.title='Future Radar';addScenes([sc])}
 function futLoopLen(sc){const FR=futRange(sc),st=new Set((sc.futStops||[]).map(Number));return loopIdx(0,0,FR.e-FR.s+1,+sc.futSpd||.6,i=>st.has(FR.s+i),+sc.futHold||2,1.8).T}
 function futRange(sc){let a=Math.max(0,Math.min(17,Math.round(+sc.futS||0))),b=sc.futE!=null?Math.round(+sc.futE):18;b=Math.max(a+1,Math.min(18,b));return{s:a,e:b}}
 function radFi(sc,nF,fi){const c=radarCtl;return c.paused&&c.id===sc.id&&nF>1?Math.max(0,Math.min(nF-1,c.fi)):fi}
@@ -3567,7 +3568,7 @@ function renderInspector(){syncClrTrack();
     <label class="f">Step<select id="i-fms" data-k="step">${opts([[1,'Every hour'],[3,'Every 3 hours'],[6,'Every 6 hours']],sc.step)}</select></label><p class="note">Hour-by-hour Open-Meteo forecast, blended between cities.${sc.v==='rain'?' Rainfall is the GFS, ECMWF and ICON blend, adding up from now (even when the loop starts later). Liquid totals, so snow counts as melted water.':sc.v==='snow'?' Snowfall is the GFS, ECMWF and ICON blend, adding up from now (even when the loop starts later).':''} ${N} frames, about ${Math.round(fmPlan(sc).T)} seconds per loop.</p>
     <div class="row2"><label class="f">Speed<select data-k="fmSpd">${opts([[1.2,'Slow'],[.9,'Relaxed'],[.6,'Normal'],[.4,'Fast']],+sc.fmSpd||.6)}</select></label><label class="f">Pause length<select data-k="fmHold">${opts([[1,'1 second'],[2,'2 seconds'],[3,'3 seconds'],[4,'4 seconds'],[5,'5 seconds']],+sc.fmHold||2)}</select></label></div>
     
-    <label class="f" style="margin-top:6px">Pause at</label><div class="chips">${(()=>{const o=[];for(let h=F0.s;h<=F0.e;h+=+sc.step||1){const tt=tO.find(x=>x[0]===h);o.push(`<label><input type="checkbox" data-fmstop="${h}"${(sc.fmStops||[]).map(Number).includes(h)?' checked':''}>${esc(tt?tt[1]:h+' hr')}</label>`)}return o.join('')})()}</div><p class="note">The loop holds on each checked time, then keeps going. The last frame always holds briefly before the loop restarts.</p></div>`}
+    <label class="f" style="margin-top:6px">Pause at</label><div class="chips">${(()=>{const o=[];for(let h=F0.s;h<=F0.e;h+=+sc.step||1){const tt=tO.find(x=>x[0]===h);o.push(`<label><input type="checkbox" data-fmstop="${h}"${(sc.fmStops||[]).map(Number).includes(h)?' checked':''}>${esc(tt?tt[1]:h+' hr')}</label>`)}return o.join('')})()}</div><p class="note">The loop holds on each checked time, then keeps going. The last frame always holds briefly before the loop restarts.</p>${sc.v==='ptype'&&!isEU(sc.region)?`<button type="button" onclick="addFutRadar()" style="margin-top:8px;width:100%">Add a Future radar scene (HRRR)</button><p class="note">Real HRRR model radar for the next 18 hours, with the same speed and pause controls. It looks much closer to TV futurecast than this city-based map.</p>`:''}</div>`}
   if(sc.type==='winter'){const grp=(lab,keys)=>`<optgroup label="${lab}">${keys.map(k=>`<option value="${k}"${sc.layer===k?' selected':''}>${esc(WINTER_LAYERS[k][2]+(WINTER_LAYERS[k][3]?' · Day '+WINTER_LAYERS[k][3]:' · Days 1–3'))}</option>`).join('')}</optgroup>`;
     const S=winterImgs[sc.region+'|'+sc.layer];h+=`<div class="sec"><h3>NWS winter outlook</h3><label class="f">Map<select id="i-wl" data-k="layer">${grp('Winter Storm Severity Index',['wssi1','wssi2','wssi3','wssi13'])}${grp('Day 1 odds',['s4d1','s8d1','s12d1','ice1'])}${grp('Day 2 odds',['s4d2','s8d2','s12d2','ice2'])}${grp('Day 3 odds',['s4d3','s8d3','s12d3','ice3'])}</select></label>
     <p class="note">From the NWS Weather Prediction Center. The severity index only shows impacts during winter events, and the odds maps update twice a day in season.${S&&S.ok===false?' This map could not load. Try Refresh in a minute.':S&&S.empty?' Nothing to show right now.':''}</p></div>`}
