@@ -240,7 +240,7 @@ button.pill{cursor:pointer;background:transparent}
 <div class="status">
   <span><kbd>Space</kbd> play / stop</span><span><kbd>←</kbd><kbd>→</kbd> previous / next</span><span><kbd>V</kbd> select</span><span><kbd>T</kbd> pen</span><span><kbd>B</kbd> contour</span><span><kbd>N</kbd> total</span><span><kbd>Del</kbd> delete selection</span><span><kbd>E</kbd> export PNG</span><span><kbd>K</kbd> storm track</span><span><kbd>L</kbd> map label</span><span><kbd>1</kbd>–<kbd>9</kbd> cue</span><span><kbd>Enter</kbd> take</span>
   <span id="srcNote"></span>
-  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-25 · 144</span>
+  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-25 · 145</span>
 </div>
 <input type="file" id="fileIn" accept=".json,application/json" hidden>
 
@@ -1979,12 +1979,13 @@ function renderRadarHud(g,sc,t,o,hud,sc0){
   drawHeader(g,sc0.title||defT,sc0.sub||REGIONS[sc0.region].name,t);
 }
 /* When the alert card covers the right side, slide a state map left so the state centers in the open space */
-function cardRegion(sc){const R=REGIONS[sc.region];if(!R||!R.focus||R.focus.length!==1||!STATE_BOX[R.focus[0]]||R.eu||sc.view)return null;
+function focusBox(R){const bs=(R.focus||[]).map(s=>STATE_BOX[s]).filter(Boolean);if(!bs.length)return null;return[Math.min(...bs.map(b=>b[0])),Math.max(...bs.map(b=>b[1])),Math.min(...bs.map(b=>b[2])),Math.max(...bs.map(b=>b[3]))]}
+function cardRegion(sc){const R=REGIONS[sc.region];if(!R||!R.isolate||!R.focus||!R.focus.length||R.eu||sc.view)return null;const b=focusBox(R);if(!b)return null;
   const card=sc.showCard!==false&&!!findAlert(sc.alertSel);let rw=card?690:0;
-  if(!card&&!isEU(sc.region)){const n=alertsInView(sc).length;if(n){const h=58+Math.min(5,new Set(alertsInView(sc).map(a=>a.event)).size)*44,fp=focusPath(sc.region);let ov=0;for(let u=0;u<14;u++)for(let v=0;v<8;v++)if(hitG().isPointInPath(fp,W-550+(u+.5)*480/14,206+(v+.5)*h/8))ov++;if(ov>3)rw=580}}
-  if(!rw)return null;const key=sc.region+'|r'+rw;if(!REGIONS[key]){const b=STATE_BOX[R.focus[0]],P=proj(sc.region),lonSpan=P.east-P.west,avail=W-rw-210,f=(b[1]-b[0])/lonSpan*W,ls=R.latSpan*Math.max(1,f/avail);
+  if(!card&&!isEU(sc.region)){const L=alertsInView(sc);if(L.length){const h=58+Math.min(5,new Set(L.map(a=>a.event)).size)*44,fp=focusPath(sc.region),x0=W-570,y0=196,w=520,hh=h+20;let ov=0;for(let u=0;u<24;u++)for(let v=0;v<14;v++)if(hitG().isPointInPath(fp,x0+(u+.5)*w/24,y0+(v+.5)*hh/14)){ov++;break}if(ov)rw=600}}
+  if(!rw)return null;const key=sc.region+'|r'+rw;if(!REGIONS[key]){const P=proj(sc.region),lonSpan=P.east-P.west,avail=W-rw-210,f=(b[1]-b[0])/lonSpan*W,ls=R.latSpan*Math.max(1,f/avail);
     const c=Math.cos(R.lat*Math.PI/180),lon2=ls*(W/H)/c,cx=(b[0]+b[1])/2;REGIONS[key]=Object.assign({},R,{latSpan:ls,lon:cx+lon2*((W/2-(W-rw)/2-20)/W),cardOf:sc.region,cardW:rw,menu:null});delete REGIONS[key].group}
-  const P0=proj(sc.region),P1=proj(key),cx=(STATE_BOX[R.focus[0]][0]+STATE_BOX[R.focus[0]][1])/2;return{key,dx:P0.x(cx)-P1.x(cx),card}}
+  const P0=proj(sc.region),P1=proj(key),cx=(b[0]+b[1])/2;return{key,dx:P0.x(cx)-P1.x(cx),card}}
 function renderRadar(g,sc0,t,o){
   const fl=flightState(sc0,t,o);let sHud,hud;const cr=fl?null:cardRegion(sc0);
   if(fl&&fl.blend){if(!fbA){fbA=document.createElement('canvas');fbA.width=W;fbA.height=H;fbB=document.createElement('canvas');fbB.width=W;fbB.height=H}
