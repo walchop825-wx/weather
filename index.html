@@ -240,7 +240,7 @@ button.pill{cursor:pointer;background:transparent}
 <div class="status">
   <span><kbd>Space</kbd> play / stop</span><span><kbd>←</kbd><kbd>→</kbd> previous / next</span><span><kbd>V</kbd> select</span><span><kbd>T</kbd> pen</span><span><kbd>B</kbd> contour</span><span><kbd>N</kbd> total</span><span><kbd>Del</kbd> delete selection</span><span><kbd>E</kbd> export PNG</span><span><kbd>K</kbd> storm track</span><span><kbd>L</kbd> map label</span><span><kbd>1</kbd>–<kbd>9</kbd> cue</span><span><kbd>Enter</kbd> take</span>
   <span id="srcNote"></span>
-  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-24 · 102</span>
+  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-24 · 103</span>
 </div>
 <input type="file" id="fileIn" accept=".json,application/json" hidden>
 
@@ -1828,13 +1828,11 @@ function fmRange(sc){const mx=Math.max(24,Math.min(168,['rain','snow','ptype'].i
 /* futurecast timing: seconds per frame, glide (crossfade) and pause points */
 function fmPlan(sc){const F0=fmRange(sc),st=+sc.step||1,N=Math.floor((F0.e-F0.s)/st)+1,spd=+sc.fmSpd||.6,hold=+sc.fmHold||2,stops=new Set((sc.fmStops||[]).map(Number));const d=[];let T=0;for(let i=0;i<N;i++){const h=(stops.has(F0.s+i*st)?hold:0)+(i===N-1?1.8:0);d.push({h,c:T});T+=h+spd}return{F0,N,st,spd,d,T,stops}}
 function fmPos(sc,t){const Pn=fmPlan(sc),u=Math.max(0,t-.5)%Pn.T;let i=Pn.N-1;for(let k=0;k<Pn.N;k++){if(u<Pn.d[k].c+Pn.d[k].h+Pn.spd){i=k;break}}const fr=i<Pn.N-1?clamp((u-Pn.d[i].c-Pn.d[i].h)/Pn.spd,0,1):0;return{Pn,i,fr}}
-let _fmX=null;
 function renderFutureMap(g,sc,t,o){
-  const rk=sc.region,P=proj(rk),R=REGIONS[rk];g.drawImage(mapBase(rk),0,0);const FP=fmPos(sc,t),F0=FP.Pn.F0,N=FP.Pn.N,glide=sc.fmGlide!==false;const fr=glide?FP.fr:0,fi=FP.i,fiN=fr>=.5?Math.min(N-1,fi+1):fi;const hi=F0.s+fiN*sc.step;
+  const rk=sc.region,P=proj(rk),R=REGIONS[rk];g.drawImage(mapBase(rk),0,0);const FP=fmPos(sc,t),F0=FP.Pn.F0,N=FP.Pn.N,glide=false;const fr=glide?FP.fr:0,fi=FP.i,fiN=fr>=.5?Math.min(N-1,fi+1):fi;const hi=F0.s+fiN*sc.step;
   const fld=h=>sc.v==='ptype'?ptField(rk,h):fmField(rk,sc.v==='wind'?'wind':sc.v,h),hA=F0.s+fi*sc.step;
   g.save();g.clip(landPath(rk));g.globalAlpha=(sc.v==='ptype'?.95:.8)*ease((t-.2)/.5);
-  if(fr>0&&fi<N-1){const q=fr*sc.step,h0=hA+Math.floor(q),f=q-Math.floor(q);_fmX=_fmX||document.createElement('canvas');if(_fmX.width!==W){_fmX.width=W;_fmX.height=H}const x=_fmX.getContext('2d');x.globalCompositeOperation='source-over';x.globalAlpha=1;x.clearRect(0,0,W,H);
-    if(f<.001)x.drawImage(fld(h0),0,0);else{const mv=sc.v==='ptype'?ptMotion(rk,h0):{x:0,y:0};x.globalAlpha=1-f;x.drawImage(fld(h0),f*mv.x,f*mv.y);x.globalCompositeOperation='lighter';x.globalAlpha=f;x.drawImage(fld(h0+1),-(1-f)*mv.x,-(1-f)*mv.y)}x.globalCompositeOperation='source-over';x.globalAlpha=1;g.drawImage(_fmX,0,0)}else g.drawImage(fld(glide?hA:hi),0,0);g.restore();
+  g.drawImage(fld(hi),0,0);g.restore();
   g.drawImage(mapOverlay(rk),0,0);drawCounties(g,sc);if(sc.v==='wind')drawWindFlow(g,rk,hi,t);drawZoomTowns(g,sc,P,t);drawFronts(g,sc,P,o,t);g._fr=1;
   const cities=mapCities(sc).filter(k=>{const x=P.x(CITIES[k][2]),y=P.y(CITIES[k][1]);return x>40&&x<W-40&&y>235&&y<H-120});
   cities.forEach(k=>{const v=fmVal(k,sc.v,hi);if(v==null)return;const x=P.x(CITIES[k][2]),y=P.y(CITIES[k][1]);outlinedText(g,sc.v==='snow'?fmtSnow(v):sc.v==='rain'?fmtRain(v):v+(sc.v==='gust'||sc.v==='wind'?'':'°'),x,y+6,`800 ${rk==='us'?42:48}px ${FD}`,'#ffffff');outlinedText(g,CITIES[k][0].toUpperCase(),x,y+30,`700 18px ${FD}`,'#dfe8f7')});
@@ -3104,15 +3102,7 @@ function ptField(rk,i){const key=rk+'|pt|'+i+'|'+(data.updated?data.updated.getT
   sg.putImageData(id,0,0);const c=document.createElement('canvas');c.width=W;c.height=H;const g=c.getContext('2d');if('filter' in g)g.filter='blur(10px)';g.drawImage(sm,-20,-20,W+40,H+40);
   c._mk=mk;
   ptCache[key]=c;const ks=Object.keys(ptCache);if(ks.length>40)delete ptCache[ks[0]];return c}
-/* motion between two hourly precip maps: best shift of the 96x54 grid, in pixels */
-const ptMvCache={};
-function ptMotionRaw(rk,h){const key=rk+'|'+h+'|'+(data.updated?data.updated.getTime():0);if(ptMvCache[key])return ptMvCache[key];let out={x:0,y:0,ok:0};
-  if(h>=0){const A=ptField(rk,h)._mk,B=ptField(rk,h+1)._mk,gw=96,gh=54;if(A&&B){let nA=0,nB=0;for(let q=0;q<gw*gh;q++){if(A[q]>.05)nA++;if(B[q]>.05)nB++}if(nA>12&&nB>12){const sad=(dx,dy)=>{let s=0,n=0;for(let y=Math.max(0,-dy);y<Math.min(gh,gh-dy);y++){const r=y*gw,r2=(y+dy)*gw;for(let x=Math.max(0,-dx);x<Math.min(gw,gw-dx);x++){const a=A[r+x],b=B[r2+x+dx];if(a||b){s+=(a-b)*(a-b);n++}}}return n?s/n:1};
-    const S=[];let best=1e9;for(let dy=-8;dy<=8;dy++)for(let dx=-10;dx<=10;dx++){const v=sad(dx,dy);S.push([v,dx,dy]);if(v<best)best=v}const s0=sad(0,0);
-    if(best<s0*.95){let pick=null;for(const [v,dx,dy] of S)if(v<=best+(s0-best)*.08&&(!pick||dx*dx+dy*dy<pick[1]*pick[1]+pick[2]*pick[2]))pick=[v,dx,dy];out={x:pick[1]*W/gw,y:pick[2]*H/gh,ok:1}}else out={x:0,y:0,ok:1}}}}
-  ptMvCache[key]=out;const ks=Object.keys(ptMvCache);if(ks.length>400)delete ptMvCache[ks[0]];return out}
-/* smoothed with the hours on either side so the motion stays steady */
-function ptMotion(rk,h){let sx=0,sy=0,sw=0;[[h-1,1],[h,2],[h+1,1]].forEach(([k,w])=>{const m=ptMotionRaw(rk,k);if(m.ok){sx+=m.x*w;sy+=m.y*w;sw+=w}});return sw?{x:sx/sw,y:sy/sw}:{x:0,y:0}}
+
 const windGridCache={};
 function windGrid(rk,i){const key=rk+'|'+i+'|'+(data.updated?data.updated.getTime():0);if(windGridCache[key])return windGridCache[key];const P=proj(rk);
   const pts=CITY_KEYS.map(k=>{const h=data.hourly&&data.hourly[k];if(!h||!h.wind||!h.wdir)return null;const j=hourStart(h)+i;const s=h.wind[j],d=h.wdir[j];if(s==null||d==null)return null;const r=d*Math.PI/180;return{lon:CITIES[k][2],lat:CITIES[k][1],u:-Math.sin(r)*s,v:Math.cos(r)*s}}).filter(Boolean);
@@ -3573,7 +3563,7 @@ function renderInspector(){syncClrTrack();
   if(sc.type==='futuremap'){const F0=fmRange(sc),N=Math.floor((F0.e-F0.s)/sc.step)+1;const tO=[];for(let hh=0;hh<=F0.mx;hh+=(+sc.step||1)){const d=fmTime(hh);tO.push([hh,hh===0?'Now':DOW[d.getDay()].slice(0,1)+DOW[d.getDay()].slice(1).toLowerCase()+' '+fmtTime(d).replace(':00','')])}h+=`<div class="sec"><h3>Future map</h3><div class="row2"><label class="f">Show<select id="i-fmv" data-k="v">${opts([['temp','Temperature'],['feels','Feels like (wind chill)'],['gust','Wind gusts'],['rain','Rainfall adding up'],['snow','Snowfall adding up'],['ptype','Rain, mix and snow (precip type)'],['wind','Wind speed and flow']],sc.v)}</select></label></div><div class="row2"><label class="f">Start<select id="i-fms0" data-k="fmStart">${opts(tO.filter(x=>x[0]<F0.mx),F0.s)}</select></label><label class="f">End<select id="i-fme" data-k="fmEnd">${opts(tO.filter(x=>x[0]>F0.s),F0.e)}</select></label></div>
     <label class="f">Step<select id="i-fms" data-k="step">${opts([[1,'Every hour'],[3,'Every 3 hours'],[6,'Every 6 hours']],sc.step)}</select></label><p class="note">Hour-by-hour Open-Meteo forecast, blended between cities.${sc.v==='rain'?' Rainfall is the GFS, ECMWF and ICON blend, adding up from now (even when the loop starts later). Liquid totals, so snow counts as melted water.':sc.v==='snow'?' Snowfall is the GFS, ECMWF and ICON blend, adding up from now (even when the loop starts later).':''} ${N} frames, about ${Math.round(fmPlan(sc).T)} seconds per loop.</p>
     <div class="row2"><label class="f">Speed<select data-k="fmSpd">${opts([[1.2,'Slow'],[.9,'Relaxed'],[.6,'Normal'],[.4,'Fast']],+sc.fmSpd||.6)}</select></label><label class="f">Pause length<select data-k="fmHold">${opts([[1,'1 second'],[2,'2 seconds'],[3,'3 seconds'],[4,'4 seconds'],[5,'5 seconds']],+sc.fmHold||2)}</select></label></div>
-    <label class="chk"><input type="checkbox" data-k="fmGlide"${sc.fmGlide!==false?' checked':''}>Smooth motion between frames</label><p class="note">Plays every forecast hour in between, and slides rain and snow in the direction they are moving.</p>
+    
     <label class="f" style="margin-top:6px">Pause at</label><div class="chips">${(()=>{const o=[];for(let h=F0.s;h<=F0.e;h+=+sc.step||1){const tt=tO.find(x=>x[0]===h);o.push(`<label><input type="checkbox" data-fmstop="${h}"${(sc.fmStops||[]).map(Number).includes(h)?' checked':''}>${esc(tt?tt[1]:h+' hr')}</label>`)}return o.join('')})()}</div><p class="note">The loop holds on each checked time, then keeps going. The last frame always holds briefly before the loop restarts.</p></div>`}
   if(sc.type==='winter'){const grp=(lab,keys)=>`<optgroup label="${lab}">${keys.map(k=>`<option value="${k}"${sc.layer===k?' selected':''}>${esc(WINTER_LAYERS[k][2]+(WINTER_LAYERS[k][3]?' · Day '+WINTER_LAYERS[k][3]:' · Days 1–3'))}</option>`).join('')}</optgroup>`;
     const S=winterImgs[sc.region+'|'+sc.layer];h+=`<div class="sec"><h3>NWS winter outlook</h3><label class="f">Map<select id="i-wl" data-k="layer">${grp('Winter Storm Severity Index',['wssi1','wssi2','wssi3','wssi13'])}${grp('Day 1 odds',['s4d1','s8d1','s12d1','ice1'])}${grp('Day 2 odds',['s4d2','s8d2','s12d2','ice2'])}${grp('Day 3 odds',['s4d3','s8d3','s12d3','ice3'])}</select></label>
