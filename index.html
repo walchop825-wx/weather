@@ -240,7 +240,7 @@ button.pill{cursor:pointer;background:transparent}
 <div class="status">
   <span><kbd>Space</kbd> play / stop</span><span><kbd>←</kbd><kbd>→</kbd> previous / next</span><span><kbd>V</kbd> select</span><span><kbd>T</kbd> pen</span><span><kbd>B</kbd> contour</span><span><kbd>N</kbd> total</span><span><kbd>Del</kbd> delete selection</span><span><kbd>E</kbd> export PNG</span><span><kbd>K</kbd> storm track</span><span><kbd>L</kbd> map label</span><span><kbd>1</kbd>–<kbd>9</kbd> cue</span><span><kbd>Enter</kbd> take</span>
   <span id="srcNote"></span>
-  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-25 · 127</span>
+  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-25 · 128</span>
 </div>
 <input type="file" id="fileIn" accept=".json,application/json" hidden>
 
@@ -2194,11 +2194,11 @@ function firstPair(x){if(Array.isArray(x)){if(x.length===2&&typeof x[1]==='strin
 /* precipitation vs normal over a period, from NWS station records (ACIS sums observed and 1991-2020 normal precipitation) */
 const ALM_PD={ytd:['Year to date','SINCE JAN 1'],d365:['Past 365 days','PAST 365 DAYS'],d30:['Past month','PAST 30 DAYS'],d91:['Past 3 months','PAST 3 MONTHS'],d182:['Past 6 months','PAST 6 MONTHS']};
 const almPrCache={};
-function almPrecip(k,pd){const key=k+'|'+pd+'|'+new Date().toDateString();let A=almPrCache[key];if(A)return A;A=almPrCache[key]={status:'loading'};const sid=(STATIONS[k]||'').replace(/^K/,'');
+function almPrecip(k,pd){const key=k+'|'+pd+'|'+new Date().toDateString();let A=almPrCache[key];if(A&&!(A.status==='fail'&&A.why!=='nostation'&&Date.now()-A.t>600e3))return A;A=almPrCache[key]={status:'loading',t:Date.now()};const sid=(STATIONS[k]||'').replace(/^K/,'');
   const p2=n=>String(n).padStart(2,'0'),y=new Date(Date.now()-864e5),iso=`${y.getFullYear()}-${p2(y.getMonth()+1)}-${p2(y.getDate())}`,dur=pd==='ytd'?'ytd':+pd.slice(1);
   (async()=>{try{if(!sid)throw new Error('nostation');const j=await fetchJSON('https://data.rcc-acis.org/StnData?params='+encodeURIComponent(JSON.stringify({sid,sdate:iso,edate:iso,elems:[{name:'pcpn',interval:'dly',duration:dur,reduce:'sum',maxmissing:pd==='d30'?2:5},{name:'pcpn',interval:'dly',duration:dur,reduce:'sum',maxmissing:pd==='d30'?2:5,normal:'departure'}]})),15000);
       const r=j.data&&j.data[0],num=x=>x==='T'?0:x==='M'||x==null?null:parseFloat(x);const obs=r&&num(r[1]),dep=r&&num(r[2]);if(obs==null||dep==null||isNaN(obs)||isNaN(dep))throw 0;Object.assign(A,{status:'ok',obs,nor:obs-dep,dep,thru:y,name:j.meta&&j.meta.name})}
-    catch(e){A.status='fail';A.why=e&&e.message==='nostation'?'nostation':''}queueThumbs();softInspect('almanac')})();return A}
+    catch(e){A.status='fail';A.t=Date.now();A.why=e&&e.message==='nostation'?'nostation':''}queueThumbs();softInspect('almanac')})();return A}
 async function loadAlmanac(k){const now=new Date(),key=k+'|'+now.toDateString();if(almCache[key])return almCache[key];const A=almCache[key]={status:'loading'};
   const p2=n=>String(n).padStart(2,'0'),iso=`${now.getFullYear()}-${p2(now.getMonth()+1)}-${p2(now.getDate())}`,md=iso.slice(5);const sid=(STATIONS[k]||'').replace(/^K/,'');
   try{if(!sid)throw 0;const acis=p=>fetchJSON('https://data.rcc-acis.org/StnData?params='+encodeURIComponent(JSON.stringify(p)),12000);
