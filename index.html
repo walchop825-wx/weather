@@ -240,7 +240,7 @@ button.pill{cursor:pointer;background:transparent}
 <div class="status">
   <span><kbd>Space</kbd> play / stop</span><span><kbd>←</kbd><kbd>→</kbd> previous / next</span><span><kbd>V</kbd> select</span><span><kbd>T</kbd> pen</span><span><kbd>B</kbd> contour</span><span><kbd>N</kbd> total</span><span><kbd>Del</kbd> delete selection</span><span><kbd>E</kbd> export PNG</span><span><kbd>K</kbd> storm track</span><span><kbd>L</kbd> map label</span><span><kbd>1</kbd>–<kbd>9</kbd> cue</span><span><kbd>Enter</kbd> take</span>
   <span id="srcNote"></span>
-  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-25 · 145</span>
+  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-25 · 146</span>
 </div>
 <input type="file" id="fileIn" accept=".json,application/json" hidden>
 
@@ -330,8 +330,8 @@ const REGIONS={
    cities:['pensacola','tallahassee','jacksonville','orlando','tampa','sarasota','fortmyers','naplesfl','westpalm','fortlauderdale','miami','keywest','melbournefl']},
  sfl:{name:'South Florida',lon:-81.2,lat:26.35,latSpan:3.3,focus:[],scale:.9,counties:true,
    cities:['tampa','stpete','sarasota','portcharlotte','fortmyers','capecoral','naplesfl','sebring','stuart','westpalm','bocaraton','fortlauderdale','miami','homestead']},
- ne:{name:'Northeast',lon:-75.2,lat:42.1,latSpan:8.4,focus:[],scale:.8,
-   cities:['pittsburgh','buffalo','rochester','syracuse','albany','burlington','portland','concord','boston','hartford','providence','nyc','philadelphia','harrisburg','scranton','baltimore','washington','cleveland','binghamton']}
+ ne:{name:'Northeast',lon:-73.735,lat:43.54,latSpan:11.53,focus:['ME','NH','VT','MA','RI','CT','NY','NJ','PA'],scale:.8,isolate:true,
+   cities:['caribou','bangor','portland','burlington','concord','boston','hartford','providence','albany','watertown','syracuse','rochester','buffalo','binghamton','nyc','atlanticcity','philadelphia','harrisburg','scranton','pittsburgh','erie']}
 };
 /* One highlighted map per state, plus the menu groups: United States, States, Areas, Oceans, Europe */
 Object.assign(REGIONS,{
@@ -731,7 +731,7 @@ function modelCities(){const S=new Set();show.scenes.forEach(sc=>{if(['futuremap
 function usedCities(){const S=new Set(modelCities());S.add(show.settings.bugCity||'harrisburg');show.scenes.forEach(sc=>{if(sc.city&&CITIES[sc.city])S.add(sc.city);if(isMapType(sc.type)&&sc.region!=='us'){try{mapCities(sc).forEach(k=>S.add(k))}catch(e){}}if(['travel','ustemps'].includes(sc.type)&&Array.isArray(sc.cities))sc.cities.forEach(k=>S.add(k))});return CITY_KEYS.filter(k=>S.has(k))}
 function hotCities(){const S=new Set([show.settings.bugCity,...tcCities()].filter(k=>CITIES[k]));const add=k=>{if(CITIES[k])S.add(k)};
   show.scenes.forEach(sc=>{add(sc.city);if(Array.isArray(sc.cities))sc.cities.forEach(add);const R=REGIONS[sc.region];if(!R)return;(R.cities||[]).forEach(add);try{mapCities(sc).forEach(add)}catch(e){}
-    if(R.latSpan<=15&&!R.national){const P=proj(sc.region),mx=(P.east-P.west)*.15,my=(P.north-P.south)*.15;CITY_KEYS.forEach(k=>{const c=CITIES[k];if(c[2]>P.west-mx&&c[2]<P.east+mx&&c[1]>P.south-my&&c[1]<P.north+my)S.add(k)})}});
+    if(R.latSpan<=15&&!R.national){const P=proj(sc.region),mx=(P.east-P.west)*.15,my=(P.north-P.south)*.15;CITY_KEYS.forEach(k=>{const c=CITIES[k];if(LAZY_CITIES.has(k)&&R.latSpan>7)return;if(c[2]>P.west-mx&&c[2]<P.east+mx&&c[1]>P.south-my&&c[1]<P.north+my)S.add(k)})}});
   modelCities().forEach(add);return S}
 function omCities(){const eu=show.scenes.some(sc=>isEU(sc.region)||(sc.city&&CITIES[sc.city]&&CITIES[sc.city][2]>=-30)||(sc.type==='travel'&&Array.isArray(sc.cities)&&sc.cities.some(k=>CITIES[k]&&CITIES[k][2]>=-30))||(sc.type==='extremes'&&sc.area==='eu'));return CITY_KEYS.filter(k=>eu||CITIES[k][2]<-30)}
 /* Only one studio tab in this browser calls Open-Meteo; the others read its saved data. */
@@ -1880,7 +1880,7 @@ function viewProj(v){const c=Math.cos(v.lat*Math.PI/180),lonSpan=v.latSpan*(W/H)
 const US_PRI=['seattle','sanfrancisco','losangeles','phoenix','denver','dallas','houston','minneapolis','chicago','atlanta','miami','nyc','boston','washington'];
 function citiesForView(P,latSpan,base,op={}){
   const B=REGIONS[base]||REGIONS.pa;const pri=base==='us'?US_PRI:B.cities;const zr=Math.max(1,B.latSpan/latSpan);
-  const limit=op.limit||Math.round(clamp(14+Math.log2(zr)*5,14,latSpan<2.2?40:32));const top=op.top||60,skip=op.skip||null,av=op.avoid||[{l:0,r:1150,t:0,b:228}];
+  const limit=op.limit||Math.max(Math.round(clamp(14+Math.log2(zr)*5,14,latSpan<2.2?40:32)),base!=='us'&&zr===1?Math.min(pri.length,24):0);const top=op.top||60,skip=op.skip||null,av=op.avoid||[{l:0,r:1150,t:0,b:228}];
   const cand=[...pri,...CITY_KEYS.filter(k=>!pri.includes(k)),...(latSpan<3.4?TOWN_KEYS:[]),...(latSpan<2.2?Object.keys(xpl()):[])].filter(k=>!(B.isolate&&B.focus.length&&CITIES[k])||B.focus.includes(cityST(k)));const out=[];
   for(const k of cand){if(skip&&skip.has(k))continue;const pl=placeOf(k);if(!pl)continue;const x=P.x(pl.lon),y=P.y(pl.lat);if(x<40||x>W-260||y<top||y>H-120)continue;
     const town=!CITIES[k];const tw=measure(ctx,pl.n.toUpperCase(),`700 ${town?20:24}px ${FD}`,1);const hit=b=>(b.b>H-240&&b.r>W-560)||av.some(a=>b.l<a.r&&b.r>a.l&&b.t<a.b&&b.b>a.t)||out.some(o=>b.l<o.bx.r+6&&b.r>o.bx.l-6&&b.t<o.bx.b+4&&b.b>o.bx.t-4)||out.some(o=>Math.abs(o.x-x)<14&&Math.abs(o.y-y)<14);
