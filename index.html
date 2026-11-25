@@ -240,7 +240,7 @@ button.pill{cursor:pointer;background:transparent}
 <div class="status">
   <span><kbd>Space</kbd> play / stop</span><span><kbd>←</kbd><kbd>→</kbd> previous / next</span><span><kbd>V</kbd> select</span><span><kbd>T</kbd> pen</span><span><kbd>B</kbd> contour</span><span><kbd>N</kbd> total</span><span><kbd>Del</kbd> delete selection</span><span><kbd>E</kbd> export PNG</span><span><kbd>K</kbd> storm track</span><span><kbd>L</kbd> map label</span><span><kbd>1</kbd>–<kbd>9</kbd> cue</span><span><kbd>Enter</kbd> take</span>
   <span id="srcNote"></span>
-  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-25 · 135</span>
+  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-25 · 136</span>
 </div>
 <input type="file" id="fileIn" accept=".json,application/json" hidden>
 
@@ -2213,36 +2213,45 @@ async function loadAlmanac(k,day){const now=day||new Date(),key=k+'|'+now.toDate
   try{if(!sid)throw 0;const acis=p=>fetchJSON('https://data.rcc-acis.org/StnData?params='+encodeURIComponent(JSON.stringify(p)),12000);
     const nj=await acis({sid,sdate:iso,edate:iso,elems:[{name:'maxt',normal:'1'},{name:'mint',normal:'1'}]});const row=nj.data&&nj.data[0];if(!row)throw 0;
     if(past){try{const oj=await acisLong(sid,{sdate:iso,edate:iso,elems:['maxt','mint','pcpn','snow']},12000,j=>Array.isArray(j.data)&&j.data[0]&&j.data[0][1]!=='M');const o=oj.data&&oj.data[0],nm=x=>x==='T'?.001:x==='M'||x==null||x===''?null:parseFloat(x);if(o)A.obs={hi:nm(o[1]),lo:nm(o[2]),pr:nm(o[3]),sn:nm(o[4])}}catch(e){}}
-    const rj=await acisLong(sid,{sdate:'por',edate:iso,elems:[{name:'maxt',interval:'dly',duration:'dly',smry:{reduce:'max',add:'date'},smry_only:1,groupby:['year',md,md]},{name:'mint',interval:'dly',duration:'dly',smry:{reduce:'min',add:'date'},smry_only:1,groupby:['year',md,md]}]},20000,j=>Array.isArray(j.smry)&&!!firstPair(j.smry[0]));
-    const sm=rj.smry||[];const rh=firstPair(sm[0]),rl=firstPair(sm[1]);const nh=parseFloat(row[1]),nl=parseFloat(row[2]);if(isNaN(nh)||isNaN(nl))throw 0;
-    Object.assign(A,{status:'ok',src:'NWS station records'+(nj.meta&&nj.meta.name?' · '+nj.meta.name:''),nh:Math.round(nh),nl:Math.round(nl),rh:rh&&rh[0],rhy:rh&&rh[1].slice(0,4),rl:rl&&rl[0],rly:rl&&rl[1].slice(0,4)})}
+    /* records for this date from every earlier year, so the day itself can tie or break them */
+    const RE=(name,reduce)=>({name,interval:'dly',duration:'dly',smry:{reduce,add:'date'},smry_only:1,groupby:['year',md,md]});
+    const rj=await acisLong(sid,{sdate:'por',edate:(now.getFullYear()-1)+'-12-31',elems:[RE('maxt','max'),RE('mint','min'),RE('pcpn','max'),RE('snow','max'),RE('mint','max'),RE('maxt','min')],meta:['name','valid_daterange']},20000,j=>Array.isArray(j.smry)&&!!firstPair(j.smry[0]));
+    const sm=rj.smry||[],R6=sm.map(x=>{const f=firstPair(x);return f?{v:f[0],y:f[1].slice(0,4)}:null});const rh=firstPair(sm[0]),rl=firstPair(sm[1]);const nh=parseFloat(row[1]),nl=parseFloat(row[2]);if(isNaN(nh)||isNaN(nl))throw 0;
+    const vr=rj.meta&&rj.meta.valid_daterange&&rj.meta.valid_daterange[0]&&rj.meta.valid_daterange[0][0];
+    Object.assign(A,{status:'ok',src:'NWS station records'+(rj.meta&&rj.meta.name?' · '+rj.meta.name:nj.meta&&nj.meta.name?' · '+nj.meta.name:'')+(vr?' · records since '+String(vr).slice(0,4):''),nh:Math.round(nh),nl:Math.round(nl),rh:rh&&rh[0],rhy:rh&&rh[1].slice(0,4),rl:rl&&rl[0],rly:rl&&rl[1].slice(0,4),rec:{hi:R6[0],lo:R6[1],pr:R6[2],sn:R6[3],wlo:R6[4],chi:R6[5]}})}
   catch(e){try{const y=now.getFullYear()-1;const j=await fetchJSON(`https://archive-api.open-meteo.com/v1/archive?latitude=${CITIES[k][1]}&longitude=${CITIES[k][2]}&start_date=1940-01-01&end_date=${y}-12-31&daily=temperature_2m_max,temperature_2m_min&temperature_unit=fahrenheit&timezone=America%2FNew_York`,25000);A.obs=null;
       const d=j.daily;let sh=0,sl=0,n=0,rh=-999,rhy='',rl=999,rly='';d.time.forEach((tm,i)=>{if(tm.slice(5)!==md)return;const hi=d.temperature_2m_max[i],lo=d.temperature_2m_min[i],yr=+tm.slice(0,4);if(hi==null||lo==null)return;if(yr>=1991&&yr<=2020){sh+=hi;sl+=lo;n++}if(hi>rh){rh=hi;rhy=tm.slice(0,4)}if(lo<rl){rl=lo;rly=tm.slice(0,4)}});if(!n)throw 0;
       Object.assign(A,{status:'ok',src:'ERA5 reanalysis since 1940 (not official station records)',nh:Math.round(sh/n),nl:Math.round(sl/n),rh:Math.round(rh),rhy,rl:Math.round(rl),rly})}
     catch(e2){const b=hash(k+md);Object.assign(A,{status:'sample',src:'Sample values. Live records did not load.',nh:Math.round(52+b*6-(now.getMonth()>9?8:0)),nl:Math.round(34+b*5-(now.getMonth()>9?6:0)),rh:Math.round(74+b*6),rhy:String(1950+Math.floor(b*70)),rl:Math.round(14+b*8),rly:String(1900+Math.floor(b*90))})}}
   queueThumbs();softInspect('almanac');return A}
+/* records tied or broken by a past day's observations (compared with every earlier year on that date) */
+function almRecords(A){const O=A&&A.obs,R=A&&A.rec;if(!O||!R)return[];const out=[];const chk=(key,v,r,hi,lab)=>{if(v==null||!r)return;const d=hi?v-r.v:r.v-v;if(d>1e-6)out.push({key,lab,v,old:r,tie:false});else if(Math.abs(d)<1e-6)out.push({key,lab,v,old:r,tie:true})};
+  chk('hi',O.hi,R.hi,true,'HIGH');chk('lo',O.lo,R.lo,false,'LOW');if(O.pr!=null&&O.pr>=.01)chk('pr',O.pr,R.pr,true,'RAINFALL');if(O.sn!=null&&O.sn>=.1)chk('sn',O.sn,R.sn,true,'SNOWFALL');chk('wlo',O.lo,R.wlo,true,'WARM LOW');chk('chi',O.hi,R.chi,false,'COLD HIGH');return out}
 function renderAlmanac(g,sc,t){
   const k=sc.city;blurBg(g,regionFor(k));const now=almDate(sc),past=almPast(sc);const ak=k+'|'+now.toDateString();let A=almCache[ak];if(A&&past&&A.status!=='loading'&&!A.obs&&Date.now()-(A.t||0)>1800e3){delete almCache[ak];A=null}if(!A)loadAlmanac(k,now);const S=sunTimes(CITIES[k][1],CITIES[k][2],new Date(now.getTime()+12*3600e3));const fc=getDaily(k)[0]||{};
   const cards=[['SUNRISE',S?hrLbl(S.rise):'--',''],['SUNSET',S?hrLbl(S.set):'--',S?(()=>{const m=Math.round((S.set-S.rise)/60000);return Math.floor(m/60)+'h '+(m%60)+'m of daylight'})():''],
     ['NORMAL HIGH',A&&A.nh!=null?A.nh+'°':'--',''],['NORMAL LOW',A&&A.nl!=null?A.nl+'°':'--',''],
     ['RECORD HIGH',A&&A.rh!=null?A.rh+'°':'--',A&&A.rhy?'Set in '+A.rhy:''],['RECORD LOW',A&&A.rl!=null?A.rl+'°':'--',A&&A.rly?'Set in '+A.rly:'']];
+  const RB=past?almRecords(A):[],ry=String(now.getFullYear());[['hi',4],['lo',5]].forEach(([kk,ci])=>{const r=RB.find(x=>x.key===kk);if(!r)return;cards[ci][1]=r.v+'°';cards[ci][2]=r.tie?'Tied '+r.old.y:'Old: '+r.old.v+'° in '+r.old.y;cards[ci][3]=r.tie?'TIED RECORD':'NEW RECORD'});
   const cw=520,chh=180,gx=40,x0=(W-(cw*3+gx*2))/2,y0=270;
   cards.forEach((c,i)=>{const j=i;const x=x0+Math.floor(i/2)*(cw+gx),y=y0+(i%2)*(chh+30);const p=ease((t-.3-j*.08)/.5);if(p<=0)return;
     g.save();g.globalAlpha=p;glass(g,x,y+30*(1-p),cw,chh,14);const yy=y+30*(1-p);text(g,c[0],x+34,yy+50,`800 26px ${FD}`,i<2?'#ffb21e':i<4?'#7cc4ff':'#ff8a8a','left','alphabetic',3);
+    if(c[3]){const pul=.55+.45*Math.sin(t*4);g.save();g.strokeStyle=c[3]==='NEW RECORD'?'#ff3b3b':'#ffb21e';g.lineWidth=4;g.shadowColor=g.strokeStyle;g.shadowBlur=10+12*pul;rr(g,x,yy,cw,chh,14);g.stroke();g.restore();const bf=`800 22px ${FD}`,bw2=measure(g,c[3],bf,2)+28;g.fillStyle=c[3]==='NEW RECORD'?'#e8303a':'#ffb21e';rr(g,x+cw-30-bw2,yy+84,bw2,38,8);g.fill();text(g,c[3],x+cw-30-bw2/2,yy+110,bf,c[3]==='NEW RECORD'?'#ffffff':'#0b1a38','center','alphabetic',2)}
     text(g,c[1],x+34,yy+128,`800 72px ${FD}`,'#ffffff');if(c[2])text(g,c[2].toUpperCase(),x+cw-30,yy+50,`700 20px ${FD}`,'#c8d4e8','right','alphabetic',1);g.restore()});
-  const by=y0+2*(chh+30)+20;const p=ease((t-.9)/.5);
-  if(p>0&&past){const O=A&&A.obs,pw=cw*3+gx*2;g.save();g.globalAlpha=p;glass(g,x0,by,pw,96,14);text(g,almDayName(now),x0+34,by+60,`800 30px ${FD}`,'#ffb21e','left','alphabetic',2);
+  const by=y0+2*(chh+30)+20;const p=ease((t-.9)/.5);const RC=past?almRecords(A).filter(r=>!['hi','lo'].includes(r.key)):[],bh=RC.length?136:96;
+  if(p>0&&past){const O=A&&A.obs,pw=cw*3+gx*2;g.save();g.globalAlpha=p;glass(g,x0,by,pw,bh,14);text(g,almDayName(now),x0+34,by+60,`800 30px ${FD}`,'#ffb21e','left','alphabetic',2);
     let s;if(!A||A.status==='loading')s='LOADING';else if(!O||(O.hi==null&&O.lo==null))s=A.status==='ok'?'NOT REPORTED YET':'OBSERVATIONS NOT AVAILABLE';else{const pr=O.pr==null?'PRECIP --':O.pr<.005?(O.pr>0?'PRECIP TRACE':'DRY'):'PRECIP '+O.pr.toFixed(2)+'"';const sn=O.sn!=null&&O.sn>=.05?'   SNOW '+O.sn.toFixed(1)+'"':'';
       let dl='';if(O.hi!=null&&A.nh!=null){const d=Math.round(O.hi-A.nh);dl=d===0?'   ·   HIGH RIGHT AT NORMAL':`   ·   HIGH ${Math.abs(d)}° ${d>0?'ABOVE':'BELOW'} NORMAL`}s=`HIGH ${O.hi??'--'}°   LOW ${O.lo??'--'}°   ${pr}${sn}${dl}`}
-    const lw=measure(g,almDayName(now),`800 30px ${FD}`,2)+70;let f=36;while(f>22&&measure(g,s,`800 ${f}px ${FD}`,1)>pw-lw-68)f-=2;text(g,s,x0+pw-34,by+62,`800 ${f}px ${FD}`,'#ffffff','right','alphabetic',1);g.restore()}
+    const lw=measure(g,almDayName(now),`800 30px ${FD}`,2)+70;let cx2=x0+34;RC.forEach(r=>{const lb=(r.tie?'TIED RECORD ':'NEW RECORD ')+r.lab,bf=`800 20px ${FD}`,bw2=measure(g,lb,bf,2)+24;g.fillStyle=r.tie?'#ffb21e':'#e8303a';rr(g,cx2,by+82,bw2,36,8);g.fill();text(g,lb,cx2+bw2/2,by+107,bf,r.tie?'#0b1a38':'#ffffff','center','alphabetic',2);cx2+=bw2+12});let f=36;while(f>22&&measure(g,s,`800 ${f}px ${FD}`,1)>pw-lw-68)f-=2;text(g,s,x0+pw-34,by+62,`800 ${f}px ${FD}`,'#ffffff','right','alphabetic',1);g.restore()}
   else if(p>0&&fc.hi!=null){g.save();g.globalAlpha=p;glass(g,x0,by,cw*3+gx*2,96,14);
-    let s=`TODAY'S FORECAST  ${fc.hi}° / ${fc.lo}°`;if(A&&A.nh!=null){const dlt=fc.hi-A.nh;s+=dlt===0?'  ·  RIGHT AT NORMAL':`  ·  ${Math.abs(dlt)}° ${dlt>0?'ABOVE':'BELOW'} NORMAL`}text(g,s,x0+34,by+62,`800 36px ${FD}`,'#ffffff','left','alphabetic',1);g.restore()}
-  let sy=by+140;const pd=sc.almPd==null?'ytd':String(sc.almPd);const pEnd=past?now:new Date(Date.now()-864e5);if(pd!=='off'&&ALM_PD[pd]){const P=almPrecip(k,pd,pEnd),py=by+112,pw=cw*3+gx*2,pp=ease((t-1.1)/.5);sy=py+96+44;
+    let s=`TODAY'S FORECAST  ${fc.hi}° / ${fc.lo}°`;if(A&&A.nh!=null){const dlt=fc.hi-A.nh;s+=dlt===0?'  ·  RIGHT AT NORMAL':`  ·  ${Math.abs(dlt)}° ${dlt>0?'ABOVE':'BELOW'} NORMAL`}text(g,s,x0+34,by+62,`800 36px ${FD}`,'#ffffff','left','alphabetic',1);
+    const rp=A&&A.rh!=null&&fc.hi>=A.rh?(fc.hi>A.rh?'RECORD HIGH POSSIBLE':'COULD TIE RECORD HIGH'):A&&A.rl!=null&&fc.lo!=null&&fc.lo<=A.rl?(fc.lo<A.rl?'RECORD LOW POSSIBLE':'COULD TIE RECORD LOW'):'';if(rp){const bf=`800 22px ${FD}`,bw2=measure(g,rp,bf,2)+28,pw=cw*3+gx*2;g.fillStyle='#e8303a';rr(g,x0+pw-30-bw2,by+28,bw2,40,8);g.fill();text(g,rp,x0+pw-30-bw2/2,by+56,bf,'#ffffff','center','alphabetic',2)}g.restore()}
+  let sy=by+140;const pd=sc.almPd==null?'ytd':String(sc.almPd);const pEnd=past?now:new Date(Date.now()-864e5);if(pd!=='off'&&ALM_PD[pd]){const P=almPrecip(k,pd,pEnd),py=by+bh+16,pw=cw*3+gx*2,pp=ease((t-1.1)/.5);sy=py+96+44;
     if(pp>0){g.save();g.globalAlpha=pp;glass(g,x0,py,pw,96,14);text(g,'PRECIP '+ALM_PD[pd][1],x0+34,py+60,`800 30px ${FD}`,'#3ddc8c','left','alphabetic',2);
       if(P.status==='ok'){const d=P.dep,col=Math.abs(d)<.005?'#ffffff':d>0?'#3ddc8c':'#ffb26b',ds=Math.abs(d)<.005?'RIGHT AT NORMAL':Math.abs(d).toFixed(2)+'" '+(d>0?'ABOVE':'BELOW')+' NORMAL';
         const f=`800 36px ${FD}`,f2=`700 24px ${FD}`,nt=`NORMAL ${P.nor.toFixed(2)}"`,w2=measure(g,nt,f2,1);text(g,nt,x0+pw-34,py+60,f2,'#c8d4e8','right','alphabetic',1);const w1=measure(g,ds,f,1);text(g,ds,x0+pw-34-w2-40,py+62,f,col,'right','alphabetic',1);text(g,P.obs.toFixed(2)+'"',x0+pw-34-w2-40-w1-36,py+62,f,'#ffffff','right','alphabetic',1)}
       else text(g,P.status==='loading'?'LOADING':P.why==='nostation'?'NO NWS STATION FOR THIS CITY':'COULD NOT LOAD',x0+pw-34,py+60,`700 26px ${FD}`,'#c8d4e8','right','alphabetic',2);g.restore()}}
-  if(A&&A.src)text(g,(A.src+(pd!=='off'&&ALM_PD[pd]?' · precipitation through '+pEnd.toLocaleDateString([], {month:'short',day:'numeric',year:pEnd.getFullYear()!==new Date().getFullYear()?'numeric':undefined})+' vs 1991-2020 normals':'')).toUpperCase(),x0,sy,`600 16px ${FD}`,'#9fb4d8','left','alphabetic',1.5);
+  if(A&&A.src)text(g,(A.src+(pd!=='off'&&ALM_PD[pd]?' · precipitation through '+pEnd.toLocaleDateString([], {month:'short',day:'numeric',year:pEnd.getFullYear()!==new Date().getFullYear()?'numeric':undefined})+' vs 1991-2020 normals':'')).toUpperCase(),x0,sy,`600 ${(()=>{const st=(A.src+(pd!=='off'&&ALM_PD[pd]?' · precipitation through '+pEnd.toLocaleDateString()+' vs 1991-2020 normals':'')).toUpperCase();let f=16;while(f>11&&measure(g,st,`600 ${f}px ${FD}`,1.5)>W-x0-680)f--;return f})()}px ${FD}`,'#9fb4d8','left','alphabetic',1.5);
   drawHeader(g,sc.title||DEF_TITLES.almanac,sc.sub||autoSub(sc),t);
 }
 
