@@ -240,7 +240,7 @@ button.pill{cursor:pointer;background:transparent}
 <div class="status">
   <span><kbd>Space</kbd> play / stop</span><span><kbd>←</kbd><kbd>→</kbd> previous / next</span><span><kbd>V</kbd> select</span><span><kbd>T</kbd> pen</span><span><kbd>B</kbd> contour</span><span><kbd>N</kbd> total</span><span><kbd>Del</kbd> delete selection</span><span><kbd>E</kbd> export PNG</span><span><kbd>K</kbd> storm track</span><span><kbd>L</kbd> map label</span><span><kbd>1</kbd>–<kbd>9</kbd> cue</span><span><kbd>Enter</kbd> take</span>
   <span id="srcNote"></span>
-  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-25 · 121</span>
+  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-25 · 122</span>
 </div>
 <input type="file" id="fileIn" accept=".json,application/json" hidden>
 
@@ -1283,10 +1283,10 @@ function drawHolIcon(g,ic,cx,cy,r){g.save();g.translate(cx,cy);g.scale(r/50,r/50
   else if(ic==='star'){C('#ffd34d');g.beginPath();for(let i=0;i<10;i++){const a=-Math.PI/2+i*Math.PI/5,R=i%2?14:32;g.lineTo(Math.cos(a)*R,Math.sin(a)*R)}g.closePath();g.fill()}
   else if(ic==='groundhog'){/* peeking out of a burrow: dirt mound, dark hole, body cut off at the hole, front lip, paws on the rim */
     ell(0,34,44,13,0,'#6b4a2b');ell(0,30,32,9,0,'#24140a');
-    g.save();g.beginPath();g.rect(-60,-80,120,111);g.clip();ell(0,10,19,26,0,'#9a6a3c');ell(0,15,11,16,0,'#b98a5a');g.restore();
+    g.save();g.beginPath();g.rect(-60,-80,120,111);g.clip();ell(0,26,19,26,0,'#9a6a3c');ell(0,30,11,16,0,'#b98a5a');g.restore();
     C('#6b4a2b');g.beginPath();g.ellipse(0,30,32,9,0,0,Math.PI);g.ellipse(0,31,32,4,0,Math.PI,0,true);g.fill();g.strokeStyle='#8a6038';g.lineWidth=5;g.beginPath();g.ellipse(0,30,32,9,0,.05,Math.PI-.05);g.stroke();C('#8a6038');[[-38,30,5],[-30,37,4],[34,31,4.5],[26,38,3.5],[-14,40,3],[12,41,3]].forEach(([x,y,r2])=>{g.beginPath();g.arc(x,y,r2,0,7);g.fill()});
     ell(-12,37,7,4.5,-.15,'#7a4f2a');ell(12,37,7,4.5,.15,'#7a4f2a');
-    circ(0,-12,16,'#a8774a');circ(-11,-24,5,'#7a4f2a');circ(11,-24,5,'#7a4f2a');circ(-11,-24,2.4,'#5a3a1e');circ(11,-24,2.4,'#5a3a1e');ell(0,-5,9,7,0,'#d9b48a');circ(-6,-15,2.6,'#111');circ(6,-15,2.6,'#111');circ(-5.3,-15.8,.9,'#ffffff');circ(6.7,-15.8,.9,'#ffffff');circ(0,-8,2.6,'#3a2414');C('#ffffff');g.fillRect(-3,-3,6,5);g.strokeStyle='rgba(0,0,0,.35)';g.lineWidth=.8;g.beginPath();g.moveTo(0,-3);g.lineTo(0,2);g.stroke()}
+    {const hy=4;circ(0,hy-12,16,'#a8774a');circ(-11,hy-24,5,'#7a4f2a');circ(11,hy-24,5,'#7a4f2a');circ(-11,hy-24,2.4,'#5a3a1e');circ(11,hy-24,2.4,'#5a3a1e');ell(0,hy-5,9,7,0,'#d9b48a');circ(-6,hy-15,2.6,'#111');circ(6,hy-15,2.6,'#111');circ(-5.3,hy-15.8,.9,'#ffffff');circ(6.7,hy-15.8,.9,'#ffffff');circ(0,hy-8,2.6,'#3a2414');C('#ffffff');g.fillRect(-3,hy-3,6,5);g.strokeStyle='rgba(0,0,0,.35)';g.lineWidth=.8;g.beginPath();g.moveTo(0,hy-3);g.lineTo(0,hy+2);g.stroke()}}
   else if(ic==='bag'){C('#e8483f');g.beginPath();g.moveTo(-24,-12);g.lineTo(24,-12);g.lineTo(28,32);g.lineTo(-28,32);g.closePath();g.fill();g.strokeStyle='#ffffff';g.lineWidth=5;g.beginPath();g.arc(0,-12,12,Math.PI,0);g.stroke();C('#ffffff');g.font=`900 18px ${FD}`;g.textAlign='center';g.fillText('SALE',0,16)}
   else if(ic==='flower'){for(let i=0;i<6;i++){const a=i/6*Math.PI*2;ell(Math.cos(a)*16,Math.sin(a)*16-4,11,15,a+Math.PI/2,'#ff7ab8')}circ(0,-4,10,'#ffd34d');g.strokeStyle='#2f9e57';g.lineWidth=5;g.beginPath();g.moveTo(0,18);g.lineTo(0,38);g.stroke()}
   else if(ic==='dove'){C('#6f9ad6');g.beginPath();g.moveTo(-32,6);g.quadraticCurveTo(-6,-4,14,4);g.quadraticCurveTo(26,8,34,-2);g.quadraticCurveTo(30,14,12,18);g.quadraticCurveTo(-10,22,-32,6);g.fill();C('#8fb4e6');g.beginPath();g.moveTo(-6,2);g.quadraticCurveTo(-4,-30,18,-30);g.quadraticCurveTo(8,-12,10,4);g.closePath();g.fill();circ(-26,0,8,'#6f9ad6');C('#ffb21e');g.beginPath();g.moveTo(-33,0);g.lineTo(-42,3);g.lineTo(-33,5);g.fill();circ(-27,-2,1.8,'#14203d');g.strokeStyle='#3d8a3d';g.lineWidth=3;g.beginPath();g.moveTo(-40,5);g.lineTo(-48,12);g.stroke()}
