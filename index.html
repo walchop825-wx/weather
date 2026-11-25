@@ -240,7 +240,7 @@ button.pill{cursor:pointer;background:transparent}
 <div class="status">
   <span><kbd>Space</kbd> play / stop</span><span><kbd>←</kbd><kbd>→</kbd> previous / next</span><span><kbd>V</kbd> select</span><span><kbd>T</kbd> pen</span><span><kbd>B</kbd> contour</span><span><kbd>N</kbd> total</span><span><kbd>Del</kbd> delete selection</span><span><kbd>E</kbd> export PNG</span><span><kbd>K</kbd> storm track</span><span><kbd>L</kbd> map label</span><span><kbd>1</kbd>–<kbd>9</kbd> cue</span><span><kbd>Enter</kbd> take</span>
   <span id="srcNote"></span>
-  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-25 · 128</span>
+  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-25 · 130</span>
 </div>
 <input type="file" id="fileIn" accept=".json,application/json" hidden>
 
@@ -1797,7 +1797,7 @@ function renderRadarMap(g,sc,t,o){
   else if(isSite(prod)){const site=sc.site||'CCX';loadSiteScans(site,prod);const S=siteScans[site+'|'+prod];const fr=S&&S.list?S.list:[null];const nF=fr.length;const fi=nF>1?radFi(sc,nF,Math.min(nF-1,Math.floor((t*1000/600)%(nF+3)))):0;
     const stamp=fr[fi]?fr[fi].replace(/[-:TZ]/g,'').slice(0,12):'0';const st=drawTiles(g,P,`ridge::${site}-${S?S.code:SITE_PROD[prod][0]}-${stamp}`);
     hud.nF=nF>1?nF:0;hud.fi=fi;hud.time=fr[fi]?fmtTime(new Date(fr[fi])):'LATEST SCAN';hud.tag=`K${site} ${prod==='siteref'?'REFLECTIVITY':prod==='sitevel'?'VELOCITY':'STORM RELATIVE'}`;
-    hud.live=st.ok>0;if(st.total&&st.bad===st.total){hud.ok=false;hud.tag='K'+site+' NOT AVAILABLE'}}
+    hud.live=st.ok>0;if(st.total&&st.bad===st.total){hud.ok=false;hud.tag='K'+site+' NOT AVAILABLE';hud.siteDown='RADAR K'+site+' IS NOT AVAILABLE RIGHT NOW'}}
   else if(prod==='future'){loadHrrrInit();const FR=futRange(sc),nF=FR.e-FR.s+1,fst=new Set((sc.futStops||[]).map(Number));const fl=radFi(sc,nF,loopIdx(t,.4,nF,+sc.futSpd||.6,i=>fst.has(FR.s+i),+sc.futHold||2,1.8).i);hud.nF=nF;hud.fi=fl;hud.stops=[...fst].map(h=>h-FR.s).filter(i=>i>=0&&i<nF);const fi=FR.s+fl;const F=futureFrames(rk);
     let drawn=false;if(F.ok!==false){const pick=a=>{for(let i=fi;i>=0;i--){const im=a[i];if(im&&im.complete&&im.naturalWidth)return im}return null};const im=pick(F.imgs)||(F.old&&pick(F.old.imgs));if(im){g.drawImage(im,0,0,W,H);drawn=true}}
     if(!drawn&&F.ok===false&&covered){g.imageSmoothingEnabled=true;g.drawImage(radarSim(rk,true)[fi%11],0,0,W,H);hud.sim=true}
@@ -1809,7 +1809,7 @@ function renderRadarMap(g,sc,t,o){
   g.drawImage(mapOverlay(rk),0,0);drawCounties(g,sc);if(sc.bold!==false)g.drawImage(radarBorders(rk),0,0);if(EUR)drawEuWarnings(g,sc,t);else{drawSpc(g,sc,P,t);drawAlerts(g,sc,t);drawAlertHighlight(g,sc,t)}if(!o.noLabels){drawFronts(g,sc,P,o,t);g._fr=1;}drawTracks(g,sc,P,t);
   if(!o.noCities)radarCities(rk).forEach(c=>drawCityLabel(g,c));
   if(isSite(prod)&&RADAR_SITES[sc.site||'CCX']){const s=RADAR_SITES[sc.site||'CCX'];const x=P.x(s[2]),y=P.y(s[1]);g.save();g.strokeStyle='#ffffff';g.lineWidth=3;g.beginPath();g.moveTo(x-9,y);g.lineTo(x+9,y);g.moveTo(x,y-9);g.lineTo(x,y+9);g.stroke();g.restore()}
-  if(!o.noLabels)drawMapLabels(g,sc,P,o,t);
+  if(!o.noLabels)drawMapLabels(g,sc,P,o,t);if(hud.siteDown)centerMsg(g,hud.siteDown);
   if(o.interactive&&draft&&draft.kind==='track'){g.save();g.strokeStyle='#ffb21e';g.lineWidth=5;g.setLineDash([12,8]);g.beginPath();g.moveTo(draft.a[0],draft.a[1]);g.lineTo(draft.b[0],draft.b[1]);g.stroke();g.restore()}
   return hud;
 }
@@ -2075,8 +2075,8 @@ function renderRainfall(g,sc,t,o){
   g.restore();
   if(msg){const f=`800 34px ${FD}`;const w=measure(g,msg,f,2)+60;glass(g,(W-w)/2,H/2-40,w,80,12);text(g,msg,W/2,H/2+12,f,'#ffffff','center','alphabetic',2)}
   const repIn=SN&&mr&&repOk?REP.pts.filter(r=>{const x=P.x(r.lon),y=P.y(r.lat);return x>0&&x<W&&y>0&&y<H}):[];const repTop=repIn.reduce((a,r)=>!a||r.v>a.v?r:a,null);
-  const L1=mr?(SN?(SPL&&useSplit&&!splOk&&SPL.status!=='loading'?'RADAR · RAIN NOT REMOVED':repIn.length?repIn.length+(repIn.length===1?' REPORT':' REPORTS'):sc.repOnly?'NO REPORTS YET':'RADAR ESTIMATE'):'RADAR ESTIMATE'):null;const bw=Math.max(360,L1?measure(g,L1,`700 20px ${FD}`,2.5)+60:0);const bx=W-70-bw,by=50;glass(g,bx,by,bw,110,12);text(g,L1?L1:wpc?'NWS WEATHER PREDICTION':data.source==='nws'&&sc.src==='consensus'?'NWS FORECAST':(sc.src==='consensus'?'MODEL BLEND':RAIN_SRC_NAMES[sc.src]+' MODEL'),bx+30,by+40,`700 20px ${FD}`,mr?'#ffb21e':wpc?'#3ddc8c':'#4fb3ff','left','alphabetic',2.5);
-  {let L2=wpc?(WPC_QPF[sc.wpc]||WPC_QPF.d13)[3].toUpperCase():repTop&&repTop.v>=.1?'HIGHEST: '+fmt(repTop.v,sc.units)+' '+String(repTop.name||'').toUpperCase():mx&&mx.v>=(SN?.1:.01)?'HIGHEST: '+fmt(mx.v,sc.units)+' '+CITIES[mx.k][0].toUpperCase():mx?(SN?'NO SNOW':'NO RAIN')+' AT THESE CITIES':vals?'LOADING TOTALS':'UPDATED '+fmtTime(Date.now());if(wpc&&String(sc.sub||autoSub(sc)).toUpperCase().includes(L2))L2='OFFICIAL FORECAST';let f2=44;while(measure(g,L2,`800 ${f2}px ${FD}`)>(typeof bw!=='undefined'?bw:360)-60&&f2>24)f2--;text(g,L2,bx+30,by+88,`800 ${f2}px ${FD}`,'#ffffff')}
+  const L1=mr?(SN?(SPL&&useSplit&&!splOk&&SPL.status!=='loading'?'RADAR · RAIN NOT REMOVED':repIn.length?repIn.length+(repIn.length===1?' REPORT':' REPORTS'):sc.repOnly?'NO REPORTS YET':'RADAR ESTIMATE'):'RADAR ESTIMATE'):null;const bw=Math.max(360,L1?measure(g,L1,`700 20px ${FD}`,2.5)+60:0);const bx=W-70-bw,by=50;glass(g,bx,by,bw,110,12);text(g,L1?L1:wpc?'NWS WEATHER PREDICTION':data.source==='nws'&&sc.src==='consensus'?'NWS FORECAST':(sc.src==='consensus'||!RAIN_SRC_NAMES[sc.src]?'MODEL BLEND':RAIN_SRC_NAMES[sc.src]+' MODEL'),bx+30,by+40,`700 20px ${FD}`,mr?'#ffb21e':wpc?'#3ddc8c':'#4fb3ff','left','alphabetic',2.5);
+  {let L2=wpc?(WPC_QPF[sc.wpc]||WPC_QPF.d13)[3].toUpperCase():repTop&&repTop.v>=.1?'HIGHEST: '+fmt(repTop.v,sc.units)+' '+String(repTop.name||'').toUpperCase():mx&&mx.v>=(SN?.1:.01)?'HIGHEST: '+fmt(mx.v,sc.units)+' '+CITIES[mx.k][0].toUpperCase():mx?(SN?'NO SNOW':'NO RAIN')+' AT THESE CITIES':vals?(msg&&/COULD NOT LOAD/.test(msg)?'NO DATA':'LOADING TOTALS'):'UPDATED '+fmtTime(Date.now());if(wpc&&String(sc.sub||autoSub(sc)).toUpperCase().includes(L2))L2='OFFICIAL FORECAST';let f2=44;while(measure(g,L2,`800 ${f2}px ${FD}`)>(typeof bw!=='undefined'?bw:360)-60&&f2>24)f2--;text(g,L2,bx+30,by+88,`800 ${f2}px ${FD}`,'#ffffff')}
   drawHeader(g,rainSnowTitle(sc),sc.sub||autoSub(sc),t);
 }
 
@@ -2820,7 +2820,7 @@ function renderSeasonal(g,sc,t,o){const rk=sc.region,P=proj(rk),R=REGIONS[rk],sr
     text(g,'NO COLOR: EQUAL CHANCES',lx+24,ly+lh-20,`700 15px ${FD}`,'#9fb0cc','left','alphabetic',1.5);g.restore()}
   const ck=show.settings.bugCity||CITY_KEYS[0],cp=placeOf(ck),bw=560,bx=W-70-bw,by=50;glass(g,bx,by,bw,110,12);const BD=cp&&!isEU(rk)?cpcPoint(src,cp.lat,cp.lon):null;if(BD&&BD.a)anyA=BD.a;
   text(g,'NOAA CPC · '+cpcPeriodName(src,anyA).toUpperCase(),bx+30,by+40,`700 18px ${FD}`,'#4fb3ff','left','alphabetic',2.5);
-  {let L=!BD?'U.S. ONLY':BD.st==='loading'?'LOADING':BD.st==='fail'?'NO CITY VALUE':String((CITIES[ck]||[cp.n])[0]).toUpperCase()+': '+cpcWord(src,cpcCat(BD.a)||{c:'EC'});let f2=38;while(measure(g,L,`800 ${f2}px ${FD}`)>bw-60&&f2>20)f2--;text(g,L,bx+30,by+88,`800 ${f2}px ${FD}`,'#ffffff')}
+  {let L=!BD?'U.S. ONLY':BD.st==='loading'?'LOADING':BD.st==='fail'?'NO DATA':String((CITIES[ck]||[cp.n])[0]).toUpperCase()+': '+cpcWord(src,cpcCat(BD.a)||{c:'EC'});let f2=38;while(measure(g,L,`800 ${f2}px ${FD}`)>bw-60&&f2>20)f2--;text(g,L,bx+30,by+88,`800 ${f2}px ${FD}`,'#ffffff')}
   if(msg)centerMsg(g,msg);
   drawHeader(g,sc.title||(src.pr?'Precipitation Outlook':'Temperature Outlook'),sc.sub||(cpcPeriodName(src,anyA)+' · compared with normal'),t)}
 /* ---------- On this date: weather history (NWS station records via ACIS, ERA5 fallback) ---------- */
@@ -3040,7 +3040,7 @@ function renderWxMap(g,sc,t,o){const rk=sc.region,P=proj(rk),R=REGIONS[rk],kind=
     else{const C=WX_CATS[kind].filter(c=>c[2]).slice().reverse();const lw=kind==='aqi'?420:kind==='freeze'||kind==='soil'||kind==='vis'?420:kind==='cape'?380:kind==='snowprob'?280:kind==='outage'?340:kind==='gusts'?320:300,lh=58+C.length*44;glass(g,lx,ly,lw,lh,12);text(g,kind==='aqi'?'AIR QUALITY':kind==='dew'?'DEW POINT':kind==='snowprob'?'CHANCE':kind==='outage'?'OUTAGE THREAT':kind==='gusts'?'PEAK GUSTS':kind==='cape'?'STORM FUEL':kind==='vis'?'VISIBILITY':kind==='clouds'?'SKY':kind==='uv'?'UV INDEX':kind==='snowdepth'?'SNOW DEPTH':kind==='soil'?'SOIL TEMP':'TONIGHT',lx+24,ly+38,`800 22px ${FD}`,BA(),'left','alphabetic',2.5);
       C.forEach((c,i)=>{const y=ly+60+i*44;g.fillStyle=c[2];rr(g,lx+24,y,30,28,6);g.fill();text(g,(kind==='dew'?(c[0]<0?'Under 50':c[0]+'+')+' · ':'')+c[1],lx+66,y+21,`700 ${kind==='aqi'?19:21}px ${FD}`,'#ffffff','left')})}g.restore()}
   if(msg)centerMsg(g,msg);
-  const L2=top&&kind==='outage'?(top.v<.5?'MINIMAL THREAT':wxFmt(kind,top.v)+' THREAT: '+String(placeOf(top.k).n).toUpperCase()):top?(kind==='departure'?(top.v<0?'MOST BELOW: ':'MOST ABOVE: '):kind==='change'?(top.v<0?'BIGGEST DROP: ':'BIGGEST RISE: '):kind==='freeze'?'COLDEST: ':kind==='aqi'?'WORST: ':kind==='gusts'?'STRONGEST: ':kind==='outage'?'HIGHEST: ':kind==='vis'?'LOWEST: ':kind==='clouds'?'CLOUDIEST: ':kind==='soil'?'WARMEST: ':kind==='snowdepth'?'DEEPEST: ':kind==='cape'||kind==='uv'?'HIGHEST: ':kind==='snowprob'?'HIGHEST: ':'MOST HUMID: ')+wxFmt(kind,top.v)+' '+String(placeOf(top.k).n).toUpperCase():D&&D.status==='loading'?'LOADING':'NO CITY VALUES';
+  const L2=top&&kind==='outage'?(top.v<.5?'MINIMAL THREAT':wxFmt(kind,top.v)+' THREAT: '+String(placeOf(top.k).n).toUpperCase()):top?(kind==='departure'?(top.v<0?'MOST BELOW: ':'MOST ABOVE: '):kind==='change'?(top.v<0?'BIGGEST DROP: ':'BIGGEST RISE: '):kind==='freeze'?'COLDEST: ':kind==='aqi'?'WORST: ':kind==='gusts'?'STRONGEST: ':kind==='outage'?'HIGHEST: ':kind==='vis'?'LOWEST: ':kind==='clouds'?'CLOUDIEST: ':kind==='soil'?'WARMEST: ':kind==='snowdepth'?'DEEPEST: ':kind==='cape'||kind==='uv'?'HIGHEST: ':kind==='snowprob'?'HIGHEST: ':'MOST HUMID: ')+wxFmt(kind,top.v)+' '+String(placeOf(top.k).n).toUpperCase():D&&D.status==='loading'?'LOADING':msg?'NO DATA':'NO CITY VALUES';
   let f2=40;const bw=Math.max(380,Math.min(560,measure(g,L2,`800 40px ${FD}`)+60));while(measure(g,L2,`800 ${f2}px ${FD}`)>bw-60&&f2>22)f2--;const bx=W-70-bw,by=50;glass(g,bx,by,bw,110,12);text(g,K.src,bx+30,by+40,`700 18px ${FD}`,'#4fb3ff','left','alphabetic',2.5);text(g,L2,bx+30,by+88,`800 ${f2}px ${FD}`,'#ffffff');
   drawHeader(g,sc.title||(kind==='snowprob'?`Chance of ${amt}"+ Snow`:K.name),sc.sub||(GX_KINDS.includes(kind)?gxSub(kind,D,sc.olDay||0):kind==='gusts'?gustSub(D,sc.olDay||0):kind==='outage'?olSub(D,sc.olDay||0):kind==='snowprob'?snpDayLabel(D,sday):kind==='departure'?depSub(sc.depWhat||'high',sc.depDay||0):K.sub),t)}
 /* ---------- Drought Monitor scene (USDM via ArcGIS) ---------- */
@@ -3059,7 +3059,7 @@ function renderDrought(g,sc,t,o){const rk=sc.region,P=proj(rk),R=REGIONS[rk];g.d
   const lq=ease((t-.5)/.6);if(lq>0&&!isEU(rk)){const lx=70,ly=270,lh=58+DM_CAT.length*44;g.save();g.globalAlpha=lq;glass(g,lx,ly,380,lh,12);text(g,'DROUGHT',lx+24,ly+38,`800 22px ${FD}`,BA(),'left','alphabetic',2.5);
     DM_CAT.forEach((c,i)=>{const y=ly+60+i*44;g.fillStyle=c[2];rr(g,lx+24,y,30,28,6);g.fill();text(g,c[0]+' · '+c[1],lx+66,y+21,`700 21px ${FD}`,'#ffffff','left')});g.restore()}
   if(msg)centerMsg(g,msg);
-  const L2=worst>=0?'WORST: '+DM_CAT[worst][0]+' '+DM_CAT[worst][1].split(' ')[0].toUpperCase():D&&D.status==='loading'?'LOADING':'NONE IN VIEW';const bw=Math.max(380,Math.min(560,measure(g,L2,`800 36px ${FD}`)+60)),bx=W-70-bw,by=50;let f2=36;while(measure(g,L2,`800 ${f2}px ${FD}`)>bw-60&&f2>22)f2--;glass(g,bx,by,bw,110,12);text(g,'U.S. DROUGHT MONITOR',bx+30,by+40,`700 18px ${FD}`,'#ffb21e','left','alphabetic',2.5);text(g,L2,bx+30,by+88,`800 ${f2}px ${FD}`,'#ffffff');
+  const L2=worst>=0?'WORST: '+DM_CAT[worst][0]+' '+DM_CAT[worst][1].split(' ')[0].toUpperCase():D&&D.status==='loading'?'LOADING':msg?'NO DATA':'NONE IN VIEW';const bw=Math.max(380,Math.min(560,measure(g,L2,`800 36px ${FD}`)+60)),bx=W-70-bw,by=50;let f2=36;while(measure(g,L2,`800 ${f2}px ${FD}`)>bw-60&&f2>22)f2--;glass(g,bx,by,bw,110,12);text(g,'U.S. DROUGHT MONITOR',bx+30,by+40,`700 18px ${FD}`,'#ffb21e','left','alphabetic',2.5);text(g,L2,bx+30,by+88,`800 ${f2}px ${FD}`,'#ffffff');
   const ds=date?new Date(typeof date==='number'?date:String(date)):null;drawHeader(g,sc.title||DEF_TITLES.drought,sc.sub||(ds&&!isNaN(ds)?'Valid '+ds.toLocaleDateString([], {month:'long',day:'numeric'}):'Updated every Thursday'),t)}
 /* ---------- Event forecasts: football, commute, bus stop, weekend planner, custom ---------- */
 const EV_T={football:['Friday Night Football','Kickoff, halftime and the final whistle'],commute:['Commute Forecast','Morning and evening drive'],busstop:['Bus Stop Forecast','What it will be like at the bus stop'],weekend:['Weekend Planner','Saturday and Sunday at a glance'],custom:['Event Forecast','Your times, your place']};
@@ -3499,7 +3499,10 @@ function renderScene(g,sc,t,o={}){hdrFor=sc&&sc.id;bgScene=sc;bgT=t;
 
 /* ---------- Program loop ---------- */
 const cv=$('#program'),ctx=cv.getContext('2d');const buf=document.createElement('canvas');buf.width=W;buf.height=H;const bctx=buf.getContext('2d');
-function frame(ms){
+/* the program loop must never stop: schedule the next frame first, and contain any drawing error */
+let frameErrAt=0;
+function frame(ms){requestAnimationFrame(frame);try{frameBody(ms)}catch(e){try{ctx.restore&&ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=1;ctx.filter='none';drawChrome(ctx,ms/1000)}catch(x){}if(Date.now()-frameErrAt>30000){frameErrAt=Date.now();console.error('Frame error',e);try{toast('A graphic hit an error while drawing: '+String(e&&e.message||e).slice(0,80))}catch(x){}}}}
+function frameBody(ms){
   const T=ms/1000;
   if(playing&&!trans){const sc=scene();if(T-sceneStart>sceneDur(sc)){const nx=cued!=null&&cued<show.scenes.length?cued:cur+1;cued=null;if(nx<show.scenes.length||show.settings.loop){goTo(nx%show.scenes.length,true,T)}else{stopPlay();if(recorder)setTimeout(()=>recorder&&recorder.stop(),400)}}}
   ctx.setTransform(1,0,0,1,0,0);
@@ -3518,7 +3521,6 @@ function frame(ms){
   }else renderScene(ctx,scene(),T-sceneStart,{interactive:true,animTele:playing});
   drawChrome(ctx,T);feedProgram(T);
   if(recorder&&recVert)composeVertical(cv,recVert);
-  requestAnimationFrame(frame);
 }
 function goTo(i,withTrans=false,T=performance.now()/1000){
   if(i<0||i>=show.scenes.length)return;
@@ -4106,7 +4108,7 @@ function renderPick(){const B=$('#pickBody');document.querySelectorAll('[data-pt
   B.querySelectorAll('[data-pcat]').forEach(b=>b.addEventListener('click',()=>{pickCat=+b.dataset.pcat;pickQ='';renderPick()}));{const q=B.querySelector('#pkQ');q.addEventListener('input',()=>{pickQ=q.value;const pos=q.selectionStart;renderPick();const q2=$('#pkQ');q2.focus();try{q2.setSelectionRange(pos,pos)}catch(e){}})}
   const m=B.querySelector('#pkMulti');m.addEventListener('change',()=>{pickMulti=m.checked;if(pickMulti&&!pickCities.length)pickCities=[show.settings.bugCity||'harrisburg'];renderPick()});
   B.querySelectorAll('[data-pcity]').forEach(c=>c.addEventListener('change',()=>{pickCities=pickCities.filter(x=>x!==c.dataset.pcity);if(c.checked)pickCities.push(c.dataset.pcity);renderPick()}));
-  B.querySelectorAll('[data-ptype]').forEach(b=>b.addEventListener('click',()=>{const[t,src]=b.dataset.ptype.split(':'),o=baseOpts();if(t==='storm'){const L=stormRundown(src,o);addScenes(L);closePick();toast('Added '+L.length+' scenes for '+STORM_KITS[src].toLowerCase()+' coverage.');return}if(src){addScenes([newScene(t,{region:o.region,city:o.city,...(t==='history'?{hHol:nextHolName()}:t==='radar'?{product:src,title:{future:'Future Radar',sitevel:'Storm Velocity',satir:'Satellite'}[src]||''}:t==='wxmap'?{kind:src}:t==='event'?{tmpl:src}:t==='nwsmap'?{svc:src}:t==='briefing'?{preset:src}:src==='reports'?{src:'mrms',title:'Observed Snowfall',showReports:'top',cityVals:false}:{src})})]);closePick();return}
+  B.querySelectorAll('[data-ptype]').forEach(b=>b.addEventListener('click',()=>{const[t,src]=b.dataset.ptype.split(':'),o=baseOpts();if(t==='storm'){const L=stormRundown(src,o);addScenes(L);closePick();toast('Added '+L.length+' scenes for '+STORM_KITS[src].toLowerCase()+' coverage.');return}if(src){addScenes([newScene(t,{region:t==='nwsmap'&&(src==='nhc'||src==='nhc7')?'atl':o.region,city:o.city,...(t==='history'?{hHol:nextHolName()}:t==='radar'?{product:src,title:{future:'Future Radar',sitevel:'Storm Velocity',satir:'Satellite'}[src]||''}:t==='wxmap'?{kind:src}:t==='event'?{tmpl:src}:t==='nwsmap'?{svc:src}:t==='briefing'?{preset:src}:src==='reports'?{src:'mrms',title:'Observed Snowfall',showReports:'top',cityVals:false}:{src})})]);closePick();return}
     if(pickMulti&&CITY_SCENES.includes(t)){if(!pickCities.length){toast('Pick at least one city.');return}addScenes(pickCities.map(c=>newScene(t,{city:c,region:o.region})))}
     else addScenes([newScene(t,{region:o.region,city:o.city})]);closePick()}))}
 
