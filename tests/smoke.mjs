@@ -24,6 +24,8 @@ const result = await page.evaluate(() => {
     }
   }
   try { show.scenes.forEach((s, i) => { goTo(i); renderInspector(); }); } catch (e) { out.push('Scene panel: ' + e.message); }
+  // the refresh city lists must handle every scene type
+  try { const saved = show.scenes; show.scenes = Object.keys(TYPE_NAMES).map(t => newScene(t, { region: 'pa', city: 'harrisburg' })); for (const f of ['usedCities', 'hotCities', 'modelCities', 'omCities', 'xNeed']) if (typeof window[f] === 'function' || typeof eval(f) === 'function') eval(f)(); show.scenes = saved; } catch (e) { out.push('City lists: ' + e.message); }
   return out;
 });
 errors.push(...result);

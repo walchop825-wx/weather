@@ -240,7 +240,7 @@ button.pill{cursor:pointer;background:transparent}
 <div class="status">
   <span><kbd>Space</kbd> play / stop</span><span><kbd>←</kbd><kbd>→</kbd> previous / next</span><span><kbd>V</kbd> select</span><span><kbd>T</kbd> pen</span><span><kbd>B</kbd> contour</span><span><kbd>N</kbd> total</span><span><kbd>Del</kbd> delete selection</span><span><kbd>E</kbd> export PNG</span><span><kbd>K</kbd> storm track</span><span><kbd>L</kbd> map label</span><span><kbd>1</kbd>–<kbd>9</kbd> cue</span><span><kbd>Enter</kbd> take</span>
   <span id="srcNote"></span>
-  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-24 · 107</span>
+  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-25 · 108</span>
 </div>
 <input type="file" id="fileIn" accept=".json,application/json" hidden>
 
@@ -590,12 +590,12 @@ async function omWrite(C){await idb.set(OMC,C)}
 const revD=a=>a.map(x=>new Date(x));
 function omErrText(e){const m=String(e&&e.message||e);return/Paid key: HTTP 429/.test(m)?"Open-Meteo's paid plan limit is used up for now (too many requests)":/429/.test(m)?"Open-Meteo's free limit is used up for now (too many requests)":/abort/i.test(m)?'Open-Meteo did not answer in time':/Failed to fetch|NetworkError|Load failed/i.test(m)?'Could not reach Open-Meteo':'Open-Meteo error: '+m}
 function modelCities(){const S=new Set();show.scenes.forEach(sc=>{if(['futuremap','rainfall','snowfall','snow','timeline'].includes(sc.type)){try{candCities(sc.region).forEach(k=>S.add(k));mapCities(sc).forEach(k=>S.add(k))}catch(e){}}if(sc.type==='briefing'&&['ptype','rain','snow'].includes(sc.bmap||'ptype')){try{candCities(sc.region).forEach(k=>S.add(k))}catch(e){}}if(['hourly','models'].includes(sc.type)&&CITIES[sc.city])S.add(sc.city)});return CITY_KEYS.filter(k=>S.has(k))}
-function usedCities(){const S=new Set(modelCities());S.add(show.settings.bugCity||'harrisburg');show.scenes.forEach(sc=>{if(sc.city&&CITIES[sc.city])S.add(sc.city);if(isMapType(sc.type)&&sc.region!=='us'){try{mapCities(sc).forEach(k=>S.add(k))}catch(e){}}if(['travel','ustemps'].includes(sc.type))(sc.cities||[]).forEach(k=>S.add(k))});return CITY_KEYS.filter(k=>S.has(k))}
+function usedCities(){const S=new Set(modelCities());S.add(show.settings.bugCity||'harrisburg');show.scenes.forEach(sc=>{if(sc.city&&CITIES[sc.city])S.add(sc.city);if(isMapType(sc.type)&&sc.region!=='us'){try{mapCities(sc).forEach(k=>S.add(k))}catch(e){}}if(['travel','ustemps'].includes(sc.type)&&Array.isArray(sc.cities))sc.cities.forEach(k=>S.add(k))});return CITY_KEYS.filter(k=>S.has(k))}
 function hotCities(){const S=new Set([show.settings.bugCity,...tcCities()].filter(k=>CITIES[k]));const add=k=>{if(CITIES[k])S.add(k)};
-  show.scenes.forEach(sc=>{add(sc.city);(sc.cities||[]).forEach(add);const R=REGIONS[sc.region];if(!R)return;(R.cities||[]).forEach(add);try{mapCities(sc).forEach(add)}catch(e){}
+  show.scenes.forEach(sc=>{add(sc.city);if(Array.isArray(sc.cities))sc.cities.forEach(add);const R=REGIONS[sc.region];if(!R)return;(R.cities||[]).forEach(add);try{mapCities(sc).forEach(add)}catch(e){}
     if(R.latSpan<=15&&!R.national){const P=proj(sc.region),mx=(P.east-P.west)*.15,my=(P.north-P.south)*.15;CITY_KEYS.forEach(k=>{const c=CITIES[k];if(c[2]>P.west-mx&&c[2]<P.east+mx&&c[1]>P.south-my&&c[1]<P.north+my)S.add(k)})}});
   modelCities().forEach(add);return S}
-function omCities(){const eu=show.scenes.some(sc=>isEU(sc.region)||(sc.city&&CITIES[sc.city]&&CITIES[sc.city][2]>=-30)||(sc.type==='travel'&&(sc.cities||[]).some(k=>CITIES[k]&&CITIES[k][2]>=-30))||(sc.type==='extremes'&&sc.area==='eu'));return CITY_KEYS.filter(k=>eu||CITIES[k][2]<-30)}
+function omCities(){const eu=show.scenes.some(sc=>isEU(sc.region)||(sc.city&&CITIES[sc.city]&&CITIES[sc.city][2]>=-30)||(sc.type==='travel'&&Array.isArray(sc.cities)&&sc.cities.some(k=>CITIES[k]&&CITIES[k][2]>=-30))||(sc.type==='extremes'&&sc.area==='eu'));return CITY_KEYS.filter(k=>eu||CITIES[k][2]<-30)}
 /* Only one studio tab in this browser calls Open-Meteo; the others read its saved data. */
 let omLeader=!(navigator.locks&&navigator.locks.request);try{if(!omLeader)navigator.locks.request('wgs-om-leader',()=>{omLeader=true;setTimeout(()=>{try{refresh()}catch(e){}},300);return new Promise(()=>{})})}catch(e){omLeader=true}
 let omBusy=false;const omQ=(keys,tz)=>`latitude=${keys.map(k=>CITIES[k][1]).join(',')}&longitude=${keys.map(k=>CITIES[k][2]).join(',')}&temperature_unit=fahrenheit&wind_speed_unit=mph&precipitation_unit=inch&timezone=${tz}`;
