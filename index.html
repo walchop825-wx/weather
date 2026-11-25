@@ -240,7 +240,7 @@ button.pill{cursor:pointer;background:transparent}
 <div class="status">
   <span><kbd>Space</kbd> play / stop</span><span><kbd>←</kbd><kbd>→</kbd> previous / next</span><span><kbd>V</kbd> select</span><span><kbd>T</kbd> pen</span><span><kbd>B</kbd> contour</span><span><kbd>N</kbd> total</span><span><kbd>Del</kbd> delete selection</span><span><kbd>E</kbd> export PNG</span><span><kbd>K</kbd> storm track</span><span><kbd>L</kbd> map label</span><span><kbd>1</kbd>–<kbd>9</kbd> cue</span><span><kbd>Enter</kbd> take</span>
   <span id="srcNote"></span>
-  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-25 · 130</span>
+  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-25 · 131</span>
 </div>
 <input type="file" id="fileIn" accept=".json,application/json" hidden>
 
@@ -456,12 +456,12 @@ function validGeo(st,G){if(!G||!Array.isArray(G.rings)||G.rings.length<5||!G.inn
 let atlasP=null;const atlas=()=>atlasP||(atlasP=fetchJSON('https://cdn.jsdelivr.net/npm/us-atlas@3.0.1/counties-10m.json',20000));
 async function loadGeo(st){
   const key='wgs-geo-'+st+'-v1',S=GEO_STATES[st];
-  try{const c=JSON.parse(localStorage.getItem(key)||'null');if(validGeo(st,c)){stateGeo[st]=c;geoStatus[st]='ok';geoChanged();return}}catch(e){}
+  try{const c=await cacheGet(key);if(validGeo(st,c)){stateGeo[st]=c;geoStatus[st]='ok';geoChanged();return}}catch(e){}
   const tries=[
     async()=>{window.Highcharts=window.Highcharts||{};window.Highcharts.maps=window.Highcharts.maps||{};const k='countries/us/'+S.hc;if(!window.Highcharts.maps[k])await loadScript(`https://cdn.jsdelivr.net/npm/@highcharts/map-collection@2.3.3/countries/us/${S.hc}.js`);return geoFromTopo(window.Highcharts.maps[k],'default')},
     async()=>geoFromTopo(await atlas(),'counties',g=>String(g.id).startsWith(S.fips))
   ];
-  for(const t of tries){try{const G=await t();if(validGeo(st,G)){stateGeo[st]=G;geoStatus[st]='ok';try{localStorage.setItem(key,JSON.stringify(G))}catch(e){}break}}catch(e){}}
+  for(const t of tries){try{const G=await t();if(validGeo(st,G)){stateGeo[st]=G;geoStatus[st]='ok';cacheSet(key,G);break}}catch(e){}}
   if(geoStatus[st]!=='ok')geoStatus[st]='fail';geoChanged();
 }
 
@@ -484,7 +484,7 @@ function fixAK(U){if(U&&U.AK)U.AK=U.AK.map(r=>r.map(([lo,la])=>[lo>0?+(lo-360).t
 function validUS(U){if(!U||!U.PA||!U.NY||!U.CT||!U.CA||!U.TX||!U.FL)return false;let ok=0,n=0;U.PA.forEach(r=>r.forEach(([lo,la])=>{n++;if(lo>-81&&lo<-74.5&&la>39.5&&la<42.5)ok++}));return n>50&&ok/n>.97}
 async function loadUSStates(){
   const key='wgs-usstates-v3';
-  try{const c=JSON.parse(localStorage.getItem(key)||'null');if(validUS(c)){usStates=c;geoChanged();return}}catch(e){}
+  try{const c=await cacheGet(key);if(validUS(c)){usStates=c;geoChanged();return}}catch(e){}
   const byFips={};Object.entries(US_NEED).forEach(([k,v])=>byFips[v]=k);
   const tries=[
     async()=>{window.Highcharts=window.Highcharts||{};window.Highcharts.maps=window.Highcharts.maps||{};const k='countries/us/us-all';if(!window.Highcharts.maps[k])await loadScript('https://cdn.jsdelivr.net/npm/@highcharts/map-collection@2.3.3/countries/us/us-all.js');
@@ -493,7 +493,7 @@ async function loadUSStates(){
   ];
   for(const t of tries){try{const U=fixAK(await t());if(validUS(U)){
       if(!validAK(U)||!validHI(U)){delete U.AK;delete U.HI;try{const A=fixAK(ringsFromTopo(await fetchJSON('https://cdn.jsdelivr.net/npm/us-atlas@3.0.1/states-10m.json',20000),'states',g=>byFips[parseInt(g.id,10)]));if(validAK(A))U.AK=A.AK;if(validHI(A))U.HI=A.HI}catch(e){}}
-      usStates=U;try{localStorage.setItem(key,JSON.stringify(U))}catch(e){}break}}catch(e){}}
+      usStates=U;cacheSet(key,U);break}}catch(e){}}
   geoChanged();
 }
 function geoChanged(){for(const k in landCache)delete landCache[k];if(typeof oceanCache!=='undefined')for(const k in oceanCache)delete oceanCache[k];if(typeof euPathCache!=='undefined')for(const k in euPathCache)delete euPathCache[k];if(typeof insetCache!=='undefined')for(const k in insetCache)delete insetCache[k];for(const k in borderCache)delete borderCache[k];[baseCache,overCache,countyCache,spCache].forEach(c=>{for(const k in c)delete c[k]});if(typeof queueThumbs==='function')queueThumbs();if(typeof show!=='undefined'&&show.scenes)renderInspector()}
@@ -585,6 +585,10 @@ const idb={p:null,open(){return this.p||(this.p=new Promise((res,rej)=>{try{cons
   async get(k){try{const d=await this.open();return await new Promise(res=>{const q=d.transaction('kv').objectStore('kv').get(k);q.onsuccess=()=>res(q.result);q.onerror=()=>res(null)})}catch(e){return null}},
   async set(k,v){try{const d=await this.open();await new Promise(res=>{const t=d.transaction('kv','readwrite');t.objectStore('kv').put(v,k);t.oncomplete=res;t.onerror=res;t.onabort=res})}catch(e){}},
   async del(k){try{const d=await this.open();await new Promise(res=>{const t=d.transaction('kv','readwrite');t.objectStore('kv').delete(k);t.oncomplete=res;t.onerror=res})}catch(e){}}};
+/* Map and lookup caches live in IndexedDB so localStorage stays free for the saved show. Old localStorage copies move over on first read. */
+async function cacheGet(k){const v=await idb.get(k);if(v!=null)return v;let r=null;try{r=localStorage.getItem(k)}catch(e){}if(r==null)return null;let o=r;try{o=JSON.parse(r)}catch(e){}idb.set(k,o);try{localStorage.removeItem(k)}catch(e){}return o}
+function cacheSet(k,v){idb.set(k,v);try{localStorage.removeItem(k)}catch(e){}}
+function cacheMigrate(){try{const ks=[];for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k&&k!==STORE&&CACHE_PREFIX.test(k))ks.push(k)}ks.forEach(k=>{const r=localStorage.getItem(k);let o=r;try{o=JSON.parse(r)}catch(e){}idb.set(k,o).then(()=>{try{localStorage.removeItem(k)}catch(e){}})})}catch(e){}}
 async function omRead(){return(await idb.get(OMC))||{}}
 async function omWrite(C){await idb.set(OMC,C)}
 const revD=a=>a.map(x=>new Date(x));
@@ -660,8 +664,8 @@ let covT=null;function ensureCoverage(){clearTimeout(covT);covT=setTimeout(async
 
 /* ---------- NWS backup when Open-Meteo is unavailable (US cities) ---------- */
 const COMPASS={N:0,NNE:22.5,NE:45,ENE:67.5,E:90,ESE:112.5,SE:135,SSE:157.5,S:180,SSW:202.5,SW:225,WSW:247.5,W:270,WNW:292.5,NW:315,NNW:337.5};
-async function nwsPoint(k){const ck='wgs-pt2-'+k;try{const c=JSON.parse(localStorage.getItem(ck)||'null');if(c&&c.forecastGridData)return c}catch(e){}
-  const p=(await fetchJSON(`https://api.weather.gov/points/${CITIES[k][1].toFixed(4)},${CITIES[k][2].toFixed(4)}`,10000)).properties;const o={forecast:p.forecast,forecastHourly:p.forecastHourly,forecastGridData:p.forecastGridData};try{localStorage.setItem(ck,JSON.stringify(o));localStorage.setItem('wgs-pt-'+k,o.forecast)}catch(e){}return o}
+async function nwsPoint(k){const ck='wgs-pt2-'+k;try{const c=await cacheGet(ck);if(c&&c.forecastGridData)return c}catch(e){}
+  const p=(await fetchJSON(`https://api.weather.gov/points/${CITIES[k][1].toFixed(4)},${CITIES[k][2].toFixed(4)}`,10000)).properties;const o={forecast:p.forecast,forecastHourly:p.forecastHourly,forecastGridData:p.forecastGridData};cacheSet(ck,o);cacheSet('wgs-pt-'+k,o.forecast);return o}
 const isoDur=s=>{const m=String(s).match(/P(?:(\d+)D)?T?(?:(\d+)H)?/);return m?((+m[1]||0)*24+(+m[2]||0))||1:1};
 async function nwsBackupCity(k){const P=await nwsPoint(k);
   const per=(await fetchJSON(P.forecastHourly,12000)).properties.periods.slice(0,60);const mph=w=>{const n=String(w||'').match(/\d+/g);return n?Math.max(...n.map(Number)):null};
@@ -677,7 +681,7 @@ async function loadNwsBackup(){data.nwsFb=true;data.nwsFbStatus='loading';CITY_K
   await pool(ks,4,async k=>{try{await nwsBackupCity(k);ok++}catch(e){}});data.nwsFbStatus=ok||Object.keys(nws.obs).length?'ok':'fail';if(data.nwsFbStatus==='ok'){data.source='nws';data.liveAt=new Date()}
   data.updated=new Date();for(const k in guideCache)delete guideCache[k];updateStatus();queueThumbs();renderInspector()}
 function genHourly(){data.hourly={};const now=new Date();now.setMinutes(0,0,0);for(const k of CITY_KEYS){const d=data.daily[k];if(!d)continue;const h=hash(k+'w');const o={time:[],temp:[],feels:[],gust:[],wind:[],wdir:[],code:[],pop:[]};
-  for(let i=0;i<49;i++){const t=new Date(now.getTime()+i*3600e3);const di=Math.min(d.length-1,Math.max(0,Math.floor((t-new Date(now.getFullYear(),now.getMonth(),now.getDate()))/864e5)));const dd=d[di];const dn=.5-.5*Math.cos(2*Math.PI*(t.getHours()-3)/24);
+  for(let i=0;i<169;i++){const t=new Date(now.getTime()+i*3600e3);const di=Math.min(d.length-1,Math.max(0,Math.floor((t-new Date(now.getFullYear(),now.getMonth(),now.getDate()))/864e5)));const dd=d[di];const dn=.5-.5*Math.cos(2*Math.PI*(t.getHours()-3)/24);
     const tp=lerp(dd.lo,dd.hi,dn);const gu=Math.max(5,14+12*Math.sin((i+h*20)/7)+(dd.code>=60?10:0)+h*6);o.time.push(t);o.temp.push(+tp.toFixed(1));o.gust.push(Math.round(gu));o.wind.push(Math.round(gu*.6));o.wdir.push(Math.round((260+h*60+i*3)%360));o.code.push(dd.code);o.pop.push(dd.pop);o.feels.push(Math.round(tp<50?tp-gu*.35:tp))}data.hourly[k]=o}}
 async function refresh(){
   $('#dataTxt').textContent='Loading';
@@ -748,8 +752,8 @@ async function loadNwsObs(){
   nws.obs=out;nws.obsAt=new Date();nws.obsStatus=Object.keys(out).length?'ok':'fail';
 }
 async function nwsForecast(k){
-  const ck='wgs-pt-'+k;let url=null;try{url=localStorage.getItem(ck)}catch(e){}
-  if(!url){const j=await fetchJSON(`https://api.weather.gov/points/${CITIES[k][1].toFixed(4)},${CITIES[k][2].toFixed(4)}`,10000);url=j.properties.forecast;try{localStorage.setItem(ck,url)}catch(e){}}
+  const ck='wgs-pt-'+k;let url=null;try{const c=await cacheGet(ck);if(typeof c==='string')url=c}catch(e){}
+  if(!url){const j=await fetchJSON(`https://api.weather.gov/points/${CITIES[k][1].toFixed(4)},${CITIES[k][2].toFixed(4)}`,10000);url=j.properties.forecast;cacheSet(ck,url)}
   const per=(await fetchJSON(url,12000)).properties.periods;const by={};
   per.forEach(p=>{const d=p.startTime.slice(0,10);(by[d]||(by[d]={}))[p.isDaytime?'day':'night']=p});
   const om=data.daily[k]||[];
@@ -821,8 +825,8 @@ async function fillZones(){
   const miss=order.filter(u=>!zoneCache[u]);zoneProg={done:0,total:miss.length};
   let last=Date.now();
   await pool(miss,8,async u=>{const id=u.split('/').pop();
-    try{const c=localStorage.getItem('wgs-z2-'+id);if(c){zoneCache[u]=JSON.parse(c)}}catch(e){}
-    if(!zoneCache[u]){try{const j=await fetchJSON(u,12000);const r=zoneRings(j.geometry);if(r){zoneCache[u]=r;try{localStorage.setItem('wgs-z2-'+id,JSON.stringify(r))}catch(e){}}}catch(e){}}
+    try{const c=await cacheGet('wgs-z2-'+id);if(c&&typeof c==='object')zoneCache[u]=c}catch(e){}
+    if(!zoneCache[u]){try{const j=await fetchJSON(u,12000);const r=zoneRings(j.geometry);if(r){zoneCache[u]=r;cacheSet('wgs-z2-'+id,r)}}catch(e){}}
     zoneProg.done++;if(Date.now()-last>1500){last=Date.now();attachZones();queueThumbs();if(scene()&&scene().type==='radar')renderInspector()}});
   attachZones();filling=false;queueThumbs();if(scene()&&scene().type==='radar')renderInspector();
 }
@@ -949,10 +953,10 @@ function geoAny(topo){if(!topo||topo.type!=='Topology')throw new Error('not topo
   const out=[];Object.values(topo.objects).forEach(obj=>(obj.geometries||[obj]).forEach(g=>{if(!g.arcs)return;const polys=g.type==='Polygon'?[g.arcs]:g.type==='MultiPolygon'?g.arcs:[];polys.forEach(pl=>{let r=ring(pl[0]);if(r.some(p=>p[0]>150)&&r.some(p=>p[0]<-150))return;r=thin(r);if(r.length>=3)out.push(r)})}));return out}
 function validOcean(L){if(!Array.isArray(L)||L.length<20)return false;let fl=0,af=0;L.forEach(r=>r.forEach(([lo,la])=>{if(lo>-82.5&&lo<-80&&la>26&&la<29)fl++;if(lo>-17&&lo<-5&&la>5&&la<15)af++}));return fl>2&&af>2}
 async function loadOceanGeo(){if(oceanStatus!=='idle')return;oceanStatus='loading';const key='wgs-world-ocean-v1';
-  try{const c=JSON.parse(localStorage.getItem(key)||'null');if(validOcean(c)){oceanGeo=c;oceanStatus='ok';geoChanged();return}}catch(e){}
+  try{const c=await cacheGet(key);if(validOcean(c)){oceanGeo=c;oceanStatus='ok';geoChanged();return}}catch(e){}
   const tries=[async()=>{window.Highcharts=window.Highcharts||{};window.Highcharts.maps=window.Highcharts.maps||{};const M=window.Highcharts.maps;if(!M['custom/world'])await loadScript('https://cdn.jsdelivr.net/npm/@highcharts/map-collection@2.3.3/custom/world.js');return geoAny(M['custom/world'])},
     async()=>geoAny(await fetchJSON('https://cdn.jsdelivr.net/npm/world-atlas@2.0.2/countries-50m.json',25000))];
-  for(const t of tries){try{const L=await t();if(validOcean(L)){oceanGeo=L;oceanStatus='ok';try{localStorage.setItem(key,JSON.stringify(L))}catch(e){}break}}catch(e){}}
+  for(const t of tries){try{const L=await t();if(validOcean(L)){oceanGeo=L;oceanStatus='ok';cacheSet(key,L);break}}catch(e){}}
   if(oceanStatus!=='ok')oceanStatus='fail';geoChanged()}
 function oceanPaths(rk){if(oceanCache[rk])return oceanCache[rk];loadOceanGeo();const P=proj(rk),all=new Path2D();
   if(oceanGeo)oceanGeo.forEach(r=>polyPath(P,r,all));else{[CANADA,MEXICO,CONUS].forEach(x=>polyPath(P,x,all))}
@@ -960,7 +964,7 @@ function oceanPaths(rk){if(oceanCache[rk])return oceanCache[rk];loadOceanGeo();c
 const OCEAN_PLACES=[['Bermuda',32.3,-64.78],['Nassau',25.05,-77.35],['Havana',23.11,-82.37],['Kingston',17.97,-76.79],['Santo Domingo',18.49,-69.93],['Cancún',21.16,-86.85],['Barbados',13.1,-59.6],['Cabo Verde',15.1,-23.6],['Azores',37.74,-25.67],['Acapulco',16.85,-99.9],['Cabo San Lucas',22.89,-109.91],['Veracruz',19.17,-96.13],['Belize City',17.5,-88.2]];
 const OCEAN_WATER=[['ATLANTIC OCEAN',30,-52],['CARIBBEAN SEA',15,-75],['PACIFIC OCEAN',13,-122]];
 async function loadWorld(){
-  const key='wgs-world-eu-v1';try{const c=JSON.parse(localStorage.getItem(key)||'null');if(validWorld(c)){worldGeo=c;worldStatus='ok';geoChanged();return}}catch(e){}
+  const key='wgs-world-eu-v1';try{const c=await cacheGet(key);if(validWorld(c)){worldGeo=c;worldStatus='ok';geoChanged();return}}catch(e){}
   const hcKey=g=>{const p=g.properties||{};const k=String(p['hc-key']||p['iso-a2']||'').toUpperCase();return k&&k!=='-99'?k:(NAME_ISO[p.name]||p.name)};
   const tries=[
     async()=>{window.Highcharts=window.Highcharts||{};window.Highcharts.maps=window.Highcharts.maps||{};const M=window.Highcharts.maps;
@@ -968,7 +972,7 @@ async function loadWorld(){
       const eu=geoAll(M['custom/europe'],hcKey);let w={};try{if(!M['custom/world'])await loadScript('https://cdn.jsdelivr.net/npm/@highcharts/map-collection@2.3.3/custom/world.js');w=geoAll(M['custom/world'],hcKey)}catch(e){}
       return Object.assign(w,eu)},
     async()=>geoAll(await fetchJSON('https://cdn.jsdelivr.net/npm/world-atlas@2.0.2/countries-50m.json',25000),g=>{const n=g.properties&&g.properties.name;return NAME_ISO[n]||n})];
-  for(const t of tries){try{const G=await t();if(validWorld(G)){worldGeo=G;worldStatus='ok';try{localStorage.setItem(key,JSON.stringify(G))}catch(e){}break}}catch(e){}}
+  for(const t of tries){try{const G=await t();if(validWorld(G)){worldGeo=G;worldStatus='ok';cacheSet(key,G);break}}catch(e){}}
   if(worldStatus!=='ok')worldStatus='fail';geoChanged();
 }
 function euPaths(rk){if(euPathCache[rk])return euPathCache[rk];const P=proj(rk);const all=new Path2D(),per={};
@@ -1114,7 +1118,7 @@ function defaultShow(){
 const STORE='wgs-show-v2';
 function loadShow(){try{const s=JSON.parse(localStorage.getItem(STORE)||'null');if(s&&Array.isArray(s.scenes)){s.scenes=s.scenes.map(x=>newScene(x.type,x));return s}}catch(e){}return null}
 /* the rundown must always save: map caches share the browser's ~5 MB, so clear them when space runs out, and warn if it still fails */
-const CACHE_PREFIX=/^(wgs-z2-|wgs-cty-|wgs-pt-|wgs-geo|wgs-us|wgs-world|wgs-ocean|wgs-ak|wgs-st|wgs-nwspt|wgs-fc)/;
+const CACHE_PREFIX=/^(wgs-z2-|wgs-cty-|wgs-pt-|wgs-pt2-|wgs-geo|wgs-us|wgs-world|wgs-ocean|wgs-ak|wgs-st|wgs-nwspt|wgs-fc)/;
 function lsFree(){let n=0;try{const ks=[];for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k&&k!==STORE&&k!=='wgs-om-key'&&k!=='wgs-dirty'&&(CACHE_PREFIX.test(k)||(localStorage.getItem(k)||'').length>20000))ks.push(k)}ks.forEach(k=>{localStorage.removeItem(k);n++})}catch(e){}return n}
 let saveWarned=false,saveT,appReady=false,lastSavedStr=null;
 function saveNow(){clearTimeout(saveT);saveT=null;const str=JSON.stringify(show);let ok=false;try{localStorage.setItem(STORE,str);ok=true}catch(e){lsFree();try{localStorage.setItem(STORE,str);ok=true}catch(e2){}}
@@ -2166,16 +2170,16 @@ function renderTimeline(g,sc,t){
 function renderHourly(g,sc,t){
   blurBg(g,regionFor(sc.city));const h=data.hourly&&data.hourly[sc.city];const step=+sc.step||2,n=12;
   if(!h){centerMsg(g,'HOURLY DATA IS NOT AVAILABLE');drawHeader(g,sc.title||DEF_TITLES.hourly,sc.sub||autoSub(sc),t);return}
-  const i0=hourStart(h),x0=70,gap=12,cw=(W-140-gap*(n-1))/n,y0=260,ch=600;
+  const i0=hourStart(h),x0=70,gap=12,cw=(W-140-gap*(n-1))/n,y0=260,ch=652;
   for(let c=0;c<n;c++){const idx=i0+c*step;const d=h.time[idx];if(!d)break;const p=ease((t-.4-c*.05)/.5);if(p<=0)continue;const x=x0+c*(cw+gap),y=y0+50*(1-p),cx=x+cw/2;
     const AD=isAlertHour(d,sc.city);g.save();g.globalAlpha=p;glass(g,x,y,cw,ch,12);if(AD){g.save();g.strokeStyle=ADRED;g.lineWidth=4;g.shadowColor=ADRED;g.shadowBlur=14;rr(g,x,y,cw,ch,12);g.stroke();g.restore()}g.save();rr(g,x,y,cw,70,12);g.clip();g.fillStyle=AD?ADRED:c===0?'#ffb21e':'rgba(30,80,170,.9)';g.fillRect(x,y,cw,70);g.restore();
     text(g,c===0?'NOW':hrLbl(d),cx,y+46,`800 ${c===0?32:28}px ${FD}`,c===0&&!AD?'#0b1a38':'#ffffff','center','alphabetic',1);
-    if(d.getHours()===0||c===0)text(g,DOW[d.getDay()],cx,y+100,`700 20px ${FD}`,'#9fb4d8','center','alphabetic',2);
-    const hr=d.getHours();const code=h.code?h.code[idx]:(getDaily(sc.city)[0]||{}).code;drawIcon(g,code??2,cx,y+190,Math.min(110,cw-20),hr<6||hr>=18);
-    const tp=h.temp[idx];text(g,tp==null?'--':Math.round(tp)+'°',cx+4,y+330,`800 66px ${FD}`,'#ffffff','center');
-    const col=tempRGB(tp);g.fillStyle=rgb(col);rr(g,cx-34,y+352,68,6,3);g.fill();
-    const pop=h.pop?h.pop[idx]:null;text(g,pop==null?'':Math.round(pop)+'%',cx,y+430,`800 34px ${FD}`,pop>=50?'#7cc4ff':'#c8d4e8','center','alphabetic',1);text(g,'PRECIP',cx,y+458,`700 15px ${FD}`,'#9fb4d8','center','alphabetic',2);
-    if(h.wind){const ws=h.wind[idx],wd=h.wdir?h.wdir[idx]:null;if(ws!=null){g.save();g.translate(cx,y+512);if(wd!=null)g.rotate((wd+180)*Math.PI/180);g.fillStyle='#ffffff';g.beginPath();g.moveTo(0,-14);g.lineTo(8,8);g.lineTo(0,3);g.lineTo(-8,8);g.closePath();g.fill();g.restore();text(g,Math.round(ws)+' MPH',cx,y+566,`700 20px ${FD}`,'#dfe8f7','center','alphabetic',1)}}
+    if(d.getHours()===0||c===0)text(g,DOW[d.getDay()],cx,y+104,`800 24px ${FD}`,'#b8c8e6','center','alphabetic',2);
+    const hr=d.getHours();const code=h.code?h.code[idx]:(getDaily(sc.city)[0]||{}).code;drawIcon(g,code??2,cx,y+200,Math.min(116,cw-20),hr<6||hr>=18);
+    const tp=h.temp[idx];text(g,tp==null?'--':Math.round(tp)+'°',cx+4,y+352,`800 70px ${FD}`,'#ffffff','center');
+    const col=tempRGB(tp);g.fillStyle=rgb(col);rr(g,cx-34,y+376,68,7,3);g.fill();
+    const pop=h.pop?h.pop[idx]:null;text(g,pop==null?'':Math.round(pop)+'%',cx,y+466,`800 38px ${FD}`,pop>=50?'#7cc4ff':'#c8d4e8','center','alphabetic',1);text(g,'PRECIP',cx,y+498,`800 19px ${FD}`,'#b8c8e6','center','alphabetic',2);
+    if(h.wind){const ws=h.wind[idx],wd=h.wdir?h.wdir[idx]:null;if(ws!=null){g.save();g.translate(cx,y+550);if(wd!=null)g.rotate((wd+180)*Math.PI/180);g.scale(1.25,1.25);g.fillStyle='#ffffff';g.beginPath();g.moveTo(0,-14);g.lineTo(8,8);g.lineTo(0,3);g.lineTo(-8,8);g.closePath();g.fill();g.restore();text(g,Math.round(ws)+' MPH',cx,y+612,`800 24px ${FD}`,'#dfe8f7','center','alphabetic',1)}}
     g.restore()}
   {const runs=[];let r=null;for(let c=0;c<n;c++){const d=h.time[i0+c*step];if(d&&isAlertHour(d,sc.city)){if(!r){r={a:c,b:c,da:d,db:d};runs.push(r)}else{r.b=c;r.db=d}}else r=null}
    const q=ease((t-.9)/.5);if(q>0)runs.forEach(R=>{let xa=x0+R.a*(cw+gap),xb=x0+R.b*(cw+gap)+cw;const by=y0-50;{const same0=isoDay(R.da)===isoDay(R.db),today0=isoDay(R.da)===isoDay(new Date());const pre=(show.settings.alertDayLabel?show.settings.alertDayLabel.toUpperCase()+' · ':'ALERT ');const l0=pre+(R.a===R.b?(today0?'':DOW[R.da.getDay()]+' ')+hrShort(R.da.getHours()):same0?(today0?'':DOW[R.da.getDay()]+' ')+winText(R.da.getHours(),R.db.getHours()):DOW[R.da.getDay()]+' '+hrShort(R.da.getHours())+' – '+DOW[R.db.getDay()]+' '+hrShort(R.db.getHours()));const need=measure(g,l0,`800 17px ${FD}`,2)+24;if(xb-xa<need){const c=(xa+xb)/2;xa=clamp(c-need/2,20,W-20-need);xb=xa+need}}g.save();g.globalAlpha=q;g.fillStyle=ADRED;g.shadowColor='rgba(0,0,0,.45)';g.shadowBlur=10;rr(g,xa,by,xb-xa,38,8);g.fill();g.shadowColor='transparent';
@@ -2241,19 +2245,19 @@ async function loadRiver(lid){const R=rivers[lid];if(R&&(R.status==='loading'||D
   queueThumbs();softInspect('rivers')}
 function renderRivers(g,sc,t){
   blurBg(g,sc.region||'pa');const L=gaugeList(sc);L.forEach(loadRiver);if(!L.length){centerMsg(g,'ADD RIVER GAUGES IN THE SCENE PANEL');drawHeader(g,sc.title||DEF_TITLES.rivers,sc.sub||autoSub(sc),t);return}
-  const x0=80,y0=250,rowH=Math.min(128,(H-y0-150)/L.length),bx=760,bw=W-bx-120;
+  const av=H-250-170,rowH=Math.min(200,av/L.length),s=clamp(rowH/128,1,1.3),x0=80,y0=250+Math.max(0,(av-L.length*rowH)/4),bx=760+Math.round(130*(s-1)),bw=W-bx-120;
   L.forEach((lid,r)=>{const R=rivers[lid];const y=y0+r*rowH;const p=ease((t-.3-r*.1)/.5);if(p<=0)return;g.save();g.globalAlpha=p;glass(g,x0,y,W-160,rowH-16,12);
-    if(!R||R.status==='loading'){text(g,lid+' · LOADING',x0+30,y+rowH/2,`700 26px ${FD}`,'#9fb4d8','left','middle',2);g.restore();return}
-    const nm=String(R.name||lid).replace(/\s+/g,' ');const parts=nm.split(/ at | near /i);text(g,(parts[1]||nm).toUpperCase(),x0+30,y+46,`800 32px ${FD}`,'#ffffff','left','alphabetic',1);text(g,(parts[1]?parts[0]:'').toUpperCase(),x0+30,y+76,`700 18px ${FD}`,'#9fb4d8','left','alphabetic',2);
-    const o=R.obs||{},f=R.fc||{},C=R.cats;const top=Math.max((C.major||C.moderate||C.minor||(o.primary||10)*1.5)*1.12,(o.primary||0)*1.1,(f.primary||0)*1.1,1);const X=v=>bx+clamp(v/top)*bw,by=y+30,bh=rowH-76;
+    if(!R||R.status==='loading'){text(g,lid+' · LOADING',x0+30,y+rowH/2,`700 ${26*s}px ${FD}`,'#9fb4d8','left','middle',2);g.restore();return}
+    const nm=String(R.name||lid).replace(/\s+/g,' ');const parts=nm.split(/ at | near /i);text(g,(parts[1]||nm).toUpperCase(),x0+30,y+46*s,`800 ${32*s}px ${FD}`,'#ffffff','left','alphabetic',1);text(g,(parts[1]?parts[0]:'').toUpperCase(),x0+30,y+80*s,`700 ${18*s}px ${FD}`,'#9fb4d8','left','alphabetic',2);
+    const o=R.obs||{},f=R.fc||{},C=R.cats;const top=Math.max((C.major||C.moderate||C.minor||(o.primary||10)*1.5)*1.12,(o.primary||0)*1.1,(f.primary||0)*1.1,1);const X=v=>bx+clamp(v/top)*bw,by=y+30*s,bh=Math.min(rowH-76*s,96);
     g.fillStyle='rgba(255,255,255,.08)';rr(g,bx,by,bw,bh,6);g.fill();[['action','#f2d64b'],['minor','#f39a2b'],['moderate','#e5482f'],['major','#c552c4']].forEach(([c,col],i,a)=>{if(C[c]==null)return;const nx=a.slice(i+1).map(z=>C[z[0]]).find(v=>v!=null);g.fillStyle=col;g.globalAlpha=p*.55;g.fillRect(X(C[c]),by,(nx!=null?X(nx):bx+bw)-X(C[c]),bh);g.globalAlpha=p});
-    if(C.minor!=null){g.fillStyle='#ffffff';g.fillRect(X(C.minor)-1,by-6,3,bh+12);text(g,'FLOOD '+C.minor+' FT',X(C.minor),by+bh+20,`700 15px ${FD}`,'#ffd8a8','center','alphabetic',1.5)}
+    if(C.minor!=null){g.fillStyle='#ffffff';g.fillRect(X(C.minor)-1,by-6,3,bh+12);text(g,'FLOOD '+C.minor+' FT',X(C.minor),by+bh+20*s,`700 ${15*s}px ${FD}`,'#ffd8a8','center','alphabetic',1.5)}
     if(o.primary!=null){const q=ease((t-.7-r*.1)/.8);g.fillStyle='#4fb3ff';rr(g,bx,by+bh*.25,Math.max(4,(X(o.primary)-bx)*q),bh*.5,4);g.fill()}
     if(f.primary!=null){const fx=X(f.primary);g.save();g.strokeStyle='#ffffff';g.lineWidth=3;g.setLineDash([6,5]);g.beginPath();g.moveTo(fx,by-4);g.lineTo(fx,by+bh+4);g.stroke();g.restore()}
     const cat=RCAT[f.floodCategory]&&f.floodCategory!=='no_flooding'?RCAT[f.floodCategory]:RCAT[o.floodCategory]||RCAT.no_flooding;
-    text(g,o.primary!=null?`NOW ${o.primary} FT`:'NO READING',x0+340,y+46,`800 28px ${FD}`,'#ffffff','left','alphabetic',1);
-    if(f.primary!=null){const fd=new Date(f.validTime);text(g,`FCST ${f.primary} FT ${isNaN(fd)?'':DOW[fd.getDay()]}`,x0+340,y+76,`700 18px ${FD}`,'#dfe8f7','left','alphabetic',1.5)}
-    text(g,cat[0],bx+bw,y+22,`800 16px ${FD}`,cat[1],'right','alphabetic',2);g.restore()});
+    text(g,o.primary!=null?`NOW ${o.primary} FT`:'NO READING',x0+340*s+20*(s-1)/.3,y+46*s,`800 ${28*s}px ${FD}`,'#ffffff','left','alphabetic',1);
+    if(f.primary!=null){const fd=new Date(f.validTime);text(g,`FCST ${f.primary} FT ${isNaN(fd)?'':DOW[fd.getDay()]}`,x0+340*s+20*(s-1)/.3,y+80*s,`700 ${18*s}px ${FD}`,'#dfe8f7','left','alphabetic',1.5)}
+    text(g,cat[0],bx+bw,y+22*s,`800 ${16*s}px ${FD}`,cat[1],'right','alphabetic',2);g.restore()});
   const smp=L.some(l=>rivers[l]&&rivers[l].status==='sample');text(g,smp?'SAMPLE RIVER DATA':'NWS RIVER FORECASTS · BLUE = NOW · DASHED = FORECAST',x0,H-(show.settings.showTicker?64:0)-40,`700 16px ${FD}`,smp?'#ffb21e':'#9fb4d8','left','alphabetic',2);
   drawHeader(g,sc.title||DEF_TITLES.rivers,sc.sub||autoSub(sc),t);
 }
@@ -2347,10 +2351,10 @@ const BRF_PRESETS={
   heat:{n:'Heat',title:'Heat Builds',meter:'Heat Risk',lv:3,map:'feels',s:[['WHAT','Hot And Humid'],['TIMING','Hottest From Noon To 6 PM'],['DETAILS','Heat Index: 95° To 100°\nLimit Time Outdoors; Stay Hydrated']]},
   cold:{n:'Cold',title:'Bitter Cold',meter:'Cold Risk',lv:3,map:'feels',s:[['WHAT','Arctic Air And Low Wind Chills'],['TIMING','Coldest Late Tonight Through Daybreak'],['DETAILS','Wind Chills: 0° To -10°\nCover Exposed Skin; Bring Pets Inside']]},
   flood:{n:'Flooding',title:'Flooding Rain',meter:'Flood Threat',lv:3,map:'rain',s:[['WHAT','Heavy Rain And Flooding'],['TIMING','Heaviest Rain This Evening Into Tonight'],['DETAILS','Rainfall: 1" To 3"\nFlash Flooding In Low-Lying Areas']]},
-  fog:{n:'Fog',title:'Dense Fog',meter:'Visibility Impact',lv:2,map:'none',s:[['WHAT','Dense Fog'],['TIMING','Develops After Midnight; Lifts By 10 AM'],['DETAILS','Visibility: Under 1/4 Mile At Times\nAllow Extra Time For The Commute']]},
+  fog:{n:'Fog',title:'Dense Fog',meter:'Visibility Impact',lv:2,map:'vis',s:[['WHAT','Dense Fog'],['TIMING','Develops After Midnight; Lifts By 10 AM'],['DETAILS','Visibility: Under 1/4 Mile At Times\nAllow Extra Time For The Commute']]},
   tropical:{n:'Tropical',title:'Tropical Rain And Wind',meter:'Tropical Impact',lv:3,map:'rain',s:[['WHAT','Tropical Moisture Brings Heavy Rain And Gusty Wind'],['TIMING','Rain Arrives Late Tonight; Exits Tomorrow Evening'],['DETAILS','Rainfall: 2" To 4"\nGusts: 30 To 40 MPH']]},
   nice:{n:'Nice weather',title:'Beautiful Stretch',meter:'Outdoor Plans',levels:'POOR, FAIR, GOOD, GREAT',rev:true,lv:4,map:'temp',s:[['WHAT','Sunshine And Mild Temperatures'],['TIMING','All Day'],['DETAILS','Highs: Upper 60s To Low 70s\nLight Winds']]}};
-const BRF_MAPS=[['ptype','Future precipitation type'],['radar','Live radar'],['rain','Future rainfall totals'],['snow','Future snowfall totals'],['gust','Future wind gusts'],['temp','Future temperatures'],['feels','Future feels-like temperatures'],['none','Map only']];
+const BRF_MAPS=[['ptype','Future precipitation type'],['radar','Live radar'],['rain','Future rainfall totals'],['snow','Future snowfall totals'],['gust','Future wind gusts'],['temp','Future temperatures'],['feels','Future feels-like temperatures'],['vis','Visibility and fog (lowest each day)'],['none','Map only']];
 const BRF_SEG={green:['#0c7d28','#3ccd4f'],yellow:['#b77a00','#ffd51f'],orange:['#b33b0a','#ff8c1f'],red:['#6e0808','#d81b1b'],magenta:['#6a0c62','#d23ec6']};
 const brfScale=n=>n<=2?['green','red']:n===3?['green','yellow','red']:n===4?['green','yellow','orange','red']:['green','yellow','orange','red','magenta'];
 function applyBrfPreset(sc,k){const P=BRF_PRESETS[k]||BRF_PRESETS.rain;sc.preset=BRF_PRESETS[k]?k:'rain';if(!sc.bg||BG_THEMES[sc.bg])sc.bg=BRF_BG[sc.preset];sc.title=P.title;sc.meter=P.meter;sc.levels=P.levels||'LOW, MEDIUM, HIGH, VERY HIGH';sc.rev=!!P.rev;sc.level=P.lv;sc.bmap=P.map;sc.when='auto';sc.secs=P.s.map(([h,b])=>({h,b}))}
@@ -2437,6 +2441,7 @@ function brfAuto(sc){const v=sc.bmap||'ptype',key=sc.region+'|'+v+'|'+(sc.preset
 function brfHour(sc){const N=brfHours(sc.bmap||'ptype');if(sc.when&&sc.when!=='auto'){const h=data.hourly&&data.hourly.harrisburg;const t0=h?h.time[hourStart(h)].getTime():(()=>{const d=new Date();d.setMinutes(0,0,0);return d.getTime()})();return clamp(Math.round((+sc.when-t0)/3600e3),0,N)}return clamp(brfAuto(sc),0,N)}
 function brfLegend(g,sc,x0,x1,y,h){const v=sc.bmap||'ptype';const items=[];const lf=`700 30px ${FD}`;
   if(v==='ptype'||v==='radar'){[['Rain','rain',[15,25,34,42,48,53]],['Mix','mix',[15,24,32]],['Snow','snow',[15,24,32,40]]].forEach(([l,pt,st],j)=>{if(v==='radar'&&j)return;items.push({w:measure(g,l,lf,1)+16,d:(x)=>text(g,l,x,y+h/2+11,lf,'#ffffff','left','alphabetic',1)});st.forEach(d=>{const c=radarColor(d,pt);items.push({w:38,d:(x)=>{g.fillStyle=`rgb(${c[0]},${c[1]},${c[2]})`;g.fillRect(x,y+12,38,h-24)}})});items.push({w:j<2?60:0,d:()=>{}})});if(v==='radar'){items.pop();items.push({w:190,d:(x)=>text(g,'LIGHT TO HEAVY',x+20,y+h/2+8,`700 20px ${FD}`,'#c8d4e8','left','alphabetic',2)})}}
+  else if(v==='vis'){items.push({w:measure(g,'Visibility',lf,1)+24,d:(x)=>text(g,'Visibility',x,y+h/2+11,lf,'#ffffff','left','alphabetic',1)});[['Under 1/4 mi','#c9c3d6'],['1/4 to 1 mi','#9a9fb5'],['1 to 3 mi','#6f7f99']].forEach(([lb,c])=>{const bw=Math.max(150,measure(g,lb,`800 19px ${FD}`,1)+24);items.push({w:bw+4,d:(x)=>{g.fillStyle=c;g.fillRect(x,y+11,bw,h-22);text(g,lb,x+bw/2,y+h/2+7,`800 19px ${FD}`,'#0b1a38','center','alphabetic',1)}})})}
   else if(v==='rain'||v==='snow'){const RR=v==='rain'?RAIN_RANGES:SNOW_RANGES;items.push({w:measure(g,v==='rain'?'Rainfall':'Snowfall',lf,1)+20,d:(x)=>text(g,v==='rain'?'Rainfall':'Snowfall',x,y+h/2+11,lf,'#ffffff','left','alphabetic',1)});RR.forEach((r,i)=>{const lb=v==='rain'?rainLegendLabel(r,i,'in'):SNOW_SHORT[i];const bw=Math.max(66,measure(g,lb,`800 18px ${FD}`,1)+16);items.push({w:bw+3,d:(x)=>{g.fillStyle=r.c;g.fillRect(x,y+11,bw,h-22);const c=hex3(r.c);text(g,lb,x+bw/2,y+h/2+7,`800 18px ${FD}`,lum(c)>.55?'#0b1a38':'#ffffff','center','alphabetic',1)}})})}
   else if(v==='gust'||v==='temp'||v==='feels'){const lbl=v==='gust'?'Wind Gusts':v==='feels'?'Feels Like':'Temperature';items.push({w:measure(g,lbl,lf,1)+24,d:(x)=>text(g,lbl,x,y+h/2+11,lf,'#ffffff','left','alphabetic',1)});const bw=640;items.push({w:bw,d:(x)=>{const gr=g.createLinearGradient(x,0,x+bw,0);if(v==='gust'){for(let q=0;q<=70;q+=5)gr.addColorStop(q/70,rgb(gustRGB(q)))}else{for(let q=-10;q<=110;q+=10)gr.addColorStop((q+10)/120,rgb(tempRGB(q)))}g.fillStyle=gr;rr(g,x,y+9,bw,16,6);g.fill();if(v==='gust'){for(let q=0;q<=70;q+=10)text(g,q+(q===70?' MPH':''),x+q/70*bw,y+h-7,`700 18px ${FD}`,'#ffffff','center')}else{for(let q=0;q<=100;q+=20)text(g,q+'°',x+(q+10)/120*bw,y+h-7,`700 18px ${FD}`,'#ffffff','center')}}})}
   else if(BRF_NWS[v]&&(()=>{const L=brfLegendItems(BRF_NWS[v],brfRegion(sc));return L.length&&L[0].num!=null})()){const L=brfLegendItems(BRF_NWS[v],brfRegion(sc));const lab='Inches';items.push({w:measure(g,lab,`700 26px ${FD}`,1)+18,d:(x)=>text(g,lab,x,y+h/2+9,`700 26px ${FD}`,'#ffffff','left','alphabetic',1)});const bw=Math.min(76,Math.floor((x1-x0-150)/L.length));L.forEach((it,i)=>{const n=it.num,t2=(n<1?String(+n.toFixed(2)).replace(/^0/,''):String(+n.toFixed(2)))+(i===L.length-1?'+':'');items.push({w:bw,d:(x)=>{try{g.drawImage(it.im,x,y+10,bw-2,h-20)}catch(e){}let f2=18;while(f2>11&&measure(g,t2,`800 ${f2}px ${FD}`)>bw-6)f2--;outlinedText(g,t2,x+(bw-2)/2,y+h/2+f2*.36,`800 ${f2}px ${FD}`,'#ffffff')}})})}
@@ -2444,7 +2449,9 @@ function brfLegend(g,sc,x0,x1,y,h){const v=sc.bmap||'ptype';const items=[];const
   const tw=items.reduce((a,b)=>a+b.w,0);let x=x0+Math.max(0,(x1-x0-tw)/2);items.forEach(it=>{it.d(x);x+=it.w})}
 /* map key: top of the map beside the title when there is room, else under it */
 let _bkc=null;function brfKeyPos(g,sc){if(!g){_bkc=_bkc||document.createElement('canvas').getContext('2d');g=_bkc}const T=String(sc.title||BRF_PRESETS[sc.preset||'rain']?.title||'Weather Briefing').toUpperCase();const hr=70+Math.max(420,measure(g,T,`800 68px ${FD}`,2)+110)+26;const x=Math.max(824+20,hr+28),w=W-64-x;return w>=760?{x,y:68,w,top:true}:{x:844,y:232,w:W-64-844,top:false}}
-function renderBriefing(g,sc,t,o){const st=show.settings,v=sc.bmap||'ptype',MX=824,tick=st.showTicker?64:0;
+/* briefing visibility map: daily lowest visibility from the gridded Open-Meteo data, for the day of the map time */
+function brfVis(sc,hi){const R=REGIONS[sc.region]||REGIONS.pa,ks=(R.national?US_MAP_CITIES:R.cities||[]).filter(k=>CITIES[k]);const t0=new Date();t0.setHours(0,0,0,0);const di=clamp(Math.floor((fmTime(hi).getTime()-t0.getTime())/864e5),0,2);return gxView('vis',sc.region,ks,di)}
+function renderBriefing(g,sc,t,o){let DV=null;const st=show.settings,v=sc.bmap||'ptype',MX=824,tick=st.showTicker?64:0;
   blurBg(g,sc.region||'pa');
   const ik=brfRegion(sc),P=proj(ik),N=brfHours(v),tgt=brfHour(sc);let hi=tgt;
   if(sc.loop&&v!=='radar'&&v!=='none'&&!BRF_NWS[v]){const n=Math.floor(tgt/3)+1;hi=Math.min(n-1,Math.floor(Math.max(0,t-.6)/.55)%(n+4))*3;if(hi>tgt)hi=tgt}
@@ -2452,16 +2459,17 @@ function renderBriefing(g,sc,t,o){const st=show.settings,v=sc.bmap||'ptype',MX=8
   let nmsg=null;const NM=BRF_NWS[v];
   if(NM){g.drawImage(mapBase(ik),0,0);if(isEU(ik))nmsg='NOAA OUTLOOKS COVER NORTH AMERICA ONLY';else{const k=brfNwsKey(NM);if(k==='fail')nmsg='NOAA DATA COULD NOT LOAD';else if(k){const I=winterImage(ik,k);if(I.ok&&I.img.naturalWidth){g.save();g.globalAlpha=.85*fade;g.drawImage(I.img,0,0,W,H);g.restore()}if(I.ok===false)nmsg='NOAA DATA COULD NOT LOAD';else if(I.ok&&I.empty)nmsg=NM.empty}}g.drawImage(mapOverlay(ik),0,0);drawCounties(g,{region:ik,counties:sc.counties})}
   else if(v==='radar'){renderRadarMap(g,Object.assign({},sc,{region:ik,product:'composite',tracks:[],labels:[],counties:sc.counties}),t,{noLabels:true,noCities:true})}
-  else{g.drawImage(mapBase(ik),0,0);let few=false;if(['ptype','rain','snow'].includes(v)){const RR=REGIONS[sc.region]||REGIONS.pa;const ks=(RR.national?US_MAP_CITIES:RR.cities||[]).filter(k=>CITIES[k]);const got=ks.filter(k=>data.models[k]&&MODELS.some(m=>!m.x&&data.models[k][m.id])).length;few=data.source==='live'&&ks.length>=3&&got<3;if(few)nmsg='LOADING MODEL DATA FOR THIS MAP'}if(v!=='none'&&!few){g.save();g.clip(landPath(ik));g.globalAlpha=(v==='ptype'?.95:.82)*fade;g.drawImage(v==='ptype'?ptField(ik,hi):fmField(ik,v,hi),0,0);g.restore()}g.drawImage(mapOverlay(ik),0,0);drawCounties(g,{region:ik,counties:sc.counties})}
+  else{g.drawImage(mapBase(ik),0,0);let few=false;if(['ptype','rain','snow'].includes(v)){const RR=REGIONS[sc.region]||REGIONS.pa;const ks=(RR.national?US_MAP_CITIES:RR.cities||[]).filter(k=>CITIES[k]);const got=ks.filter(k=>data.models[k]&&MODELS.some(m=>!m.x&&data.models[k][m.id])).length;few=data.source==='live'&&ks.length>=3&&got<3;if(few)nmsg='LOADING MODEL DATA FOR THIS MAP'}DV=null;if(v==='vis'&&!isEU(sc.region)){DV=brfVis(sc,hi);if(DV.status!=='ok'){nmsg=DV.status==='loading'?'LOADING VISIBILITY FORECAST':'VISIBILITY FORECAST COULD NOT LOAD';DV=null}}
+  if(v!=='none'&&!few&&(v!=='vis'||DV)){g.save();g.clip(landPath(ik));g.globalAlpha=(v==='ptype'?.95:.82)*fade;g.drawImage(v==='ptype'?ptField(ik,hi):v==='vis'?wxField(DV,'vis',P,'brf|'+ik):fmField(ik,v,hi),0,0);g.restore()}g.drawImage(mapOverlay(ik),0,0);drawCounties(g,{region:ik,counties:sc.counties})}
   if(sc.fromAlert&&sc.showAlert!==false){const a=alerts.list.find(x=>x.id===sc.fromAlert);const rs=a&&(a.rings||a.zrings);if(rs&&rs.length){const col=alertColor(a.event),pth=new Path2D();rs.forEach(r=>polyPath(P,r,pth));g.save();g.globalAlpha=fade;g.fillStyle=hexA(col,.22);g.fill(pth);g.lineJoin='round';g.strokeStyle='rgba(0,0,0,.7)';g.lineWidth=7;g.stroke(pth);g.strokeStyle=col;g.lineWidth=3.5;g.stroke(pth);g.restore()}}
-  const R=REGIONS[sc.region]||REGIONS.pa,cand=[...(R.national?US_MAP_CITIES:R.cities),...(sc.region==='us'?[]:CITY_KEYS)].filter((k,i,a)=>CITIES[k]&&a.indexOf(k)===i);const KP=brfKeyPos(g,sc),yMin=KP.top?205:330;const placed=[],yMax=H-tick-70,showV=['temp','feels','gust','rain','snow'].includes(v);
+  const R=REGIONS[sc.region]||REGIONS.pa,cand=[...(R.national?US_MAP_CITIES:R.cities),...(sc.region==='us'?[]:CITY_KEYS)].filter((k,i,a)=>CITIES[k]&&a.indexOf(k)===i);const KP=brfKeyPos(g,sc),yMin=KP.top?205:330;const placed=[],yMax=H-tick-70,showV=['temp','feels','gust','rain','snow'].includes(v)||(v==='vis'&&!!DV);
   for(const k of cand){if(placed.length>=(R.national?10:8))break;const x=P.x(CITIES[k][2]),y=P.y(CITIES[k][1]);const hw=measure(g,CITIES[k][0].toUpperCase(),`800 ${showV?24:34}px ${FD}`)/2+8;if(x-hw<MX+14||x+hw>W-14||y<yMin||y>yMax)continue;if(st.showBug!==false&&x>W-560&&y>H-tick-150)continue;if(placed.some(p=>Math.abs(p[0]-x)<(showV?170:260)&&Math.abs(p[1]-y)<(showV?95:70)))continue;placed.push([x,y,k])}
-  const lp=ease((t-.5)/.5);if(lp>0){g.save();g.globalAlpha=lp;placed.forEach(([x,y,k])=>{const nm=CITIES[k][0].toUpperCase();if(showV){const val=fmVal(k,v,hi);if(val==null){outlinedText(g,nm,x,y+10,`800 30px ${FD}`,'#ffffff');return}outlinedText(g,v==='snow'?fmtSnow(val):v==='rain'?fmtRain(val):val+(v==='gust'?'':'°'),x,y+8,`800 50px ${FD}`,'#ffffff');outlinedText(g,nm,x,y+34,`700 20px ${FD}`,'#dfe8f7')}else outlinedText(g,nm,x,y+12,`800 34px ${FD}`,'#ffffff')});g.restore()}
+  const lp=ease((t-.5)/.5);if(lp>0){g.save();g.globalAlpha=lp;placed.forEach(([x,y,k])=>{const nm=CITIES[k][0].toUpperCase();if(showV){const val=v==='vis'?(DV&&DV.city[k]):fmVal(k,v,hi);if(val==null){outlinedText(g,nm,x,y+10,`800 30px ${FD}`,'#ffffff');return}outlinedText(g,v==='vis'?wxFmt('vis',val):v==='snow'?fmtSnow(val):v==='rain'?fmtRain(val):val+(v==='gust'?'':'°'),x,y+8,`800 ${v==='vis'?40:50}px ${FD}`,'#ffffff');outlinedText(g,nm,x,y+34,`700 20px ${FD}`,'#dfe8f7')}else outlinedText(g,nm,x,y+12,`800 34px ${FD}`,'#ffffff')});g.restore()}
   if(nmsg){const f=`800 30px ${FD}`,mw=measure(g,nmsg,f,2)+60,cx=(MX+W)/2,cy=(254+H-tick)/2;glass(g,cx-mw/2,cy-36,mw,72,12);text(g,nmsg,cx,cy+11,f,'#ffffff','center','alphabetic',2)}
   g.restore();
   // header
-  const title=String(sc.title||BRF_PRESETS[sc.preset||'rain']?.title||'Weather Briefing');  let sub=sc.sub;if(!sub&&NM)sub=brfNwsSub(NM);const mapT=(()=>{const d=fmTime(hi);return(v==='rain'||v==='snow'?'Totals Through '+fmtTime(d).replace(':00','')+' ':fmtTime(d).replace(':00','')+' ')+DAYN[d.getDay()]+(d.getTime()-Date.now()>6*864e5?' '+d.toLocaleDateString([], {month:'short',day:'numeric'}).toUpperCase():'')})();const timeChip=!!sub&&!NM&&v!=='radar'&&v!=='none'&&sc.mapTimeChip!==false;if(!sub){const d=fmTime(hi);sub=v==='radar'?'Live Radar   '+fmtTime(new Date()):v==='none'?'':(v==='rain'||v==='snow'?'Totals Through '+fmtTime(d).replace(':00','')+'   ':fmtTime(d)+'   ')+DAYN[d.getDay()]+(d.getTime()-Date.now()>6*864e5?' '+d.toLocaleDateString([], {month:'short',day:'numeric'}).toUpperCase():'')}
-  const hp=ease((t-.25)/.5);if(hp>0&&v!=='none'){g.save();g.globalAlpha=hp;const lx=KP.x,lw=KP.w;glass(g,lx,KP.y,lw,56,10);brfLegend(g,sc,lx+10,lx+lw-10,KP.y-1,58);if(timeChip){const tf=`700 24px ${FD}`,tx=(v==='rain'||v==='snow'?'':'Forecast for ')+mapT,tw=measure(g,tx.toUpperCase(),tf,2)+44;glass(g,lx+lw-tw,KP.y+66,tw,44,10);text(g,tx.toUpperCase(),lx+lw-22,KP.y+96,tf,'#ffffff','right','alphabetic',2)}g.restore()}
+  const title=String(sc.title||BRF_PRESETS[sc.preset||'rain']?.title||'Weather Briefing');  let sub=sc.sub;if(!sub&&NM)sub=brfNwsSub(NM);const mapT=(()=>{const d=fmTime(hi);if(v==='vis')return'Lowest Visibility '+DAYN[d.getDay()];return(v==='rain'||v==='snow'?'Totals Through '+fmtTime(d).replace(':00','')+' ':fmtTime(d).replace(':00','')+' ')+DAYN[d.getDay()]+(d.getTime()-Date.now()>6*864e5?' '+d.toLocaleDateString([], {month:'short',day:'numeric'}).toUpperCase():'')})();const timeChip=!!sub&&!NM&&v!=='radar'&&v!=='none'&&sc.mapTimeChip!==false;if(!sub){const d=fmTime(hi);sub=v==='vis'?'Lowest Visibility   '+DAYN[d.getDay()]:v==='radar'?'Live Radar   '+fmtTime(new Date()):v==='none'?'':(v==='rain'||v==='snow'?'Totals Through '+fmtTime(d).replace(':00','')+'   ':fmtTime(d)+'   ')+DAYN[d.getDay()]+(d.getTime()-Date.now()>6*864e5?' '+d.toLocaleDateString([], {month:'short',day:'numeric'}).toUpperCase():'')}
+  const hp=ease((t-.25)/.5);if(hp>0&&v!=='none'){g.save();g.globalAlpha=hp;const lx=KP.x,lw=KP.w;glass(g,lx,KP.y,lw,56,10);brfLegend(g,sc,lx+10,lx+lw-10,KP.y-1,58);if(timeChip){const tf=`700 24px ${FD}`,tx=(v==='rain'||v==='snow'||v==='vis'?'':'Forecast for ')+mapT,tw=measure(g,tx.toUpperCase(),tf,2)+44;glass(g,lx+lw-tw,KP.y+66,tw,44,10);text(g,tx.toUpperCase(),lx+lw-22,KP.y+96,tf,'#ffffff','right','alphabetic',2)}g.restore()}
   // left panel
   const px=64,pw=MX-px,top=232,L=brfLevels(sc),n=L.length,sw=pw/n,cols=brfScale(n);if(sc.rev)cols.reverse();let lv=clamp(+sc.level||1,1,n);if(sc.autoLv&&BRF_NWS[v]){const A=brfAutoLevel(sc,ik);if(A)lv=clamp(A.lv,1,n)}else{const A=brfAmtLevel(sc,n);if(A)lv=A.lv}
   const mp=ease((t-.3)/.45);if(mp>0){g.save();g.globalAlpha=mp;g.translate(-40*(1-mp),0);
@@ -2856,7 +2864,18 @@ function renderHistory(g,sc,t){const k=sc.city,HM=!!(sc.hHol&&HOL_DEF.some(h=>h[
   const rows=[[HM?(last.y===new Date().getFullYear()?'THIS YEAR':'LAST YEAR')+' ('+yr(last).replace(/^IN /,'')+')':last.y===new Date().getFullYear()?'THIS YEAR':'LAST YEAR ('+last.y+')',last],ten&&(sc.hTen===true||(sc.hTen==null&&!(HM&&HOL_SINCE[sc.hHol]&&ten.y<HOL_SINCE[sc.hHol])))?['10 YEARS AGO ('+(HM?yr(ten):ten.y)+')',ten]:null].filter(Boolean),ry=y0+chh+40;
   rows.forEach(([lb,r],i)=>{const p=ease((t-.7-i*.1)/.5);if(p<=0)return;const y=ry+i*96;g.save();g.globalAlpha=p;glass(g,x0,y,TW,80,12);text(g,lb,x0+30,y+52,`800 26px ${FD}`,BA(),'left','alphabetic',2);const hasS=r.sn!=null&&r.sn>=.05,pw=r.pr==null?'PRECIP --':r.pr<.005?(r.pr>0?'TRACE':'DRY'):hasS?`SNOW ${fmtS(r.sn)} (${r.pr.toFixed(2)}" MELTED)`:r.sn==null?`PRECIP ${fmtP(r.pr)}`:`RAIN ${fmtP(r.pr)}`;const s=`HIGH ${r.hi??'--'}°   LOW ${r.lo??'--'}°   ${pw}`;text(g,s,x0+TW-30,y+54,`800 32px ${FD}`,'#ffffff','right','alphabetic',1);g.restore()});
   const p=ease((t-1)/.5),fy=ry+rows.length*96+10;if(p>0&&snN&&sc.hSnowLine!==false&&snowYrs>0){g.save();g.globalAlpha=p;text(g,HM?`SNOW HAS FALLEN ON ${sc.hHol.toUpperCase()} IN ${snowYrs} OF ${snN} YEARS`:`SNOW HAS FALLEN ON THIS DATE IN ${snowYrs} OF ${snN} YEARS`,x0,fy+30,`800 26px ${FD}`,'#dfe8f7','left','alphabetic',2);g.restore()}
-  text(g,(A.src+' · since '+R[0].y).toUpperCase(),x0,fy+70,`600 16px ${FD}`,'#9fb4d8','left','alphabetic',1.5);
+  /* chart of the high temperature every year, filling the space under the rows */
+  let cy0=fy+(p>0&&snN&&sc.hSnowLine!==false&&snowYrs>0?62:16);const cBot=H-(show.settings.showTicker?64:0)-96,cw2=TW-440,chH=cBot-cy0-40;
+  if(sc.hChart!==false&&chH>=110){const pc=ease((t-1.2)/.8),hs=R.filter(r=>r.hi!=null);if(pc>0&&hs.length>=10){g.save();g.globalAlpha=pc;glass(g,x0,cy0,cw2,chH+30,12);
+    const ix=x0+70,iw=cw2-100,iy=cy0+44,ih=chH-46,mnH=Math.min(...hs.map(r=>r.hi)),mxH=Math.max(...hs.map(r=>r.hi)),lo=Math.floor((mnH-3)/10)*10,hi2=Math.ceil((mxH+3)/10)*10,yv=v=>iy+ih-(v-lo)/(hi2-lo)*ih,y0r=hs[0].y,y1r=hs[hs.length-1].y,xv=y=>ix+(y-y0r)/Math.max(1,y1r-y0r)*iw,bw=Math.max(2,Math.min(14,iw/(y1r-y0r+1)-2));
+    text(g,(HM?sc.hHol.toUpperCase()+' HIGH TEMPERATURE':'HIGH TEMPERATURE ON THIS DATE')+' EVERY YEAR',x0+24,cy0+30,`800 20px ${FD}`,'#ffb21e','left','alphabetic',2);
+    for(let v=lo;v<=hi2;v+=(hi2-lo>40?20:10)){const y=yv(v);g.strokeStyle='rgba(255,255,255,.08)';g.lineWidth=1;g.beginPath();g.moveTo(ix,y);g.lineTo(ix+iw,y);g.stroke();text(g,v+'°',ix-10,y+6,`700 16px ${FD}`,'#9fb4d8','right')}
+    const avg=hs.reduce((a,r)=>a+r.hi,0)/hs.length,nShow=Math.ceil(hs.length*clamp((t-1.2)/1.4,0,1));
+    hs.slice(0,nShow).forEach(r=>{const c=tempRGB(r.hi),x=xv(r.y),y=yv(r.hi);g.fillStyle=`rgb(${c[0]},${c[1]},${c[2]})`;g.fillRect(x-bw/2,y,bw,iy+ih-y)});
+    g.setLineDash([8,6]);g.strokeStyle='rgba(255,255,255,.6)';g.lineWidth=2;const ya=yv(avg);g.beginPath();g.moveTo(ix,ya);g.lineTo(ix+iw,ya);g.stroke();g.setLineDash([]);{const lt='AVERAGE '+Math.round(avg)+'°',lw2=measure(g,lt,`800 16px ${FD}`,1.5)+16;g.fillStyle='rgba(8,18,44,.85)';rr(g,ix+8,ya-24,lw2,22,5);g.fill();text(g,lt,ix+16,ya-8,`800 16px ${FD}`,'#ffffff','left','alphabetic',1.5)}
+    if(nShow>=hs.length){const L=hs[hs.length-1];g.strokeStyle='#ffffff';g.lineWidth=2.5;g.strokeRect(xv(L.y)-bw/2-3,yv(L.hi)-3,bw+6,iy+ih-yv(L.hi)+3)}
+    const step=(y1r-y0r)>80?20:10;for(let y=Math.ceil(y0r/step)*step;y<=y1r;y+=step)text(g,String(y),xv(y),iy+ih+24,`700 16px ${FD}`,'#9fb4d8','center');g.restore();cy0+=chH+30+16}else cy0+=0}
+  text(g,(A.src+' · since '+R[0].y).toUpperCase(),x0,Math.max(fy+70,cy0+24),`600 16px ${FD}`,'#9fb4d8','left','alphabetic',1.5);
   drawHeader(g,ttl,sc.sub||(HM?CITIES[k][0]+' · since '+R[0].y:dn+' · '+CITIES[k][0]),t)}
 /* ---------- Garden and farm ---------- */
 const gardCache={};
@@ -3076,25 +3095,29 @@ function evSlots(sc){const n=new Date(),hr=n.getHours(),T=sc.tmpl||'football';co
   if(T==='weekend'){const t0=new Date(n);t0.setHours(0,0,0,0);const dw=t0.getDay();const sat=new Date(t0);sat.setDate(sat.getDate()+(dw===0?-1:(6-dw)));const sun=new Date(sat);sun.setDate(sun.getDate()+1);
     return[['SATURDAY MORNING',at(sat,9)],['SATURDAY AFTERNOON',at(sat,15)],['SUNDAY MORNING',at(sun,9)],['SUNDAY AFTERNOON',at(sun,15)]].filter(x=>x[1]>n-3*3600000)}
   return(sc.ev||[]).filter(r=>r&&r.label).slice(0,4).map(r=>[String(r.label).toUpperCase(),at(evDay(r.day??'tomorrow',(+r.hour||12)+1),+r.hour||12)])}
+function evFallback(k){const o=data.hourly&&data.hourly[k];if(!o||!o.time||!o.time.length)return null;const n=o.time.length,A=a=>a||Array(n).fill(null);
+  return{time:o.time.map(d=>d.getTime()/1000),temperature_2m:A(o.temp),apparent_temperature:o.feels||o.temp,precipitation_probability:A(o.pop),weather_code:A(o.code),wind_speed_10m:A(o.wind),wind_gusts_10m:o.gust||A(o.wind),wind_direction_10m:A(o.wdir),is_day:o.time.map(d=>d.getHours()>=7&&d.getHours()<18?1:0)}}
 function evAt(D,dt){const h=D&&D.h;if(!h)return null;const ts=dt/1000;let bi=-1,bd=1e9;h.time.forEach((tm,i)=>{const d=Math.abs(tm-ts);if(d<bd){bd=d;bi=i}});if(bi<0||bd>5400)return null;
   return{t:h.temperature_2m[bi],f:h.apparent_temperature[bi],pop:h.precipitation_probability[bi],code:h.weather_code[bi],ws:h.wind_speed_10m[bi],wg:h.wind_gusts_10m[bi],wd:h.wind_direction_10m[bi],day:h.is_day[bi]}}
 const compass=d=>['N','NE','E','SE','S','SW','W','NW'][Math.round(((d%360)+360)%360/45)%8];
 function wearTip(v){const f=v.f;const base=f<20?'Winter coat, hat and gloves':f<33?'Heavy coat and gloves':f<46?'Warm jacket':f<60?'Light jacket or sweatshirt':f<75?'T-shirt weather':'Dress cool and bring water';return base+(v.pop>=40?'. Bring an umbrella':'')+(v.ws>=20?'. Windy':'')}
-function renderEvent(g,sc,t){const k=sc.city||CITY_KEYS[0],pl=placeOf(k),T=sc.tmpl||'football',D=evLoad(k);blurBg(g,regionFor(k));const slots=evSlots(sc);let msg=null;
-  if(!slots.length)msg=T==='custom'?'ADD A TIME IN THE INSPECTOR':'NO TIMES LEFT THIS WEEKEND';else if(D&&D.status==='fail')msg='FORECAST COULD NOT LOAD';
+function renderEvent(g,sc,t){const k=sc.city||CITY_KEYS[0],pl=placeOf(k),T=sc.tmpl||'football',D0=evLoad(k);blurBg(g,regionFor(k));const slots=evSlots(sc);let msg=null,D=D0,fb=false;
+  if(D0&&D0.status==='fail'&&!D0.h){const h=evFallback(k);if(h){D={status:'ok',h};fb=true}}
+  if(!slots.length)msg=T==='custom'?'ADD A TIME IN THE INSPECTOR':'NO TIMES LEFT THIS WEEKEND';else if(D&&D.status==='fail'&&!D.h)msg='FORECAST COULD NOT LOAD';
   const vals=slots.map(([l,d])=>[l,d,evAt(D,d)]);if(!msg&&D&&D.status==='ok'&&vals.every(v=>!v[2]))msg='THAT DAY IS BEYOND THE 7-DAY FORECAST';
   const n=vals.length;if(!msg&&n){if(T==='busstop'){const[l,d,v]=vals[0];const q=ease((t-.3)/.5);g.save();g.globalAlpha=q;const cx=200,cy=270,cw=620,ch=640;glass(g,cx,cy,cw,ch,18);text(g,l,cx+cw/2,cy+70,`800 34px ${FD}`,BA(),'center','alphabetic',3);text(g,d.toLocaleDateString([], {weekday:'long'}).toUpperCase()+' · '+fmtTime(d),cx+cw/2,cy+118,`700 28px ${FD}`,'#c9d6ec','center');
       if(v){drawIcon(g,v.code,cx+cw/2,cy+260,150,!v.day);text(g,Math.round(v.t)+'°',cx+cw/2,cy+480,`800 140px ${FD}`,'#ffffff','center');text(g,'FEELS LIKE '+Math.round(v.f)+'°',cx+cw/2,cy+540,`700 30px ${FD}`,'#c9d6ec','center',2);text(g,wcWord(v.code).toUpperCase(),cx+cw/2,cy+594,`700 28px ${FD}`,'#ffffff','center',2)}g.restore();
       if(v){const q2=ease((t-.7)/.5);g.save();g.globalAlpha=q2;const x=900,y=270,w=820,h=640;glass(g,x,y,w,h,18);text(g,'WHAT TO WEAR',x+48,y+80,`800 34px ${FD}`,BA(),'left','alphabetic',3);wrapLines(g,wearTip(v)+'.',`700 48px ${FD}`,w-96,4).forEach((ln,i)=>text(g,ln,x+48,y+160+i*64,`700 48px ${FD}`,'#ffffff','left'));
-        const rows=[['RAIN CHANCE',Math.round(v.pop||0)+'%'],['WIND',compass(v.wd)+' '+Math.round(v.ws)+' MPH'+(v.wg>=v.ws+10?' · GUSTS '+Math.round(v.wg):'')]];rows.forEach(([a,b2],i)=>{const yy=y+h-150+i*62;text(g,a,x+48,yy,`700 26px ${FD}`,'#9fb3d6','left',2);text(g,b2,x+w-48,yy,`800 34px ${FD}`,'#ffffff','right')});g.restore()}}
+        const rows=[[([71,73,75,77,85,86].includes(v.code)?'SNOW':'RAIN')+' CHANCE',Math.round(v.pop||0)+'%'],['WIND',compass(v.wd)+' '+Math.round(v.ws)+' MPH'+(v.wg>=v.ws+10?' · GUSTS '+Math.round(v.wg):'')]];rows.forEach(([a,b2],i)=>{const yy=y+h-150+i*62;text(g,a,x+48,yy,`700 26px ${FD}`,'#9fb3d6','left',2);text(g,b2,x+w-48,yy,`800 34px ${FD}`,'#ffffff','right')});g.restore()}}
     else{const gap=28,cw=Math.min(420,(W-200-(n-1)*gap)/n),ch=620,x0=(W-(n*cw+(n-1)*gap))/2,y0=270;vals.forEach(([l,d,v],i)=>{const q=easeBack(clamp((t-.3-i*.12)/.45));if(q<=0)return;const x=x0+i*(cw+gap),cx=x+cw/2;
       g.save();g.translate(cx,y0+ch/2);g.scale(q,q);g.translate(-cx,-(y0+ch/2));glass(g,x,y0,cw,ch,16);g.fillStyle=BP();rr(g,x,y0,cw,96,16);g.fill();g.fillRect(x,y0+70,cw,26);let lf=28;while(measure(g,l,`800 ${lf}px ${FD}`,2)>cw-30&&lf>16)lf--;text(g,l,cx,y0+44,`800 ${lf}px ${FD}`,'#ffffff','center','alphabetic',2);
       text(g,(T==='weekend'?'':d.toLocaleDateString([], {weekday:'short'}).toUpperCase()+' · ')+fmtTime(d).replace(':00',''),cx,y0+80,`700 22px ${FD}`,BA(),'center','alphabetic',1.5);
       if(v){drawIcon(g,v.code,cx,y0+200,Math.min(120,cw*.32),!v.day);text(g,Math.round(v.t)+'°',cx,y0+378,`800 ${cw<300?84:104}px ${FD}`,'#ffffff','center');text(g,'FEELS '+Math.round(v.f)+'°',cx,y0+424,`700 24px ${FD}`,'#c9d6ec','center',2);
         let wf=26;const wd=wcWord(v.code).toUpperCase();while(measure(g,wd,`700 ${wf}px ${FD}`,1.5)>cw-30&&wf>16)wf--;text(g,wd,cx,y0+470,`700 ${wf}px ${FD}`,'#ffffff','center','alphabetic',1.5);
-        g.strokeStyle='rgba(255,255,255,.15)';g.lineWidth=2;g.beginPath();g.moveTo(x+24,y0+500);g.lineTo(x+cw-24,y0+500);g.stroke();text(g,'RAIN '+Math.round(v.pop||0)+'%',cx,y0+548,`800 26px ${FD}`,(v.pop||0)>=40?'#4fb3ff':'#ffffff','center',1.5);text(g,'WIND '+compass(v.wd)+' '+Math.round(v.ws),cx,y0+590,`700 22px ${FD}`,'#c9d6ec','center',1.5)}
+        g.strokeStyle='rgba(255,255,255,.15)';g.lineWidth=2;g.beginPath();g.moveTo(x+24,y0+500);g.lineTo(x+cw-24,y0+500);g.stroke();text(g,([71,73,75,77,85,86].includes(v.code)?'SNOW ':'RAIN ')+Math.round(v.pop||0)+'%',cx,y0+548,`800 26px ${FD}`,(v.pop||0)>=40?'#4fb3ff':'#ffffff','center',1.5);text(g,'WIND '+compass(v.wd)+' '+Math.round(v.ws),cx,y0+590,`700 22px ${FD}`,'#c9d6ec','center',1.5)}
       else text(g,'NOT IN RANGE',cx,y0+340,`700 26px ${FD}`,'#9fb3d6','center',2);g.restore()})}}
   if(msg)centerMsg(g,msg);if(D&&D.status==='loading'&&!D.h)centerMsg(g,'LOADING FORECAST');
+  if(!msg&&fb)text(g,data.source==='sample'?'SAMPLE FORECAST · LIVE EVENT DATA COULD NOT LOAD':'EVENT FORECAST COULD NOT REFRESH · SHOWING THE CITY\'S HOURLY FORECAST',80,H-(show.settings.showTicker?64:0)-40,`700 18px ${FD}`,'#ffb21e','left','alphabetic',2);
   const d0=slots[0]&&slots[0][1];drawHeader(g,sc.title||EV_T[T][0],sc.sub||(pl?pl.n+(pl.st?', '+pl.st:''):'')+(d0&&T!=='weekend'&&T!=='commute'?' · '+d0.toLocaleDateString([], {weekday:'long',month:'short',day:'numeric'}):''),t)}
 const sdDates={};
 function snowDepthDate(fp){const D=sdDates[fp];const fmt=d=>d.toLocaleDateString([], {month:'short',day:'numeric'}).toUpperCase();if(D&&D.d)return fmt(D.d);
@@ -3237,10 +3260,10 @@ const COUNTY_FALLBACK={PA:PA_COUNTIES.map((n,i)=>({f:String(i*2+1).padStart(3,'0
 const countyLists={};
 async function loadCountyList(st){
   if(countyLists[st]&&countyLists[st].status!=='fail')return;countyLists[st]={status:'loading',list:COUNTY_FALLBACK[st]||[]};
-  try{const c=JSON.parse(localStorage.getItem('wgs-cty-'+st)||'null');if(c&&c.length){countyLists[st]={status:'ok',list:c};renderInspector();return}}catch(e){}
+  try{const c=await cacheGet('wgs-cty-'+st);if(Array.isArray(c)&&c.length){countyLists[st]={status:'ok',list:c};renderInspector();return}}catch(e){}
   try{const j=await fetchJSON(`https://api.weather.gov/zones?type=county&area=${st}`,12000);
     const l=(j.features||[]).map(f=>f.properties||{}).filter(p=>p.id&&p.name).map(p=>({f:String(p.id).slice(3),n:p.name})).sort((a,b)=>a.n.localeCompare(b.n));
-    if(!l.length)throw 0;countyLists[st]={status:'ok',list:l};try{localStorage.setItem('wgs-cty-'+st,JSON.stringify(l))}catch(e){}}
+    if(!l.length)throw 0;countyLists[st]={status:'ok',list:l};cacheSet('wgs-cty-'+st,l)}
   catch(e){countyLists[st]={status:COUNTY_FALLBACK[st]?'builtin':'fail',list:COUNTY_FALLBACK[st]||[]}}
   renderInspector();
 }
@@ -3364,7 +3387,7 @@ function renderUsTemps(g,sc,t){
 }
 function renderTravel(g,sc,t){
   blurBg(g,'us');const ks=sc.cities.slice(0,12);const two=ks.length>6;const per=two?Math.ceil(ks.length/2):ks.length;
-  const cw=two?865:1100,x0=two?80:(W-cw)/2,y0=300,rh=Math.min(104,560/per);
+  const cw=two?865:1100,x0=two?80:(W-cw)/2,y0=296,rh=Math.min(116,(H-(show.settings.showTicker?64:0)-y0-136)/per);
   const cols=two?[0,1]:[0];const d0=getDaily(ks[0]||'nyc');const dn=i=>{const d=d0[i];return d?(i===0?'TODAY':DOW[d.date.getDay()]):''};
   cols.forEach(ci=>{const x=x0+ci*(cw+30);const q=ease((t-.3)/.5);g.save();g.globalAlpha=q;
     text(g,dn(0),x+cw-402,y0-22,`700 26px ${FD}`,'#ffb21e','center','alphabetic',3);text(g,dn(1),x+cw-132,y0-22,`700 26px ${FD}`,'#ffb21e','center','alphabetic',3);g.restore();
@@ -3413,16 +3436,16 @@ function renderExtremes(g,sc,t){
   const pool2=sc.area==='eu'?CITY_KEYS.filter(k=>CITIES[k][2]>-30):NAT_CITIES.concat(CITY_KEYS.filter(k=>!NAT_CITIES.includes(k)&&REGIONS.us.cities.includes(k)));
   const hot=pool2.map(k=>[k,natValue(k,hf)]).filter(x=>x[1]!=null).sort((a,b)=>b[1]-a[1]).slice(0,3);
   const cold=pool2.map(k=>[k,natValue(k,cf)]).filter(x=>x[1]!=null).sort((a,b)=>a[1]-b[1]).slice(0,3);
-  const showA=sc.showAlerts!==false;const ph=showA?380:560,py=250;
+  const showA=sc.showAlerts!==false,py=250,tk=show.settings.showTicker?64:0;const nA=!showA?0:sc.area==='eu'?Math.min(3,Object.values(euWarn.byC).filter(l=>euMax(l)>=3||Object.keys(euWarn.byC).length<4).length):natAlertSummary().slice(0,3).length;const aH=showA?Math.min(280,96+Math.max(1,nA)*46):0;const ph=showA?clamp(H-tk-150-24-aH-py,380,520):560,big=ph>=480;
   [[hot,sc.field==='daily'?"TODAY'S HIGHEST":'HOTTEST RIGHT NOW',80],[cold,sc.field==='daily'?"TONIGHT'S LOWEST":'COLDEST RIGHT NOW',990]].forEach(([list,lab,x],pi)=>{
     const q=ease((t-.3-pi*.15)/.5);if(q<=0)return;g.save();g.globalAlpha=q;g.translate(0,40*(1-q));glass(g,x,py,850,ph,16);
     text(g,lab,x+34,py+56,`800 34px ${FD}`,pi?'#7cc4ff':'#ffb21e','left','alphabetic',3);
     const rh=(ph-90)/3;list.forEach(([k,v],i)=>{const y=py+80+i*rh;const col=tempRGB(v);
-      text(g,String(i+1),x+40,y+rh*.62,`800 40px ${FD}`,'#5f7396','left');text(g,CITIES[k][0].toUpperCase(),x+90,y+rh*.62,`800 ${showA?44:52}px ${FD}`,'#ffffff','left','alphabetic',1.5);
-      text(g,cityST(k),x+90+measure(g,CITIES[k][0].toUpperCase(),`800 ${showA?44:52}px ${FD}`,1.5)+12,y+rh*.62,`600 28px ${FD}`,'#8fb0e0');
-      g.fillStyle=rgb(col);rr(g,x+850-180,y+rh*.12,150,rh*.76,10);g.fill();text(g,v+'°',x+850-105,y+rh*.5+2,`800 ${showA?56:68}px ${FD}`,lum(col)>.62?'#0b1a38':'#ffffff','center','middle')});
+      text(g,String(i+1),x+40,y+rh*.62,`800 40px ${FD}`,'#5f7396','left');text(g,CITIES[k][0].toUpperCase(),x+90,y+rh*.62,`800 ${big?52:44}px ${FD}`,'#ffffff','left','alphabetic',1.5);
+      text(g,cityST(k),x+90+measure(g,CITIES[k][0].toUpperCase(),`800 ${big?52:44}px ${FD}`,1.5)+12,y+rh*.62,`600 28px ${FD}`,'#8fb0e0');
+      g.fillStyle=rgb(col);rr(g,x+850-180,y+rh*.12,150,rh*.76,10);g.fill();text(g,v+'°',x+850-105,y+rh*.5+2,`800 ${big?68:56}px ${FD}`,lum(col)>.62?'#0b1a38':'#ffffff','center','middle')});
     g.restore()});
-  if(showA){const q=ease((t-.7)/.5);if(q>0){const y=py+ph+24,h2=H-(show.settings.showTicker?64:0)-150-y;g.save();g.globalAlpha=q;glass(g,80,y,W-160-420,h2,16);
+  if(showA){const q=ease((t-.7)/.5);if(q>0){const y=py+ph+24,h2=H-tk-150-y;g.save();g.globalAlpha=q;glass(g,80,y,W-160-420,h2,16);
     if(sc.area==='eu'){text(g,euWarn.sample?'WARNINGS ACROSS EUROPE · SAMPLE':'WARNINGS ACROSS EUROPE',114,y+46,`800 30px ${FD}`,'#ffb21e','left','alphabetic',3);
       const er=Object.entries(euWarn.byC).map(([iso,l])=>[iso,l,euMax(l)]).filter(r=>r[2]>=3||Object.keys(euWarn.byC).length<4).sort((a,b)=>b[2]-a[2]).slice(0,3);
       if(!er.length)text(g,euWarn.status==='loading'?'LOADING WARNINGS':'NO ORANGE OR RED WARNINGS IN EFFECT',114,y+110,`700 32px ${FD}`,'#c8d4e8');
@@ -3700,7 +3723,7 @@ function renderInspector(){syncClrTrack();
   if(sc.type==='trend'){const dO=[0,1,2,3,4,5].map(i=>{const d=new Date();d.setDate(d.getDate()+i);return[String(i),i===0?'Today':i===1?'Tomorrow':DAYN[d.getDay()]]});h+=`<div class="sec"><h3>Forecast trend</h3><label class="f">Total<select data-k="tVar">${opts([['snow','Snowfall'],['rain','Rain (liquid)']],sc.tVar||'snow')}</select></label><div class="row2"><label class="f">Starting<select data-k="tStart">${opts(dO,String(sc.tStart||0))}</select></label><label class="f">For<select data-k="tDays">${opts([1,2,3,4,5].map(n=>[String(n),n+(n===1?' day':' days')]),String(sc.tDays||3))}</select></label></div><p class="note">Compares the GFS and ECMWF runs from each of the last 6 days (00Z runs) for the same window. Totals are raw model output.</p>${(()=>{const T=trCache[Object.keys(trCache).find(k=>k.startsWith(sc.city+'|'))];return T&&T.errs&&T.errs.length&&T.status!=='loading'?`<p class="note">Open-Meteo said:<br>${[...new Set(T.errs)].slice(0,4).map(esc).join('<br>')}</p>`:T&&T.status==='loading'?'<p class="note">Loading 12 model runs. This can take up to a minute.</p>':''})()}</div>`}
   if(sc.type==='seasonal'){const src=cpcSrc(sc);h+=`<div class="sec"><h3>Climate outlook</h3><label class="f">Show<select data-k="sWhat">${opts([['temp','Temperature vs normal'],['precip','Precipitation vs normal']],sc.sWhat||'temp')}</select></label><label class="f">Period<select data-k="sPer">${opts(CPC_PER.map(x=>[x[0],x[0]==='d610'||x[0]==='d814'?x[1]+' ('+cpcPeriodName({per:x[0]},null)+')':x[1]+' ('+cpcPeriodName({per:x[0]},null)+')']),cpcPer(sc))}</select></label><p class="note">Official NOAA Climate Prediction Center outlook. Colors show the chance of above, near or below normal; no color means equal chances. The 6 to 10 and 8 to 14 day maps update every afternoon. Monthly and 3-month maps update on the third Thursday, and the monthly map again on the last day of the month.</p></div>`}
   if(sc.type==='almanac'){const pd=sc.almPd==null?'ytd':String(sc.almPd);const P=pd!=='off'&&ALM_PD[pd]?almPrecip(sc.city,pd):null;h+=`<div class="sec"><h3>Precipitation vs normal</h3><label class="f">Period<select data-k="almPd">${opts([['off','Off'],...Object.entries(ALM_PD).map(([k,v])=>[k,v[0]])],pd)}</select></label><p class="note">${P&&P.status==='ok'?esc(P.obs.toFixed(2)+'" observed, '+P.nor.toFixed(2)+'" normal. '):P&&P.status==='fail'?(P.why==='nostation'?'This city has no NWS station record. ':'Could not load. '):''}Observed precipitation (rain plus melted snow) at the city's NWS station through yesterday, compared with the 1991-2020 normal for the same days.</p></div>`}
-  if(sc.type==='history'){const HM=sc.hHol&&HOL_DEF.some(x=>x[0]===sc.hHol);h+=`<div class="sec"><h3>On this date</h3><label class="f">Holiday<select data-k="hHol">${opts([['','None: use a date'],...HOL_DEF.map(x=>[x[0],x[0]])],sc.hHol||'')}</select></label><label class="chk"><input type="checkbox" data-k="hColdHi"${sc.hColdHi!==false?' checked':''}>Show the coldest high</label><label class="f">Snowiest card<select data-k="hSnowCard">${opts([['auto','Auto: swap for the warmest low if it never snowed'],['on','Always show'],['off','Never show: use the warmest low']],sc.hSnowCard||'auto')}</select></label>${(()=>{const ty=new Date().getFullYear()-10,auto=!(HM&&HOL_SINCE[sc.hHol]&&ty<HOL_SINCE[sc.hHol]),on=sc.hTen==null?auto:sc.hTen===true;return`<label class="chk"><input type="checkbox" data-k="hTen"${on?' checked':''}>Show 10 years ago${HM&&HOL_SINCE[sc.hHol]?' (starts off before '+HOL_SINCE[sc.hHol]+', when '+esc(sc.hHol)+' became a federal holiday)':''}</label>`})()}<label class="chk"><input type="checkbox" data-k="hSnowLine"${sc.hSnowLine!==false?' checked':''}>Show how often snow has fallen (hidden on its own if it never has)</label>${HM?`<label class="chk"><input type="checkbox" data-k="holBg"${sc.holBg!==false?' checked':''}>Holiday art in the background</label><p class="note">Uses the holiday's actual date each year (Thanksgiving is the fourth Thursday since 1942 and the last Thursday before that), across the full NWS station record for this city. Fixed-date holidays like Juneteenth and Christmas use every year on record; holidays set by a rule, like MLK Day, start the year the rule began. Needs a city with an NWS station.</p>`:`<label class="f">Date (month/day)<input type="text" data-k="hDate" value="${esc(sc.hDate||'')}" placeholder="Today, or like 11/26"></label><p class="note">NWS station records when the city has a station, otherwise ERA5 reanalysis since 1940.</p>`}</div>`}
+  if(sc.type==='history'){const HM=sc.hHol&&HOL_DEF.some(x=>x[0]===sc.hHol);h+=`<div class="sec"><h3>On this date</h3><label class="f">Holiday<select data-k="hHol">${opts([['','None: use a date'],...HOL_DEF.map(x=>[x[0],x[0]])],sc.hHol||'')}</select></label><label class="chk"><input type="checkbox" data-k="hChart"${sc.hChart!==false?' checked':''}>Show the chart of every year's high</label><label class="chk"><input type="checkbox" data-k="hColdHi"${sc.hColdHi!==false?' checked':''}>Show the coldest high</label><label class="f">Snowiest card<select data-k="hSnowCard">${opts([['auto','Auto: swap for the warmest low if it never snowed'],['on','Always show'],['off','Never show: use the warmest low']],sc.hSnowCard||'auto')}</select></label>${(()=>{const ty=new Date().getFullYear()-10,auto=!(HM&&HOL_SINCE[sc.hHol]&&ty<HOL_SINCE[sc.hHol]),on=sc.hTen==null?auto:sc.hTen===true;return`<label class="chk"><input type="checkbox" data-k="hTen"${on?' checked':''}>Show 10 years ago${HM&&HOL_SINCE[sc.hHol]?' (starts off before '+HOL_SINCE[sc.hHol]+', when '+esc(sc.hHol)+' became a federal holiday)':''}</label>`})()}<label class="chk"><input type="checkbox" data-k="hSnowLine"${sc.hSnowLine!==false?' checked':''}>Show how often snow has fallen (hidden on its own if it never has)</label>${HM?`<label class="chk"><input type="checkbox" data-k="holBg"${sc.holBg!==false?' checked':''}>Holiday art in the background</label><p class="note">Uses the holiday's actual date each year (Thanksgiving is the fourth Thursday since 1942 and the last Thursday before that), across the full NWS station record for this city. Fixed-date holidays like Juneteenth and Christmas use every year on record; holidays set by a rule, like MLK Day, start the year the rule began. Needs a city with an NWS station.</p>`:`<label class="f">Date (month/day)<input type="text" data-k="hDate" value="${esc(sc.hDate||'')}" placeholder="Today, or like 11/26"></label><p class="note">NWS station records when the city has a station, otherwise ERA5 reanalysis since 1940.</p>`}</div>`}
   if(sc.type==='forecast7'&&sc.mode!=='custom'){h+=`<div class="sec"><h3>Forecast confidence</h3><label class="chk"><input type="checkbox" data-k="conf"${sc.conf!==false?' checked':''}>Show high, medium or low confidence on each day</label><p class="note">Based on how much the GFS and ECMWF ensemble members agree on the high and on rain or snow.</p></div>`}
   if(sc.type==='conditions'){const N=nowcast(sc.city);h+=`<div class="sec"><h3>Next 6 hours</h3><label class="chk"><input type="checkbox" data-k="nowcast"${sc.nowcast!==false?' checked':''}>Show when rain or snow starts or ends</label><p class="note">${N&&N.text?'Now: '+esc(N.text)+'. ':''}From Open-Meteo's 15-minute forecast, updated every 15 minutes.</p></div>`}
   if(sc.type==='aurora'){const T=auTonight(),ck=show.settings.bugCity||CITY_KEYS[0];h+=`<div class="sec"><h3>Northern lights</h3><p class="note">Aurora chances from NOAA's Space Weather Prediction Center, refreshed every 15 minutes. The card judges tonight for ${esc((CITIES[ck]||['your city'])[0])} (the bug city): it compares the highest Kp from 6 PM to 7 AM with the Kp usually needed at that latitude (${kpNeed((CITIES[ck]||[0,41])[1])} here).</p>${auData.sample?'<p class="note">Showing sample data: NOAA space weather did not load.</p>':''}</div>`}
@@ -4140,6 +4163,7 @@ function snapShow(){normShow();const now=JSON.stringify(show);if(lastSnap==null)
 function applySnap(str){const s=JSON.parse(str);const id=scene()&&scene().id;s.scenes=s.scenes.map(x=>newScene(x.type,x));show=s;normShow();lastSnap=JSON.stringify(show);saveNow();
   const i=show.scenes.findIndex(x=>x.id===id);cur=i>=0?i:Math.min(cur,show.scenes.length-1);sel=null;draft=null;mstep=null;renderRundown();renderInspector();queueThumbs();updClickAdv();updUndo()}
 /* another tab changed the rundown: take its version so this tab does not save an older copy over it */
+setTimeout(cacheMigrate,8000);
 window.addEventListener('storage',e=>{if(e.key!==STORE||!e.newValue||saveT)return;try{if(e.newValue!==JSON.stringify(show)){applySnap(e.newValue);toast('Rundown updated from another tab.')}}catch(x){}});
 function undo(){clearTimeout(saveT);snapShow();const curS=JSON.stringify(show);while(undoStack.length&&undoStack[undoStack.length-1]===curS)undoStack.pop();if(!undoStack.length){toast('Nothing to undo.');updUndo();return}redoStack.push(curS);applySnap(undoStack.pop());toast('Undone.')}
 function redo(){if(!redoStack.length){toast('Nothing to redo.');return}undoStack.push(JSON.stringify(show));applySnap(redoStack.pop());toast('Redone.')}
