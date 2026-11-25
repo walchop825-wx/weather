@@ -240,7 +240,7 @@ button.pill{cursor:pointer;background:transparent}
 <div class="status">
   <span><kbd>Space</kbd> play / stop</span><span><kbd>←</kbd><kbd>→</kbd> previous / next</span><span><kbd>V</kbd> select</span><span><kbd>T</kbd> pen</span><span><kbd>B</kbd> contour</span><span><kbd>N</kbd> total</span><span><kbd>Del</kbd> delete selection</span><span><kbd>E</kbd> export PNG</span><span><kbd>K</kbd> storm track</span><span><kbd>L</kbd> map label</span><span><kbd>1</kbd>–<kbd>9</kbd> cue</span><span><kbd>Enter</kbd> take</span>
   <span id="srcNote"></span>
-  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-25 · 111</span>
+  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-25 · 112</span>
 </div>
 <input type="file" id="fileIn" accept=".json,application/json" hidden>
 
@@ -1113,7 +1113,15 @@ function defaultShow(){
 }
 const STORE='wgs-show-v2';
 function loadShow(){try{const s=JSON.parse(localStorage.getItem(STORE)||'null');if(s&&Array.isArray(s.scenes)){s.scenes=s.scenes.map(x=>newScene(x.type,x));return s}}catch(e){}return null}
-let saveT,appReady=false;function save(){if(appReady&&!fileDirty){fileDirty=true;try{localStorage.setItem('wgs-dirty','1')}catch(e){}updSaveBtn()}clearTimeout(saveT);saveT=setTimeout(()=>{try{localStorage.setItem(STORE,JSON.stringify(show))}catch(e){}if(typeof snapShow==='function')snapShow();if(typeof ensureCoverage==='function')ensureCoverage()},400)}
+/* the rundown must always save: map caches share the browser's ~5 MB, so clear them when space runs out, and warn if it still fails */
+const CACHE_PREFIX=/^(wgs-z2-|wgs-cty-|wgs-pt-|wgs-geo|wgs-us|wgs-world|wgs-ocean|wgs-ak|wgs-st|wgs-nwspt|wgs-fc)/;
+function lsFree(){let n=0;try{const ks=[];for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k&&k!==STORE&&k!=='wgs-om-key'&&k!=='wgs-dirty'&&(CACHE_PREFIX.test(k)||(localStorage.getItem(k)||'').length>20000))ks.push(k)}ks.forEach(k=>{localStorage.removeItem(k);n++})}catch(e){}return n}
+let saveWarned=false,saveT,appReady=false,lastSavedStr=null;
+function saveNow(){clearTimeout(saveT);saveT=null;const str=JSON.stringify(show);let ok=false;try{localStorage.setItem(STORE,str);ok=true}catch(e){lsFree();try{localStorage.setItem(STORE,str);ok=true}catch(e2){}}
+  if(ok){lastSavedStr=str;saveWarned=false}else if(!saveWarned){saveWarned=true;if(typeof toast==='function')toast('Could not save the rundown in this browser. Use File > Save to keep a copy.')}return ok}
+function save(){if(appReady&&!fileDirty){fileDirty=true;try{localStorage.setItem('wgs-dirty','1')}catch(e){}updSaveBtn()}clearTimeout(saveT);saveT=setTimeout(()=>{saveNow();if(typeof snapShow==='function')snapShow();if(typeof ensureCoverage==='function')ensureCoverage()},400)}
+/* never lose the last change to a quick refresh or a closed tab */
+window.addEventListener('pagehide',()=>{if(saveT)saveNow()});document.addEventListener('visibilitychange',()=>{if(document.hidden&&saveT)saveNow()});
 function blankShow(){const s=defaultShow();s.scenes=[];s.settings.ticker='';s.settings.showTicker=false;['paMapsAdded','ctMapAdded','nationalAdded','usLayout2','usLayout3','rainAdded','snowfallAdded','euAdded','autoRatio','l3Name','accuWally'].forEach(k=>s.settings[k]=true);return s}
 let show=loadShow()||blankShow();
 show.settings.breaking=show.settings.breaking||{on:true,auto:false,events:['Tornado Warning','Severe Thunderstorm Warning','Flash Flood Warning','Snow Squall Warning'],areas:{PA:[]}};
@@ -4084,8 +4092,10 @@ $('#bCompact').addEventListener('click',()=>{compact=!compact;try{localStorage.s
 const undoStack=[],redoStack=[];let lastSnap=null;
 function normShow(){try{alertSets()}catch(e){}}
 function snapShow(){normShow();const now=JSON.stringify(show);if(lastSnap==null){lastSnap=now;return}if(now!==lastSnap){undoStack.push(lastSnap);if(undoStack.length>80)undoStack.shift();redoStack.length=0;lastSnap=now}updUndo()}
-function applySnap(str){const s=JSON.parse(str);const id=scene()&&scene().id;s.scenes=s.scenes.map(x=>newScene(x.type,x));show=s;normShow();lastSnap=JSON.stringify(show);try{localStorage.setItem(STORE,lastSnap)}catch(e){}
+function applySnap(str){const s=JSON.parse(str);const id=scene()&&scene().id;s.scenes=s.scenes.map(x=>newScene(x.type,x));show=s;normShow();lastSnap=JSON.stringify(show);saveNow();
   const i=show.scenes.findIndex(x=>x.id===id);cur=i>=0?i:Math.min(cur,show.scenes.length-1);sel=null;draft=null;mstep=null;renderRundown();renderInspector();queueThumbs();updClickAdv();updUndo()}
+/* another tab changed the rundown: take its version so this tab does not save an older copy over it */
+window.addEventListener('storage',e=>{if(e.key!==STORE||!e.newValue||saveT)return;try{if(e.newValue!==JSON.stringify(show)){applySnap(e.newValue);toast('Rundown updated from another tab.')}}catch(x){}});
 function undo(){clearTimeout(saveT);snapShow();const curS=JSON.stringify(show);while(undoStack.length&&undoStack[undoStack.length-1]===curS)undoStack.pop();if(!undoStack.length){toast('Nothing to undo.');updUndo();return}redoStack.push(curS);applySnap(undoStack.pop());toast('Undone.')}
 function redo(){if(!redoStack.length){toast('Nothing to redo.');return}undoStack.push(JSON.stringify(show));applySnap(redoStack.pop());toast('Redone.')}
 function updUndo(){$('#bUndo').disabled=!undoStack.length;$('#bRedo').disabled=!redoStack.length}
