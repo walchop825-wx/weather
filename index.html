@@ -240,7 +240,7 @@ button.pill{cursor:pointer;background:transparent}
 <div class="status">
   <span><kbd>Space</kbd> play / stop</span><span><kbd>←</kbd><kbd>→</kbd> previous / next</span><span><kbd>V</kbd> select</span><span><kbd>T</kbd> pen</span><span><kbd>B</kbd> contour</span><span><kbd>N</kbd> total</span><span><kbd>Del</kbd> delete selection</span><span><kbd>E</kbd> export PNG</span><span><kbd>K</kbd> storm track</span><span><kbd>L</kbd> map label</span><span><kbd>1</kbd>–<kbd>9</kbd> cue</span><span><kbd>Enter</kbd> take</span>
   <span id="srcNote"></span>
-  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-25 · 118</span>
+  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-25 · 119</span>
 </div>
 <input type="file" id="fileIn" accept=".json,application/json" hidden>
 
@@ -2494,7 +2494,9 @@ function imAuto(sc,r){const h=r.haz||'custom';const lvOf=(x,T)=>x>=T[3]?4:x>=T[2
 function imRow(sc,r){const h=r.haz||'custom',A=r.lv&&r.lv!=='auto'||h==='custom'?null:imAuto(sc,r);const key=r.lv&&r.lv!=='auto'?r.lv:A&&A.st==='ok'?IM_KEYS[A.i]:h==='custom'?'low':null;
   const word=String(r.txt||'').trim()||(key?(IM_WORDS[h]?IM_WORDS[h][IM_KEYS.indexOf(key)]:IM_LV[key][0]):A&&A.st==='loading'?'LOADING':'NO DATA');
   const label=String(r.label||'').trim()||(A&&A.label)||(IM_HAZ[h]||{}).l||'';return{key,word,label,A}}
-function holArt(g,ic,t,spots){g.save();(spots||[[1560,300,170,-.18],[1760,620,120,.22],[1500,860,140,.1],[1820,170,90,-.3],[1330,620,80,.35]]).forEach(([x,y,r,a],i)=>{g.save();g.globalAlpha=.16+.05*(i%2);g.translate(x+Math.sin(t*.4+i)*6,y);g.rotate(a);drawHolIcon(g,ic,0,0,r);g.restore()});g.restore()}
+/* holiday art: each icon drawn whole on its own canvas, then faded as one piece so its layers don't show through each other */
+const holArtCache={};function holArtImg(ic,r){const k=ic+'|'+r;if(holArtCache[k])return holArtCache[k];const n=Math.ceil(r*2.6),c=document.createElement('canvas');c.width=c.height=n;drawHolIcon(c.getContext('2d'),ic,n/2,n/2,r);return holArtCache[k]=c}
+function holArt(g,ic,t,spots){g.save();(spots||[[1560,300,170,-.18],[1760,620,120,.22],[1500,860,140,.1],[1820,170,90,-.3],[1330,620,80,.35]]).forEach(([x,y,r,a],i)=>{const im=holArtImg(ic,r);g.save();g.globalAlpha=.2+.05*(i%2);g.translate(x+Math.sin(t*.4+i)*6,y);g.rotate(a*(ic==='flag'?.4:1));g.drawImage(im,-im.width/2,-im.height/2);g.restore()});g.restore()}
 function renderImpacts(g,sc,t){const d=imDate(sc),hol=sc.holBg!==false?holidayOn(d,sc):null;blurBg(g,sc.region||'pa');
   if(hol&&hol.icon)holArt(g,hol.icon,t);
   const rows=(sc.im||[]).filter(r=>r&&(r.haz&&r.haz!=='custom'||String(r.label||'').trim())).slice(0,6);
