@@ -240,7 +240,7 @@ button.pill{cursor:pointer;background:transparent}
 <div class="status">
   <span><kbd>Space</kbd> play / stop</span><span><kbd>←</kbd><kbd>→</kbd> previous / next</span><span><kbd>V</kbd> select</span><span><kbd>T</kbd> pen</span><span><kbd>B</kbd> contour</span><span><kbd>N</kbd> total</span><span><kbd>Del</kbd> delete selection</span><span><kbd>E</kbd> export PNG</span><span><kbd>K</kbd> storm track</span><span><kbd>L</kbd> map label</span><span><kbd>1</kbd>–<kbd>9</kbd> cue</span><span><kbd>Enter</kbd> take</span>
   <span id="srcNote"></span>
-  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-25 · 146</span>
+  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-25 · 147</span>
 </div>
 <input type="file" id="fileIn" accept=".json,application/json" hidden>
 
@@ -629,7 +629,19 @@ async function loadUSStates(){
       usStates=U;cacheSet(key,U);break}}catch(e){}}
   geoChanged();
 }
-function geoChanged(){for(const k in landCache)delete landCache[k];if(typeof oceanCache!=='undefined')for(const k in oceanCache)delete oceanCache[k];if(typeof euPathCache!=='undefined')for(const k in euPathCache)delete euPathCache[k];if(typeof insetCache!=='undefined')for(const k in insetCache)delete insetCache[k];for(const k in borderCache)delete borderCache[k];[baseCache,overCache,countyCache,spCache,typeof fpCache!=='undefined'?fpCache:{}].forEach(c=>{for(const k in c)delete c[k]});if(typeof queueThumbs==='function')queueThumbs();if(typeof show!=='undefined'&&show.scenes)renderInspector()}
+/* Default framing for state and regional maps: fill the height between the title and the bug, and sit left of the alert key when it fits.
+   Uses the real outlines once they load (the box corners before that). */
+const FIT_KEYS=()=>Object.keys(REGIONS).filter(k=>{const R=REGIONS[k];return R.isolate&&R.focus&&R.focus.length&&(R.group==='state'||R.group==='area')&&!R.cardOf&&k!=='epa'});
+let fitDone=false;
+function fitRegion(k){const R=REGIONS[k];const pts=[];R.focus.forEach(st=>{if(usStates&&usStates[st])usStates[st].forEach(r=>r.forEach(p=>pts.push(p)));else if(STATE_BOX[st]){const b=STATE_BOX[st];pts.push([b[0],b[2]],[b[1],b[3]])}});if(pts.length<2)return;
+  let w=1e9,e=-1e9,so=1e9,n=-1e9;pts.forEach(([lo,la])=>{w=Math.min(w,lo);e=Math.max(e,lo);so=Math.min(so,la);n=Math.max(n,la)});const c=Math.cos((so+n)/2*Math.PI/180),bot=1000;
+  const lay=(top,xl,xr)=>{const ls=Math.max((n-so)/((bot-top)/H),(e-w)*c/((xr-xl)/W)/(W/H));const lonSpan=ls*(W/H)/c;const cx=(xl+xr)/2,cy=(top+bot)/2;return{latSpan:ls,lon:(w+e)/2+lonSpan*(W/2-cx)/W,lat:(so+n)/2-ls*(H/2-cy)/H}};
+  const hits=(L,top)=>{const lonSpan=L.latSpan*(W/H)/c,west=L.lon-lonSpan/2,north=L.lat+L.latSpan/2;return pts.some(([lo,la])=>{const x=(lo-west)/lonSpan*W,y=(north-la)/L.latSpan*H;return x<680&&y<210})};
+  const vert=(n-so)/((bot-110)/H);let best=null;
+  for(const [xl,xr] of [[60,W-600],[60,W-60]]){for(const top of [110,215]){const L=lay(top,xl,xr);if(xr<W-100&&L.latSpan>vert*1.3)continue;if(top===110&&hits(L))continue;best=L;break}if(best)break}
+  if(!best)best=lay(215,60,W-60);Object.assign(R,{lat:+best.lat.toFixed(3),lon:+best.lon.toFixed(3),latSpan:+best.latSpan.toFixed(3)});delete projCache[k];Object.keys(REGIONS).forEach(x=>{if(REGIONS[x].cardOf===k){delete REGIONS[x];delete projCache[x]}})}
+function fitRegions(){if(fitDone)return;FIT_KEYS().forEach(fitRegion);if(usStates)fitDone=true}
+function geoChanged(){if(usStates&&!fitDone)fitRegions();for(const k in landCache)delete landCache[k];if(typeof oceanCache!=='undefined')for(const k in oceanCache)delete oceanCache[k];if(typeof euPathCache!=='undefined')for(const k in euPathCache)delete euPathCache[k];if(typeof insetCache!=='undefined')for(const k in insetCache)delete insetCache[k];for(const k in borderCache)delete borderCache[k];[baseCache,overCache,countyCache,spCache,typeof fpCache!=='undefined'?fpCache:{}].forEach(c=>{for(const k in c)delete c[k]});if(typeof queueThumbs==='function')queueThumbs();if(typeof show!=='undefined'&&show.scenes)renderInspector()}
 function statePath(rk,st){const key=rk+st;if(spCache[key])return spCache[key];const P=proj(rk);let p;
   if(usStates&&usStates[st]){p=new Path2D();usStates[st].forEach(r=>polyPath(P,r,p))}
   else if(stateGeo[st]){p=new Path2D();stateGeo[st].rings.forEach(r=>polyPath(P,r,p))}else p=polyPath(P,STATES[st]);return spCache[key]=p}
@@ -1881,8 +1893,8 @@ const US_PRI=['seattle','sanfrancisco','losangeles','phoenix','denver','dallas',
 function citiesForView(P,latSpan,base,op={}){
   const B=REGIONS[base]||REGIONS.pa;const pri=base==='us'?US_PRI:B.cities;const zr=Math.max(1,B.latSpan/latSpan);
   const limit=op.limit||Math.max(Math.round(clamp(14+Math.log2(zr)*5,14,latSpan<2.2?40:32)),base!=='us'&&zr===1?Math.min(pri.length,24):0);const top=op.top||60,skip=op.skip||null,av=op.avoid||[{l:0,r:1150,t:0,b:228}];
-  const cand=[...pri,...CITY_KEYS.filter(k=>!pri.includes(k)),...(latSpan<3.4?TOWN_KEYS:[]),...(latSpan<2.2?Object.keys(xpl()):[])].filter(k=>!(B.isolate&&B.focus.length&&CITIES[k])||B.focus.includes(cityST(k)));const out=[];
-  for(const k of cand){if(skip&&skip.has(k))continue;const pl=placeOf(k);if(!pl)continue;const x=P.x(pl.lon),y=P.y(pl.lat);if(x<40||x>W-260||y<top||y>H-120)continue;
+  const cand=[...pri,...CITY_KEYS.filter(k=>!pri.includes(k)),...(latSpan<3.4?TOWN_KEYS:[]),...(latSpan<2.2?Object.keys(xpl()):[])]; const onlyF=B.isolate&&B.focus&&B.focus.length?B.focus:null;const out=[];
+  for(const k of cand){if(skip&&skip.has(k))continue;const pl=placeOf(k);if(!pl)continue;if(onlyF&&pl.st&&!onlyF.includes(pl.st))continue;const x=P.x(pl.lon),y=P.y(pl.lat);if(x<40||x>W-260||y<top||y>H-120)continue;
     const town=!CITIES[k];const tw=measure(ctx,pl.n.toUpperCase(),`700 ${town?20:24}px ${FD}`,1);const hit=b=>(b.b>H-240&&b.r>W-560)||av.some(a=>b.l<a.r&&b.r>a.l&&b.t<a.b&&b.b>a.t)||out.some(o=>b.l<o.bx.r+6&&b.r>o.bx.l-6&&b.t<o.bx.b+4&&b.b>o.bx.t-4)||out.some(o=>Math.abs(o.x-x)<14&&Math.abs(o.y-y)<14);
     const R1={l:x-8,r:x+16+tw,t:y-32,b:y+8},L1={l:x-16-tw,r:x+8,t:y-32,b:y+8};let side,bx;
     if(R1.r<W-250&&!hit(R1)){side='r';bx=R1}else if(L1.l>30&&!hit(L1)){side='l';bx=L1}else continue;out.push({k,x,y,n:pl.n,town,bx,side});if(out.length>=limit)break}
@@ -4427,5 +4439,5 @@ function drawLowerThird(g,T){const st=show.settings;if(!st.l3On||!st.l3Name)retu
 genSample();updateStatus();$('#bLoop').classList.toggle('on',!!show.settings.loop);updClickAdv();$('#stationSub').textContent=(show.settings.station||'')+' workstation';
 renderRundown();renderInspector();updateTools();
 if(REMOTE_ID){runRemote(REMOTE_ID)}else{(document.fonts&&document.fonts.load?Promise.all([document.fonts.load(`800 40px ${FD}`),document.fonts.load(`700 40px ${FD}`),document.fonts.load(`600 40px ${FD}`)]).catch(()=>{}):Promise.resolve()).then(()=>{sceneStart=performance.now()/1000;requestAnimationFrame(frame);queueThumbs(true)});
-loadUSStates();loadWorld();loadGeo('PA');loadGeo('CT');refresh();setInterval(()=>{if(!playing)refresh()},15*60e3);setInterval(loadAlerts,120e3);setInterval(()=>loadEuWarnings(),10*60e3);remoteStart()}
+fitRegions();loadUSStates();loadWorld();loadGeo('PA');loadGeo('CT');refresh();setInterval(()=>{if(!playing)refresh()},15*60e3);setInterval(loadAlerts,120e3);setInterval(()=>loadEuWarnings(),10*60e3);remoteStart()}
 </script>
