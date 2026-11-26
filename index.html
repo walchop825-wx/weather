@@ -240,7 +240,7 @@ button.pill{cursor:pointer;background:transparent}
 <div class="status">
   <span><kbd>Space</kbd> play / stop</span><span><kbd>←</kbd><kbd>→</kbd> previous / next</span><span><kbd>V</kbd> select</span><span><kbd>T</kbd> pen</span><span><kbd>B</kbd> contour</span><span><kbd>N</kbd> total</span><span><kbd>Del</kbd> delete selection</span><span><kbd>E</kbd> export PNG</span><span><kbd>K</kbd> storm track</span><span><kbd>L</kbd> map label</span><span><kbd>1</kbd>–<kbd>9</kbd> cue</span><span><kbd>Enter</kbd> take</span>
   <span id="srcNote"></span>
-  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-26 · 158</span>
+  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-26 · 159</span>
 </div>
 <input type="file" id="fileIn" accept=".json,application/json" hidden>
 
@@ -2816,13 +2816,13 @@ function gustDays(sc){const today=new Date();today.setHours(0,0,0,0);const v=Str
   if(v==='date'){const m=String(sc.gDate||'').match(/^(\d{4})-(\d{2})-(\d{2})$/);const d=m?new Date(+m[1],+m[2]-1,+m[3]):today;return[d<=today&&d.getFullYear()>=1990?d:today]}
   if(v==='yt')return[new Date(today.getFullYear(),today.getMonth(),today.getDate()-1),today];
   const n=clamp(+v||0,0,30);return[new Date(today.getFullYear(),today.getMonth(),today.getDate()-n)]}
-function gustLabel(sc){const D=gustDays(sc),today=new Date().toDateString(),d=D[0];if(D.length>1)return'Yesterday and today';if(d.toDateString()===today)return'Today through '+fmtTime(Date.now());
+function gustLabel(sc){const D=gustDays(sc),today=new Date().toDateString(),d=D[0];if(D.length>1){const G=gustCache[(sc.baseRegion||sc.region)+'|'+D.map(ymdL).join(',')];return'Yesterday and today'+(G&&G.okAt?' through '+fmtTime(G.okAt):'')}if(d.toDateString()===today){const G=gustCache[(sc.baseRegion||sc.region)+'|'+D.map(ymdL).join(',')];return G&&G.okAt?'Today through '+fmtTime(G.okAt):'Today so far'}
   const y=new Date();y.setDate(y.getDate()-1);if(d.toDateString()===y.toDateString())return'Yesterday, '+d.toLocaleDateString([], {month:'long',day:'numeric'});
   return d.toLocaleDateString([], {weekday:'long',month:'long',day:'numeric',year:d.getFullYear()!==new Date().getFullYear()?'numeric':undefined})}
 function gustStates(rk){const R=REGIONS[rk]||{};if(R.isolate&&R.focus&&R.focus.length)return R.focus.filter(s=>STATE_BOX[s]);const P=proj(rk);return Object.keys(STATE_BOX).filter(s=>{const b=STATE_BOX[s];return b[1]>P.west&&b[0]<P.east&&b[3]>P.south&&b[2]<P.north})}
 const lsrPlace=x=>String(x||'').replace(/^\s*\d+(\.\d+)?\s*[NSEW]{1,3}\s+/i,'').replace(/\s+(TWP|TOWNSHIP)$/i,'').trim().toLowerCase().replace(/\b\w/g,c=>c.toUpperCase());
 function gustData(rk,days){const key=rk+'|'+days.map(ymdL).join(',');let G=gustCache[key];const live=days.some(d=>d.toDateString()===new Date().toDateString());
-  if(G&&(G.status==='loading'||(G.status==='ok'&&(!live||Date.now()-G.t<600000))||(G.status==='fail'&&Date.now()-G.t<120000)))return G;const old=G;G=gustCache[key]={status:'loading',t:Date.now(),pts:old?old.pts:[]};
+  if(G&&(G.status==='loading'||(G.status==='ok'&&(!live||Date.now()-G.t<600000))||(G.status==='fail'&&Date.now()-G.t<120000)))return G;const old=G;G=gustCache[key]={status:'loading',t:Date.now(),pts:old?old.pts:[],okAt:old?old.okAt:null};
   const sts=gustStates(rk),jobs=[];
   sts.forEach(st=>days.forEach(d=>jobs.push(fetchJSON(`${IEMB}/api/1/daily.geojson?network=${st}_ASOS&date=${ymdL(d)}`,20000).then(j=>(j.features||[]).map(f=>{const p=f.properties||{},c=(f.geometry||{}).coordinates||[];const g=+p.max_gust;if(p.max_gust==null||!isFinite(g)||g<=0||g>150)return null;
     return{lon:+c[0],lat:+c[1],v:Math.round(g*GUST_KT),name:p.name||p.station,id:p.station,st,src:'Airport sensor',at:p.max_gust_localts?new Date(p.max_gust_localts):null}}).filter(Boolean)).catch(()=>[]))));
@@ -2831,7 +2831,7 @@ function gustData(rk,days){const key=rk+'|'+days.map(ymdL).join(',');let G=gustC
     let v=parseFloat(p.magf??p.magnitude);if(!isFinite(v)||v<=0||v>200)return null;if(/KT|KNOT/i.test(String(p.unit||'')))v*=GUST_KT;const c=(f.geometry||{}).coordinates||[p.lon,p.lat];
     return{lon:+c[0],lat:+c[1],v:Math.round(v),name:lsrPlace(p.city),st:p.st||p.state,src:p.source||'NWS report',at:p.valid?new Date(p.valid):null,lsr:true}}).filter(Boolean)).catch(()=>[]));
   Promise.all(jobs).then(L=>{const by={};L.flat().forEach(r=>{if(!isFinite(r.lon)||!isFinite(r.lat))return;const k=r.id?'a:'+r.id:'l:'+r.lon.toFixed(2)+','+r.lat.toFixed(2);if(!by[k]||r.v>by[k].v)by[k]=r});
-    G.pts=Object.values(by);G.status='ok';G.t=Date.now();queueThumbs();if(scene()&&scene().type==='gusts')softInspect('gusts')}).catch(()=>{G.status='fail';G.t=Date.now();queueThumbs()});return G}
+    G.pts=Object.values(by);G.status='ok';G.t=G.okAt=Date.now();queueThumbs();if(scene()&&scene().type==='gusts')softInspect('gusts')}).catch(()=>{G.status='fail';G.t=Date.now();queueThumbs()});return G}
 function gustShown(sc,rk,P){const days=gustDays(sc),base=sc.baseRegion||rk,G=gustData(base,days),R=REGIONS[rk]||{},src=sc.gSrc||'all',mn=+sc.gMin||0;
   const fp=R.isolate&&R.focus&&R.focus.length?focusPath(rk):null;
   const pts=G.pts.filter(r=>(src==='all'||(src==='asos')===!r.lsr)&&r.v>=mn).filter(r=>{const x=P.x(r.lon),y=P.y(r.lat);return x>10&&x<W-10&&y>10&&y<H-10&&(!fp||hitG().isPointInPath(fp,x,y))}).sort((a,b)=>b.v-a.v);return{G,pts}}
