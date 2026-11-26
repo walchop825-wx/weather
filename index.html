@@ -240,7 +240,7 @@ button.pill{cursor:pointer;background:transparent}
 <div class="status">
   <span><kbd>Space</kbd> play / stop</span><span><kbd>←</kbd><kbd>→</kbd> previous / next</span><span><kbd>V</kbd> select</span><span><kbd>T</kbd> pen</span><span><kbd>B</kbd> contour</span><span><kbd>N</kbd> total</span><span><kbd>Del</kbd> delete selection</span><span><kbd>E</kbd> export PNG</span><span><kbd>K</kbd> storm track</span><span><kbd>L</kbd> map label</span><span><kbd>1</kbd>–<kbd>9</kbd> cue</span><span><kbd>Enter</kbd> take</span>
   <span id="srcNote"></span>
-  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-25 · 150</span>
+  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-25 · 151</span>
 </div>
 <input type="file" id="fileIn" accept=".json,application/json" hidden>
 
@@ -945,7 +945,7 @@ async function loadAlerts(){
   const areaSt=new Set('PA,NY,NJ,DE,MD,DC,VA,WV,OH,CT,RI,MA,VT,NH,ME'.split(','));show.scenes.forEach(s=>{const R=REGIONS[s.region];if(R&&R.focus)R.focus.forEach(x=>areaSt.add(x));if(s.region==='ak')areaSt.add('AK');if(s.region==='hi')areaSt.add('HI');if(R===REGIONS.fl||R===REGIONS.sfl){areaSt.add('FL');areaSt.add('GA')}});
   try{const j=await fetchJSON(national?'https://api.weather.gov/alerts/active?status=actual':'https://api.weather.gov/alerts/active?area='+[...areaSt].join(','),20000);const list=[];
     for(const f of j.features||[]){const p=f.properties||{};if(p.status&&p.status!=='Actual')continue;if(!p.event||ALERT_SKIP.test(p.event))continue;
-      list.push({id:p.id||f.id,sender:p.senderName||'',desc:(p.description||'')+(p.instruction?'\n\nPRECAUTIONARY/PREPAREDNESS ACTIONS...\n\n'+p.instruction:''),params:p.parameters||{},event:p.event,rings:geomRings(f.geometry),zones:p.affectedZones||[],states:[...new Set(((p.geocode&&p.geocode.UGC)||[]).map(u=>u.slice(0,2)))],same:(p.geocode&&p.geocode.SAME)||[],area:p.areaDesc||'',onset:new Date(p.onset||p.effective||Date.now()),expires:new Date(p.ends||p.expires),headline:p.headline||''})}
+      list.push({id:p.id||f.id,sender:p.senderName||'',desc:(p.description||'')+(p.instruction?'\n\nPRECAUTIONARY/PREPAREDNESS ACTIONS...\n\n'+p.instruction:''),params:p.parameters||{},event:p.event,rings:geomRings(f.geometry),zones:p.affectedZones||[],states:[...new Set(((p.geocode&&p.geocode.UGC)||[]).map(u=>u.slice(0,2)))],same:(p.geocode&&p.geocode.SAME)||[],area:p.areaDesc||'',onset:new Date(p.onset||p.effective||Date.now()),issued:new Date(p.sent||p.effective||Date.now()),expires:new Date(p.ends||p.expires),headline:p.headline||''})}
     alerts.list=list.concat(alerts.list.filter(a=>a.test&&a.expires>Date.now()));alerts.status='ok';alerts.sample=false;alerts.at=new Date();checkBreaking();
     attachZones();queueZones();
   }catch(e){alerts.status='fail';if(!alerts.list.length||alerts.sample){alerts.list=sampleAlerts();alerts.sample=true;alertsVer++}}
@@ -1694,8 +1694,8 @@ function drawAlertCard(g,sc,t){
   g.save();rr(g,x,y,w,h,14);g.clip();g.fillStyle=col;g.fillRect(x,y,w,96);g.restore();
   const dark=lum(col.slice(1).match(/../g).map(v=>parseInt(v,16)))>.6;let name=a.event.toUpperCase();const nf=`800 50px ${FD}`;let fs=50;while(measure(g,name,`800 ${fs}px ${FD}`,1.5)>w-56&&fs>30)fs-=2;
   text(g,name,x+28,y+66,`800 ${fs}px ${FD}`,dark?'#0b1a38':'#ffffff','left','alphabetic',1.5);void nf;
-  let yy=y+136;const ut='UNTIL '+untilText(a.expires);text(g,ut,x+28,yy,`800 34px ${FD}`,'#ffffff','left','alphabetic',2);
-  if(a.sender){const sn=a.sender.toUpperCase(),uw=measure(g,ut,`800 34px ${FD}`,2);if(uw+measure(g,sn,`600 20px ${FD}`,1.5)+80<w)text(g,sn,x+w-28,yy,`600 20px ${FD}`,'#8fb0e0','right','alphabetic',1.5);else{text(g,sn,x+28,yy+30,`600 20px ${FD}`,'#8fb0e0','left','alphabetic',1.5);yy+=30}}
+  let yy=y+136;text(g,'UNTIL '+untilText(a.expires),x+28,yy,`800 34px ${FD}`,'#ffffff','left','alphabetic',2);
+  {const iss=a.issued||(a.sample||String(a.id).startsWith('s')?new Date(Date.now()-95*60e3):null),ln=[iss&&isFinite(iss)?'ISSUED '+untilText(iss):'',a.sender?a.sender.toUpperCase():''].filter(Boolean).join('  ·  ');if(ln){yy+=30;text(g,ln,x+28,yy,`600 20px ${FD}`,'#8fb0e0','left','alphabetic',1.5)}}
   yy+=20;
   if(D.chips.length){let cx=x+28;yy+=12;D.chips.forEach(([k,v])=>{const lab=k+' ',f1=`700 20px ${FD}`,f2=`800 24px ${FD}`;const wd=measure(g,lab,f1,1.5)+measure(g,String(v).toUpperCase(),f2,1)+28;
       if(cx+wd>x+w-28){cx=x+28;yy+=50}g.fillStyle='rgba(255,255,255,.1)';rr(g,cx,yy,wd,40,8);g.fill();text(g,lab,cx+14,yy+27,f1,'#ffb21e','left','alphabetic',1.5);text(g,String(v).toUpperCase(),cx+14+measure(g,lab,f1,1.5),yy+28,f2,'#ffffff','left','alphabetic',1);cx+=wd+10});yy+=58}
