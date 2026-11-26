@@ -240,7 +240,7 @@ button.pill{cursor:pointer;background:transparent}
 <div class="status">
   <span><kbd>Space</kbd> play / stop</span><span><kbd>←</kbd><kbd>→</kbd> previous / next</span><span><kbd>V</kbd> select</span><span><kbd>T</kbd> pen</span><span><kbd>B</kbd> contour</span><span><kbd>N</kbd> total</span><span><kbd>Del</kbd> delete selection</span><span><kbd>E</kbd> export PNG</span><span><kbd>K</kbd> storm track</span><span><kbd>L</kbd> map label</span><span><kbd>1</kbd>–<kbd>9</kbd> cue</span><span><kbd>Enter</kbd> take</span>
   <span id="srcNote"></span>
-  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-25 · 153</span>
+  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-26 · 154</span>
 </div>
 <input type="file" id="fileIn" accept=".json,application/json" hidden>
 
@@ -4323,7 +4323,7 @@ function renderPick(){const B=$('#pickBody');document.querySelectorAll('[data-pt
   B.querySelectorAll('[data-pcat]').forEach(b=>b.addEventListener('click',()=>{pickCat=+b.dataset.pcat;pickQ='';renderPick()}));{const q=B.querySelector('#pkQ');q.addEventListener('input',()=>{pickQ=q.value;const pos=q.selectionStart;renderPick();const q2=$('#pkQ');q2.focus();try{q2.setSelectionRange(pos,pos)}catch(e){}})}
   const m=B.querySelector('#pkMulti');m.addEventListener('change',()=>{pickMulti=m.checked;if(pickMulti&&!pickCities.length)pickCities=[show.settings.bugCity||'harrisburg'];renderPick()});
   B.querySelectorAll('[data-pcity]').forEach(c=>c.addEventListener('change',()=>{pickCities=pickCities.filter(x=>x!==c.dataset.pcity);if(c.checked)pickCities.push(c.dataset.pcity);renderPick()}));
-  B.querySelectorAll('[data-ptype]').forEach(b=>b.addEventListener('click',()=>{const[t,src]=b.dataset.ptype.split(':'),o=baseOpts();if(t==='storm'){const L=stormRundown(src,o);addScenes(L);closePick();toast('Added '+L.length+' scenes for '+STORM_KITS[src].toLowerCase()+' coverage.');return}if(src){addScenes([newScene(t,{region:t==='nwsmap'&&(src==='nhc'||src==='nhc7')?'atl':o.region,city:o.city,...(t==='history'?{hHol:nextHolName()}:t==='radar'?{product:src,title:{future:'Future Radar',sitevel:'Storm Velocity',satir:'Satellite',none:'Weather Alerts'}[src]||''}:t==='wxmap'?{kind:src}:t==='event'?{tmpl:src}:t==='nwsmap'?{svc:src}:t==='briefing'?{preset:src}:src==='reports'?{src:'mrms',title:'Observed Snowfall',showReports:'top',cityVals:false}:{src})})]);closePick();return}
+  B.querySelectorAll('[data-ptype]').forEach(b=>b.addEventListener('click',()=>{const[t,src]=b.dataset.ptype.split(':'),o=baseOpts();if(t==='storm'){const L=stormRundown(src,o);addScenes(L);closePick();toast('Added '+L.length+' scenes for '+STORM_KITS[src].toLowerCase()+' coverage.');return}if(src){addScenes([newScene(t,{region:t==='nwsmap'&&(src==='nhc'||src==='nhc7')?'atl':t==='radar'&&src==='none'&&(!o.region||o.region==='pa')?'paonly':o.region,city:o.city,...(t==='history'?{hHol:nextHolName()}:t==='radar'?{product:src,title:{future:'Future Radar',sitevel:'Storm Velocity',satir:'Satellite',none:'Weather Alerts'}[src]||''}:t==='wxmap'?{kind:src}:t==='event'?{tmpl:src}:t==='nwsmap'?{svc:src}:t==='briefing'?{preset:src}:src==='reports'?{src:'mrms',title:'Observed Snowfall',showReports:'top',cityVals:false}:{src})})]);closePick();return}
     if(pickMulti&&CITY_SCENES.includes(t)){if(!pickCities.length){toast('Pick at least one city.');return}addScenes(pickCities.map(c=>newScene(t,{city:c,region:o.region})))}
     else addScenes([newScene(t,{region:o.region,city:o.city})]);closePick()}))}
 
