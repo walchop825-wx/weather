@@ -240,7 +240,7 @@ button.pill{cursor:pointer;background:transparent}
 <div class="status">
   <span><kbd>Space</kbd> play / stop</span><span><kbd>←</kbd><kbd>→</kbd> previous / next</span><span><kbd>V</kbd> select</span><span><kbd>T</kbd> pen</span><span><kbd>B</kbd> contour</span><span><kbd>N</kbd> total</span><span><kbd>Del</kbd> delete selection</span><span><kbd>E</kbd> export PNG</span><span><kbd>K</kbd> storm track</span><span><kbd>L</kbd> map label</span><span><kbd>1</kbd>–<kbd>9</kbd> cue</span><span><kbd>Enter</kbd> take</span>
   <span id="srcNote"></span>
-  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-26 · 156</span>
+  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-26 · 157</span>
 </div>
 <input type="file" id="fileIn" accept=".json,application/json" hidden>
 
@@ -4198,6 +4198,17 @@ function syncClrTrack(){const b=$('#bClrTrack');if(!b)return;const sc=scene();co
 $('#bClearTele').addEventListener('click',()=>{scene().tele=[];save();queueThumbs()});
 function toCanvas(e){const r=cv.getBoundingClientRect();return[(e.clientX-r.left)/r.width*W,(e.clientY-r.top)/r.height*H]}
 const inside=(p,r)=>p[0]>=r.x&&p[0]<=r.x+r.w&&p[1]>=r.y&&p[1]<=r.y+r.h;
+/* Pinch to zoom on phones and tablets: two fingers zoom the map around the point between them, and moving them pans */
+const touchPts=new Map();let pinch=null;
+const pinchInfo=()=>{const a=[...touchPts.values()];return{d:Math.hypot(a[0][0]-a[1][0],a[0][1]-a[1][1])||1,m:[(a[0][0]+a[1][0])/2,(a[0][1]+a[1][1])/2]}};
+cv.addEventListener('pointerdown',e=>{if(e.pointerType!=='touch')return;touchPts.set(e.pointerId,toCanvas(e));const sc=scene();
+  if(touchPts.size===2&&sc&&canPan(sc)&&!(playing&&clickMode())){e.stopImmediatePropagation();e.preventDefault();dragging=null;const I=pinchInfo();pinch={id:sc.id,v0:pendingView&&pendingView.id===sc.id?pendingView.view:getView(sc),d0:I.d,m0:I.m}}
+  else if(touchPts.size>2&&pinch)e.stopImmediatePropagation()},{capture:true});
+cv.addEventListener('pointermove',e=>{if(e.pointerType!=='touch'||!touchPts.has(e.pointerId))return;touchPts.set(e.pointerId,toCanvas(e));if(!pinch||touchPts.size<2)return;e.stopImmediatePropagation();e.preventDefault();
+  const sc=scene();if(!sc||sc.id!==pinch.id){pinch=null;return}const I=pinchInfo();let v=zoomAt(pinch.v0,pinch.m0[0],pinch.m0[1],clamp(pinch.d0/I.d,.15,8));
+  const dx=I.m[0]-pinch.m0[0],dy=I.m[1]-pinch.m0[1];if(dx||dy)v=clampView({lon:v.lon-dx/W*lonSpanOf(v),lat:v.lat+dy/H*v.latSpan,latSpan:v.latSpan});setPending(sc,v)},{capture:true});
+const endTouch=e=>{if(e.pointerType!=='touch')return;touchPts.delete(e.pointerId);if(pinch){e.stopImmediatePropagation();if(touchPts.size<2){pinch=null;dragging=null;cv.style.cursor=''}}};
+cv.addEventListener('pointerup',endTouch,{capture:true});cv.addEventListener('pointercancel',endTouch,{capture:true});
 cv.addEventListener('pointerdown',e=>{
   const p=toCanvas(e);const sc=scene();if(playing&&clickMode()){takeNext();return}if(stepRunning()&&(playing||tool==='select')){advanceStep();return}cv.setPointerCapture(e.pointerId);if(trans)return;
   if(['pen','arrow','line','circle'].includes(tool)){draft={kind:'tele',s:{tool,color:penColor,w:+$('#penW').value,pts:[p]}};return}
