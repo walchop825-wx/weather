@@ -240,7 +240,7 @@ button.pill{cursor:pointer;background:transparent}
 <div class="status">
   <span><kbd>Space</kbd> play / stop</span><span><kbd>←</kbd><kbd>→</kbd> previous / next</span><span><kbd>V</kbd> select</span><span><kbd>T</kbd> pen</span><span><kbd>B</kbd> contour</span><span><kbd>N</kbd> total</span><span><kbd>Del</kbd> delete selection</span><span><kbd>E</kbd> export PNG</span><span><kbd>K</kbd> storm track</span><span><kbd>L</kbd> map label</span><span><kbd>1</kbd>–<kbd>9</kbd> cue</span><span><kbd>Enter</kbd> take</span>
   <span id="srcNote"></span>
-  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-26 · 161</span>
+  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-26 · 162</span>
 </div>
 <input type="file" id="fileIn" accept=".json,application/json" hidden>
 
@@ -2867,14 +2867,23 @@ function outLoad(){const D=outData;if(D.status==='loading'||(D.status==='ok'&&Da
       return{name:a.NAME,fips:a.FIPS,out,served,pct:served?out/served*100:0,at:a.UPDATE_DATE?new Date(a.UPDATE_DATE):null,rings,cx,cy}}).filter(Boolean);
     if(!c.length)throw new Error('none');D.c=c;D.at=Math.max(...c.map(x=>x.at?+x.at:0))||null;D.status='ok';D.t=Date.now();queueThumbs();const sc=scene();if(sc&&sc.type==='outages')softInspect('outages')})
    .catch(()=>{D.status='fail';D.t=Date.now();queueThumbs()});return D}
+/* Fill the map's own county shapes (the same ones the county lines come from) so colors line up exactly with the borders.
+   Each county shape takes the outage numbers of the PEMA county its middle falls in. */
+const inRing=(r,lo,la)=>{let c=false;for(let i=0,j=r.length-1;i<r.length;j=i++){const[xi,yi]=r[i],[xj,yj]=r[j];if((yi>la)!==(yj>la)&&lo<(xj-xi)*(la-yi)/(yj-yi)+xi)c=!c}return c};
+let outM=null;
+function outMatch(D){const G=stateGeo.PA;if(!G||!G.rings||!D.c.length)return null;if(outM&&outM.d===D.t&&outM.g===G)return outM.m;
+  const m=[];G.rings.forEach(r=>{if(r.length<3)return;let lo=0,la=0;r.forEach(p=>{lo+=p[0];la+=p[1]});lo/=r.length;la/=r.length;if(!inRing(r,lo,la)){let x0=1e9,x1=-1e9,y0=1e9,y1=-1e9;r.forEach(([a,b])=>{x0=Math.min(x0,a);x1=Math.max(x1,a);y0=Math.min(y0,b);y1=Math.max(y1,b)});let bd=1e9,bp=null;for(let i=1;i<12;i++)for(let j=1;j<12;j++){const px=x0+(x1-x0)*i/12,py=y0+(y1-y0)*j/12;if(!inRing(r,px,py))continue;const d=(px-lo)**2+(py-la)**2;if(d<bd){bd=d;bp=[px,py]}}if(bp){lo=bp[0];la=bp[1]}}let x=D.c.find(c=>c.rings.some(q=>inRing(q,lo,la)));
+    if(!x){let bd=1e9;D.c.forEach(c=>{const d=(c.cx-lo)**2+(c.cy-la)**2;if(d<bd){bd=d;x=c}});if(bd>.25)x=null}if(x)m.push([r,x])});outM={d:D.t,g:G,m};return m}
 const outCat=(sc,x)=>{const C=sc.oMode==='count'?OUT_CNT:OUT_PCT,v=sc.oMode==='count'?x.out:x.pct;let c=C[0];if(x.out>0)for(const k of C)if(v>=k[0])c=k;return c};
 const fmtN=n=>Math.round(n).toLocaleString('en-US');
 function renderOutages(g,sc,t,o){const rk=sc.region,P=proj(rk);g.drawImage(mapBase(rk),0,0);const D=outLoad();let msg=null;
   const inView=D.c.filter(x=>{const X=P.x(x.cx),Y=P.y(x.cy);return X>-200&&X<W+200&&Y>-200&&Y<H+200});
   if(D.status==='ok'&&!inView.length)msg='OUTAGE DATA COVERS PENNSYLVANIA ONLY';
-  const fq=ease((t-.2)/.6);if(fq>0&&inView.length){g.save();g.globalAlpha=fq*.85;inView.forEach(x=>{const col=outCat(sc,x)[2];if(!col)return;g.fillStyle=col;g.beginPath();x.rings.forEach(r=>r.forEach(([lo,la],i)=>{const X=P.x(lo),Y=P.y(la);i?g.lineTo(X,Y):g.moveTo(X,Y)}));g.fill('evenodd')});g.restore()}
+  const fq=ease((t-.2)/.6);if(fq>0&&inView.length){g.save();g.globalAlpha=fq*.85;const M=outMatch(D);
+    if(M){M.forEach(([r,x])=>{const col=outCat(sc,x)[2];if(!col)return;g.fillStyle=col;g.beginPath();r.forEach(([lo,la],i)=>{const X=P.x(lo),Y=P.y(la);i?g.lineTo(X,Y):g.moveTo(X,Y)});g.closePath();g.fill()})}
+    else inView.forEach(x=>{const col=outCat(sc,x)[2];if(!col)return;g.fillStyle=col;g.beginPath();x.rings.forEach(r=>r.forEach(([lo,la],i)=>{const X=P.x(lo),Y=P.y(la);i?g.lineTo(X,Y):g.moveTo(X,Y)}));g.fill('evenodd')});g.restore()}
   g.drawImage(mapOverlay(rk),0,0);drawCounties(g,sc);
-  const tot=inView.reduce((s,x)=>s+x.out,0),srv=inView.reduce((s,x)=>s+x.served,0),top=inView.filter(x=>x.out>0).sort((a,b)=>b.out-a.out);
+  const tot=D.c.reduce((s,x)=>s+x.out,0),srv=D.c.reduce((s,x)=>s+x.served,0),top=inView.filter(x=>x.out>0).sort((a,b)=>b.out-a.out);
   const listOn=sc.oList!==false,LN=Math.min(5,top.length),LW=430,LX=W-70-LW,LY=196,LH=58+LN*52;
   const busy=[{x:0,y:0,w:700,h:205},{x:W-560,y:H-(show.settings.showTicker?64:0)-160,w:560,h:200},{x:W-500,y:40,w:450,h:140}];if(listOn&&LN)busy.push({x:LX-10,y:LY-10,w:LW+20,h:LH+20});
   const placed=[],hit=b=>busy.concat(placed).some(a=>b.x<a.x+a.w+4&&b.x+b.w+4>a.x&&b.y<a.y+a.h+4&&b.y+b.h+4>a.y);let n=0;const lim=sc.oN==null?10:+sc.oN;
@@ -2885,7 +2894,7 @@ function renderOutages(g,sc,t,o){const rk=sc.region,P=proj(rk);g.drawImage(mapBa
   const lq=ease((t-.6)/.5);if(lq>0&&listOn&&LN){g.save();g.globalAlpha=lq;glass(g,LX,LY,LW,LH,12);text(g,'MOST CUSTOMERS OUT',LX+26,LY+38,`800 22px ${FD}`,'#ffb21e','left','alphabetic',2.5);
     top.slice(0,LN).forEach((x,i)=>{const y=LY+58+i*52,col=outCat(sc,x)[2]||'#ffffff';g.fillStyle=col;rr(g,LX+22,y+10,10,28,3);g.fill();text(g,String(x.name).toUpperCase()+' COUNTY',LX+44,y+24,`700 22px ${FD}`,'#ffffff','left','alphabetic',1);
       text(g,(x.pct>=.1?x.pct.toFixed(x.pct<10?1:0):'<0.1')+'% OF CUSTOMERS',LX+44,y+44,`600 15px ${FD}`,'#9fb4d8','left','alphabetic',1.5);text(g,fmtN(x.out),LX+LW-24,y+34,`800 28px ${FD}`,'#ffffff','right')});g.restore()}
-  const kq=ease((t-.5)/.6);if(kq>0&&sc.oKey!==false){const C=(sc.oMode==='count'?OUT_CNT:OUT_PCT).filter(c=>c[2]).slice().reverse(),lw=300,lh=58+C.length*40;let kx=70,ky=H-(show.settings.showTicker?64:0)-40-lh;const sp=legendSpot(sc,lw,lh,listOn&&LN?[0]:null);if(sp){kx=sp[0]+(sp[0]>W/2?480-lw:0);ky=sp[1]}
+  const kq=ease((t-.5)/.6);if(kq>0&&sc.oKey!==false){const C=(sc.oMode==='count'?OUT_CNT:OUT_PCT).filter(c=>c[2]).slice().reverse(),lw=300,lh=58+C.length*40;let kx=70,ky=H-(show.settings.showTicker?64:0)-40-lh;{const bot=H-(show.settings.showTicker?64:0)-(show.settings.showBug?150:30),fp=REGIONS[rk].isolate?focusPath(rk):null;let best=1e12;[[70,bot-lh],[W-70-lw,bot-lh-10],[70,250]].forEach(([x,y],i)=>{const b={x,y,w:lw,h:lh};if(busy.some(a=>b.x<a.x+a.w&&b.x+b.w>a.x&&b.y<a.y+a.h&&b.y+b.h>a.y))return;let sc2=i*.01;placed.forEach(a=>{const ox=Math.max(0,Math.min(b.x+b.w,a.x+a.w)-Math.max(b.x,a.x)),oy=Math.max(0,Math.min(b.y+b.h,a.y+a.h)-Math.max(b.y,a.y));sc2+=ox*oy*10});if(fp)for(let u=0;u<10;u++)for(let v=0;v<8;v++)if(hitG().isPointInPath(fp,x+(u+.5)*lw/10,y+(v+.5)*lh/8))sc2+=40;if(sc2<best){best=sc2;kx=x;ky=y}})}
     g.save();g.globalAlpha=kq;glass(g,kx,ky,lw,lh,12);text(g,sc.oMode==='count'?'CUSTOMERS OUT':'SHARE OUT',kx+24,ky+38,`800 22px ${FD}`,BA(),'left','alphabetic',2.5);C.forEach((c,i)=>{const y=ky+56+i*40;g.fillStyle=c[2];rr(g,kx+24,y,28,26,6);g.fill();text(g,c[1],kx+64,y+20,`700 20px ${FD}`,'#ffffff','left')});g.restore()}
   const L1='PA CUSTOMERS WITHOUT POWER'+(D.at?' · '+fmtTime(D.at):''),L2=D.status==='loading'&&!D.c.length?'LOADING':D.c.length?fmtN(tot)+(srv?' ('+(tot/srv*100<.1&&tot?'<0.1':(tot/srv*100).toFixed(1))+'%)':''):'--';
   const bw=Math.max(440,measure(g,L2,`800 40px ${FD}`)+60,measure(g,L1,`700 18px ${FD}`,2.5)+60),bx=W-70-bw,by=50;glass(g,bx,by,bw,110,12);text(g,L1,bx+30,by+40,`700 18px ${FD}`,'#7cc4ff','left','alphabetic',2.5);text(g,L2,bx+30,by+88,`800 40px ${FD}`,'#ffffff');
