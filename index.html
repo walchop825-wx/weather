@@ -240,7 +240,7 @@ button.pill{cursor:pointer;background:transparent}
 <div class="status">
   <span><kbd>Space</kbd> play / stop</span><span><kbd>←</kbd><kbd>→</kbd> previous / next</span><span><kbd>V</kbd> select</span><span><kbd>T</kbd> pen</span><span><kbd>B</kbd> contour</span><span><kbd>N</kbd> total</span><span><kbd>Del</kbd> delete selection</span><span><kbd>E</kbd> export PNG</span><span><kbd>K</kbd> storm track</span><span><kbd>L</kbd> map label</span><span><kbd>1</kbd>–<kbd>9</kbd> cue</span><span><kbd>Enter</kbd> take</span>
   <span id="srcNote"></span>
-  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-25 · 148</span>
+  <span id="buildTag" style="margin-left:auto;opacity:.6">Build 2026-11-25 · 149</span>
 </div>
 <input type="file" id="fileIn" accept=".json,application/json" hidden>
 
@@ -4186,14 +4186,14 @@ cv.addEventListener('pointermove',e=>{
 if(dragging&&dragging.kind==='pan'){const dx=p[0]-dragging.sx,dy=p[1]-dragging.sy;if(!dragging.moved&&Math.hypot(dx,dy)>6)dragging.moved=true;if(dragging.moved){const v=dragging.v0;setPending(sc,clampView({lon:v.lon-dx/W*lonSpanOf(v),lat:v.lat+dy/H*v.latSpan,latSpan:v.latSpan}))}return}
   if(dragging&&dragging.kind==='label'){sc.offsets[dragging.k]=[Math.round(dragging.o[0]+p[0]-dragging.sx),Math.round(dragging.o[1]+p[1]-dragging.sy)];return}
   if(dragging&&dragging.kind==='total'){const P=sceneProj(sc);const t=sc.totals[dragging.i];t.lon=P.lon(p[0]+dragging.dx);t.lat=P.lat(p[1]+dragging.dy);t.auto=false;return}
-  if(tool==='select'&&sc.type==='radar'){if(onAlertCard(sc,p[0],p[1])){cv.style.cursor='default';return}const R2=radarClickProj(sc);const hitA=isEU(sc.region)?euCountryAt(sc,R2.lon(p[0]),R2.lat(p[1])):alertAt(sc,R2.lon(p[0]),R2.lat(p[1]));cv.style.cursor=hitA?'pointer':'grab';return}
+  if(tool==='select'&&sc.type==='radar'){if(onAlertCard(sc,p[0],p[1])){cv.style.cursor='pointer';return}const R2=radarClickProj(sc);const hitA=isEU(sc.region)?euCountryAt(sc,R2.lon(p[0]),R2.lat(p[1])):alertAt(sc,R2.lon(p[0]),R2.lat(p[1]));cv.style.cursor=hitA?'pointer':'grab';return}
   if(tool==='select'&&sc.type==='quake'&&(hits.quakes||[]).some(h=>(h.x-p[0])**2+(h.y-p[1])**2<Math.max(18,h.r+4)**2)){cv.style.cursor='pointer';return}
   if(tool==='select'&&sc.type==='stormreports'&&((hits.sreps&&hits.sreps.some(h=>(h.x-p[0])**2+(h.y-p[1])**2<324))||datHit(p))){cv.style.cursor='pointer';return}
   if(tool==='select'&&canPan(sc)&&sc.type!=='snow'){cv.style.cursor='grab';return}
   if(tool==='select'){const over=(sc.type==='temps'&&hits.labels.some(h=>inside(p,h)))||(sc.type==='snow'&&hits.totals.some(h=>inside(p,h)));cv.style.cursor=over?'grab':'default'}
 });
 const endPtr=(e)=>{const sc=scene();if(dragging&&dragging.kind==='bpan'){const d=dragging;dragging=null;cv.style.cursor='';if(d.last)bpanAt(sc,d,d.last);save();renderInspector();queueThumbs();return}
-  if(dragging&&dragging.kind==='pan'){const d=dragging;dragging=null;cv.style.cursor='grab';if(d.moved){clearTimeout(pvT);commitView()}else if(sc.type==='quake'){if(sc.eqSel){sc.eqSel=null;save();renderInspector();queueThumbs()}}else if(sc.type==='stormreports'){if(sc.repSel){sc.repSel=null;save();renderInspector();queueThumbs()}}else if(sc.type==='radar'){if(onAlertCard(sc,d.sx,d.sy))return;const P2=radarClickProj(sc);if(isEU(sc.region)){const iso=euCountryAt(sc,P2.lon(d.sx),P2.lat(d.sy));sc.euSel=iso||null;alertSelStart=performance.now()/1000;save();renderInspector();queueThumbs()}else{const lo=P2.lon(d.sx),la=P2.lat(d.sy);const a=alertAt(sc,lo,la);if(a){sc.spcSel=null;selectAlert(sc,a)}else{const o=spcAt(sc,lo,la);if(o&&o.id!==sc.spcSel){sc.spcSel=o.id;spcSelStart=performance.now()/1000;if(sc.alertSel)selectAlert(sc,null);else{save();renderInspector();queueThumbs()}}else if(sc.alertSel||sc.spcSel){sc.spcSel=null;selectAlert(sc,null)}}}}return}
+  if(dragging&&dragging.kind==='pan'){const d=dragging;dragging=null;cv.style.cursor='grab';if(d.moved){clearTimeout(pvT);commitView()}else if(sc.type==='quake'){if(sc.eqSel){sc.eqSel=null;save();renderInspector();queueThumbs()}}else if(sc.type==='stormreports'){if(sc.repSel){sc.repSel=null;save();renderInspector();queueThumbs()}}else if(sc.type==='radar'){if(onAlertCard(sc,d.sx,d.sy)){selectAlert(sc,null);return}const P2=radarClickProj(sc);if(isEU(sc.region)){const iso=euCountryAt(sc,P2.lon(d.sx),P2.lat(d.sy));sc.euSel=iso||null;alertSelStart=performance.now()/1000;save();renderInspector();queueThumbs()}else{const lo=P2.lon(d.sx),la=P2.lat(d.sy);const a=alertAt(sc,lo,la);if(a){sc.spcSel=null;selectAlert(sc,a)}else{const o=spcAt(sc,lo,la);if(o&&o.id!==sc.spcSel){sc.spcSel=o.id;spcSelStart=performance.now()/1000;if(sc.alertSel)selectAlert(sc,null);else{save();renderInspector();queueThumbs()}}else if(sc.alertSel||sc.spcSel){sc.spcSel=null;selectAlert(sc,null)}}}}return}
   if(draft&&draft.kind==='tele'){const s=draft.s;if(s.pts.length>1||s.tool==='pen'){if(s.pts.length===1)s.pts.push([s.pts[0][0]+1,s.pts[0][1]+1]);sc.tele.push(s);save();queueThumbs()}}
   if(draft&&draft.kind==='band'){if(draft.pts.length>=6){let pts=draft.pts;if(pts.length>80){const k=Math.ceil(pts.length/80);pts=pts.filter((_,i)=>i%k===0)}sc.bands.push({r:draft.r,pts});sel={kind:'band',i:sc.bands.length-1};save();renderInspector();queueThumbs()}else toast('Trace a larger closed shape to make a contour.')}
   if(draft&&draft.kind==='svpath'){const d=draft;draft=null;if(d.len<40||d.pts.length<3){toast('Drag along the map to draw the path.');return}let pts=d.pts;if(pts.length>150){const k=Math.ceil(pts.length/150);pts=pts.filter((_,i)=>i%k===0||i===d.pts.length-1)}pts=pts.map(([a,b])=>[+a.toFixed(4),+b.toFixed(4)]);
@@ -4247,6 +4247,7 @@ document.addEventListener('keydown',e=>{
   if(e.key===' '){e.preventDefault();$('#bPlay').click()}
   else if(e.key==='ArrowRight'||e.key==='PageDown'){e.preventDefault();if(clickMode())takeNext();else goTo(Math.min(show.scenes.length-1,cur+1),true)}
   else if(e.key==='ArrowLeft'||e.key==='PageUp'){e.preventDefault();goTo(Math.max(0,cur-1),true)}
+  else if(e.key==='Escape'&&scene()&&scene().type==='radar'&&(scene().alertSel||scene().spcSel)){scene().spcSel=null;selectAlert(scene(),null);setTool('select')}
   else if(e.key==='v'||e.key==='V'||e.key==='Escape')setTool('select');
   else if(e.key==='t'||e.key==='T')setTool('pen');
   else if(e.key==='b'||e.key==='B')setTool('band');
